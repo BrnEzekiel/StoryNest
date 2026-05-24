@@ -3,8 +3,6 @@ import {
   getAuth,
   initializeAuth,
 } from 'firebase/auth';
-import { getReactNativePersistence } from 'firebase/auth/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const firebaseConfig = {
@@ -32,9 +30,7 @@ export const getAuthSafe = () => {
   }
 
   try {
-    _auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
-    });
+    _auth = initializeAuth(app);
   } catch (e) {
     _auth = getAuth(app);
   }

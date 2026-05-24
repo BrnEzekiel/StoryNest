@@ -1,0 +1,22 @@
+{
+  "name": "new",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "backend": "npm run dev --workspace=apps/backend",
+    "mobile": "npm run start --workspace=apps/mobile",
+    "build:android": "cd apps/mobile && eas build -p android --profile preview",
+    "build:ios": "cd apps/mobile && eas build -p ios --profile production",
+    "db:push": "prisma db push --schema=packages/db/prisma/schema.prisma",
+    "db:seed": "node packages/db/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "StoryNest",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "scheme": "storynest",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#003631"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.storynest.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#003631"
+      },
+      "package": "com.storynest.mobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7557fb1f-2dfe-4def-b7b6-9fe56923d43c"
+      }
+    }
+  }
+}

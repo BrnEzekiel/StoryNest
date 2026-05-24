@@ -1,0 +1,39 @@
+# StoryNest - Full-Stack Mobile Reading Platform
+
+StoryNest is a premium, long-form reading application built for a world-class user experience. It features high-quality storytelling, sophisticated aesthetics, and a robust backend for content management.
+
+## Tech Stack
+- **Frontend:** Expo SDK 55 (React Native), TypeScript, React Navigation.
+- **Backend:** Node.js (Express), Prisma ORM v5.
+- **Database:** PostgreSQL (Neon.tech).
+- **Storage:** Cloudinary (for story covers and user avatars).
+- **Auth:** Firebase Authentication (including Google Social Login).
+- **Icons:** Lucide-React-Native.
+- **Fonts:** Oswald (Headings), Urbanist (Body).
+
+## Design System
+- **Primary:** #003631 (Deep Forest Green)
+- **Accent:** #FFEDA8 (Gold/Warm Cream)
+- **Background:** #FFFDF4 (Premium Beige Cream)
+- **Aesthetic:** Symmetrical 2-wave dividers, minimalist underlines, elastic layouts, and smooth spring-based animations.
+
+## Project Structure
+- `/apps/mobile`: Expo mobile application source.
+- `/apps/backend`: Node.js Express server source.
+- `/apps/backend/prisma`: Database schema and migrations.
+- `/apps/mobile/src/context`: Auth and Theme global state management.
+- `/apps/mobile/src/api`: API client and Firebase configuration.
+- `/apps/mobile/src/screens`: Functional screen components (Home, Reader, Admin, etc.).
+- `/apps/mobile/src/components`: Reusable UI primitives (Buttons, Cards, Dividers).
+
+## Key Patterns
+- **Responsiveness:** Dynamic % widths and flex-box usage for all-device compatibility.
+- **Performance:** Backend caching (node-cache) and optimistic UI updates.
+- **Stability:** Universal error handling piped to the backend terminal (`/logs/error`).
+- **Security:** Strict unique username enforcement and JWT-based authentication.
+
+## Core Mandates
+- Always use `Colors.paleCream` (#FFFDF4) for non-dark surfaces.
+- All primary buttons must use the animated scaling effect.
+- Header transitions must use the `HeaderWave` component.
+- The app must start exactly under the system status bar.

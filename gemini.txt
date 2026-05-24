@@ -1,0 +1,33 @@
+# StoryNest - Gemini Master Script
+
+This document serves as the primary operational context for Gemini agents maintaining the StoryNest project.
+
+## 🚀 Service Start Script
+1. Backend: `cd apps/backend && node index.js`
+2. Mobile: `cd apps/mobile && npx expo start -c`
+3. Database: `cd apps/backend && npx prisma studio` (for data management)
+
+## 🎨 Design Mandates
+- **Palette:** Primary: #003631, Accent: #FFEDA8, Surface: #FFFDF4.
+- **Components:** Always use `HeaderWave` for transitions and `Button` for primary actions.
+- **Underlines:** Header underlines must be anchored to text length (100% width of parent text container).
+- **Waves:** Use the 2-wave pattern defined in `HeaderWave.tsx`.
+
+## 🛠️ Tech Stack
+- Frontend: Expo SDK 55, React Native.
+- Backend: Express, Prisma v5, PostgreSQL (Neon).
+- Auth: Firebase Auth (Managed Google Sign-In).
+
+## 🚨 Error Monitoring
+All mobile errors are piped to: `POST http://192.168.100.5:5000/logs/error`.
+Monitor the backend terminal for 🚨 CAPTURED ERROR logs.
+
+## 🔐 Credentials (Dev Only)
+- Super Admin: test@example.com / password123
+- Google Client ID: 170425305101-f18bca4o76856idjks4isv7029esgclm.apps.googleusercontent.com
+
+## 📜 Update Log
+- Migrated to Firebase Auth to resolve signature mismatches.
+- Implemented universal error logging utility.
+- Normalized wavy dividers to a symmetrical 2-wave pattern.
+- Fixed 100+ feature roadmap items.

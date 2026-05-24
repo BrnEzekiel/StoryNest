@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String     @id @default(uuid())
+  email          String     @unique
+  username       String     @unique
+  password       String
+  firebaseUid    String?    @unique
+  refreshToken   String?
+  avatarUrl      String?
+  role           Role       @default(READER)
+  bookmarks      Bookmark[]
+  history        History[]
+  likes          Like[]
+  comments       Comment[]
+  streakCount    Int        @default(0)
+  lastReadDate   DateTime?
+  totalReadTime  Int        @default(0)
+  createdAt      DateTime   @default(now())
+}
+
+model Story {
+  id             String     @id @default(uuid())
+  title          String
+  body           String     @db.Text
+  genre          String
+  coverUrl       String?
+  authorName     String
+  readingTime    Int        @default(0)
+  isFeatured     Boolean    @default(false)
+  likes          Like[]
+  comments       Comment[]
+  history        History[]
+  bookmarks      Bookmark[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  progress  Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storyId])
+}
+
+model History {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storyId])
+}
+
+model Comment {
+  id        String    @id @default(uuid())
+  content   String
+  userId    String
+  storyId   String
+  parentId  String?
+  user      User      @relation(fields: [userId], references: [id])
+  story     Story     @relation(fields: [storyId], references: [id])
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+}
+
+enum Role {
+  READER
+  ADMIN
+}

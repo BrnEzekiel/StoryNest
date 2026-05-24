@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String       @id @default(uuid())
+  email            String       @unique
+  username         String
+  password         String
+  refreshToken     String?
+  avatarUrl        String?
+  role             Role         @default(READER)
+  isPremium        Boolean      @default(false)
+  premiumExpiresAt DateTime?
+  referrerId       String?
+  dailyGoalMinutes Int          @default(30)
+  xp               Int          @default(0)
+  bookmarks        Bookmark[]
+  history          History[]
+  likes            Like[]
+  comments         Comment[]
+  following        Follows[]    @relation("follower")
+  followers        Follows[]    @relation("following")
+  purchases        Purchase[]
+  achievements     Achievement[]
+  streakCount      Int          @default(0)
+  lastReadDate     DateTime?
+  totalReadTime    Int          @default(0)
+  createdAt        DateTime     @default(now())
+}
+
+model Achievement {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  icon      String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Purchase {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  amount    Float
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
+
+model Story {
+  id             String     @id @default(uuid())
+  title          String
+  body           String     @db.Text
+  summary        String?    @db.Text
+  genre          String
+  coverUrl       String?
+  authorName     String
+  readingTime    Int        @default(0)
+  isFeatured     Boolean    @default(false)
+  isDraft        Boolean    @default(true)
+  isFlagged      Boolean    @default(false)
+  publishedAt    DateTime?
+  versions       Version[]
+  likes          Like[]
+  comments       Comment[]
+  history        History[]
+  bookmarks      Bookmark[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Version {
+  id        String   @id @default(uuid())
+  storyId   String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id])
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  progress  Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storyId])
+}
+
+model History {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storyId])
+}
+
+model Comment {
+  id        String    @id @default(uuid())
+  content   String
+  userId    String
+  storyId   String
+  parentId  String?
+  user      User      @relation(fields: [userId], references: [id])
+  story     Story     @relation(fields: [storyId], references: [id])
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
+}
+
+enum Role {
+  READER
+  ADMIN
+}

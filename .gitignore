@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+android/app/build/
+android/.gradle/
+ios/build/
+.idea/
+.env
+*.log
+*.png
+*.jpg
+*.jpeg
+.claude/

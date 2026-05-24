@@ -2,9 +2,8 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth,
   initializeAuth,
-  getReactNativePersistence,
 } from 'firebase/auth';
-import 'firebase/auth'; // Critical side-effect import to ensure component registration
+import { getReactNativePersistence } from 'firebase/auth/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 

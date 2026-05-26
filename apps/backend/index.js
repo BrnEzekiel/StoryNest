@@ -211,8 +211,28 @@ app.get("/stories", async (req, res) => {
 
 app.get("/stories/:id", async (req, res) => {
   try {
-    const story = await prisma.story.findUnique({ where: { id: req.params.id }, include: { _count: { select: { likes: true, comments: true } } } });
-    res.json(story);
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id },
+      include: { _count: { select: { likes: true, comments: true } } }
+    });
+    if (!story) return res.status(404).json({ error: "Story not found" });
+
+    let isLiked = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || "secret");
+        const like = await prisma.like.findUnique({
+          where: { userId_storyId: { userId: decoded.id, storyId: req.params.id } }
+        });
+        isLiked = !!like;
+      } catch (err) {
+        // Safe to ignore, user is just treated as guest/not-liked
+      }
+    }
+
+    res.json({ ...story, isLiked });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -270,6 +290,135 @@ app.post("/stories/:id/read", authenticate, async (req, res) => {
     await prisma.history.create({ data: { userId, storyId } });
     const story = await prisma.story.findUnique({ where: { id: storyId } });
     await prisma.user.update({ where: { id: userId }, data: { totalReadTime: { increment: story.readingTime }, lastReadDate: new Date() } });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- Bookmarks Endpoints ---
+app.get("/users/me/bookmarks", authenticate, async (req, res) => {
+  try {
+    const bookmarks = await prisma.bookmark.findMany({
+      where: { userId: req.user.id },
+      include: { story: true },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(bookmarks);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
+  const { progress } = req.body;
+  const storyId = req.params.id;
+  const userId = req.user.id;
+  try {
+    if (progress < 0) {
+      await prisma.bookmark.deleteMany({
+        where: { userId, storyId }
+      });
+      res.json({ success: true, bookmarked: false });
+    } else {
+      const bookmark = await prisma.bookmark.upsert({
+        where: { userId_storyId: { userId, storyId } },
+        update: { progress: parseInt(progress) },
+        create: { userId, storyId, progress: parseInt(progress) }
+      });
+      res.json({ success: true, bookmark });
+    }
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- Comments Endpoints ---
+app.get("/stories/:id/comments", async (req, res) => {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { storyId: req.params.id },
+      include: { user: { select: { username: true, avatarUrl: true } } },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(comments);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post("/stories/:id/comments", authenticate, async (req, res) => {
+  const { content } = req.body;
+  const storyId = req.params.id;
+  const userId = req.user.id;
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        userId,
+        storyId
+      },
+      include: { user: { select: { username: true, avatarUrl: true } } }
+    });
+    res.status(201).json(comment);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- Profile Update ---
+app.put("/users/me", authenticate, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No avatar image provided" });
+    const result = await cloudinary.uploader.upload(req.file.path);
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { avatarUrl: result.secure_url }
+    });
+    res.json(user);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- Token Refresh ---
+app.post("/auth/refresh", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) return res.status(400).json({ error: "Refresh token required" });
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || "refresh-secret");
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) return res.status(401).json({ error: "User not found" });
+    const tokens = generateTokens(user);
+    res.json(tokens);
+  } catch (error) {
+    return res.status(401).json({ error: "Invalid refresh token" });
+  }
+});
+
+// --- Admin Story Management ---
+app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
+  const { title, genre, body, authorName, readingTime } = req.body;
+  try {
+    const updateData = {
+      title,
+      genre,
+      body,
+      authorName,
+      readingTime: readingTime ? parseInt(readingTime) : undefined
+    };
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path);
+      updateData.coverUrl = result.secure_url;
+    }
+    const story = await prisma.story.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+    cache.flushAll();
+    res.json(story);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
+  const storyId = req.params.id;
+  try {
+    await prisma.$transaction([
+      prisma.like.deleteMany({ where: { storyId } }),
+      prisma.comment.deleteMany({ where: { storyId } }),
+      prisma.history.deleteMany({ where: { storyId } }),
+      prisma.bookmark.deleteMany({ where: { storyId } }),
+      prisma.story.delete({ where: { id: storyId } })
+    ]);
+    cache.flushAll();
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });

@@ -105,7 +105,14 @@ export const LoginScreen = ({ navigation }: any) => {
 
             <View style={styles.form}>
               <TextField label="Email" value={email} onChangeText={setEmail} placeholder="demo@email.com" icon="mail" />
-              <TextField label="Password" value={password} onChangeText={setPassword} placeholder="Enter your password" secureTextEntry icon="lock" />
+              <TextField 
+                label="Password" 
+                value={password} 
+                onChangeText={setPassword} 
+                placeholder="Enter your password" 
+                secureTextEntry 
+                icon="lock"
+              />
 
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.rememberMe} activeOpacity={0.8} onPress={() => setRememberMe(!rememberMe)}>

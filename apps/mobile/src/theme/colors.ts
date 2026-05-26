@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 export const Colors = {
   // Brand Core
   primary: "#003631", // Deep Forest Green
@@ -41,24 +43,45 @@ export const Radii = {
 
 export const Shadows = {
   s: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      android: { elevation: 3 },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      web: {
+        boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+      },
+    }),
   },
   m: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    ...Platform.select({
+      android: { elevation: 6 },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      web: {
+        boxShadow: "0px 4px 12px rgba(0, 0, 0, 0.15)",
+      },
+    }),
   },
   l: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 12,
+    ...Platform.select({
+      android: { elevation: 12 },
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+      },
+      web: {
+        boxShadow: "0px 8px 24px rgba(0, 0, 0, 0.2)",
+      },
+    }),
   },
 };

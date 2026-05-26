@@ -97,6 +97,83 @@ export const HomeScreen = ({ navigation, route }: any) => {
   const featuredStory = stories.length > 0 ? stories[0] : null;
   const newReleases = [...stories].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
 
+  const renderHeader = () => (
+    <>
+      {!searchQuery && featuredStory && (
+        <StoryCard 
+          story={featuredStory} 
+          variant="featured" 
+          index={0}
+          onPress={() => navigation.navigate("Reader", { storyId: featuredStory.id })} 
+        />
+      )}
+
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
+          {searchQuery ? "SEARCH RESULTS" : "GENRES"}
+        </Text>
+        {searchQuery && (
+            <TouchableOpacity onPress={resetHome}><Text style={[styles.clearText, { color: Colors.mutedTeal }]}>Clear</Text></TouchableOpacity>
+        )}
+      </View>
+      
+      {!searchQuery && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
+          {GENRES.map((genre) => (
+            <TouchableOpacity 
+              key={genre} 
+              onPress={() => setActiveGenre(genre)} 
+              style={[styles.genreChip, activeGenre === genre ? styles.activeChip : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+            >
+              <Text style={[styles.genreText, activeGenre === genre ? styles.activeGenreText : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
+                {genre}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* New Releases Infinite Carousel */}
+      {!searchQuery && newReleases.length > 0 && (
+        <View style={styles.carouselSection}>
+          <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>NEW RELEASES</Text>
+          <FlatList
+            data={newReleases}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id + '_nr'}
+            contentContainerStyle={styles.carouselContent}
+            renderItem={({ item, index }) => (
+              <StoryCard 
+                story={item} 
+                variant="compact" 
+                index={index}
+                style={styles.carouselItem}
+                onPress={() => navigation.navigate("Reader", { storyId: item.id })} 
+              />
+            )}
+          />
+        </View>
+      )}
+
+      {recsEnabled && !searchQuery && (
+        <View style={{ marginBottom: Spacing.xl }}>
+            <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>RECOMMENDED FOR YOU</Text>
+            {stories.slice(0, 3).map((s, idx) => (
+              <StoryCard 
+                key={s.id + '_rec'} 
+                story={s} 
+                index={idx}
+                onPress={() => navigation.navigate("Reader", { storyId: s.id })} 
+              />
+            ))}
+        </View>
+      )}
+
+      <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginTop: Spacing.m }]}>ALL STORIES</Text>
+    </>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
       <View style={[styles.header, { backgroundColor: Colors.primary }]}>
@@ -130,13 +207,15 @@ export const HomeScreen = ({ navigation, route }: any) => {
               ref={searchInputRef}
               placeholder="Search stories..." 
               placeholderTextColor="rgba(255, 255, 255, 0.4)" 
-              style={styles.searchInput}
+              style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={handleSearch}
               onFocus={onSearchFocus}
               onBlur={onSearchBlur}
               returnKeyType="search"
+              underlineColorAndroid="transparent"
+              selectionColor={Colors.accent}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={resetHome}>
@@ -157,103 +236,29 @@ export const HomeScreen = ({ navigation, route }: any) => {
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.body} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-      >
-        {loading && !refreshing ? (
-          <View style={{ marginTop: Spacing.m }}>
-            {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-          </View>
-        ) : (
-          <>
-            {!searchQuery && featuredStory && (
-              <StoryCard 
-                story={featuredStory} 
-                variant="featured" 
-                index={0}
-                onPress={() => navigation.navigate("Reader", { storyId: featuredStory.id })} 
-              />
-            )}
-
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
-                {searchQuery ? "SEARCH RESULTS" : "GENRES"}
-              </Text>
-              {searchQuery && (
-                 <TouchableOpacity onPress={resetHome}><Text style={[styles.clearText, { color: Colors.mutedTeal }]}>Clear</Text></TouchableOpacity>
-              )}
-            </View>
-            
-            {!searchQuery && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
-                {GENRES.map((genre) => (
-                  <TouchableOpacity 
-                    key={genre} 
-                    onPress={() => setActiveGenre(genre)} 
-                    style={[styles.genreChip, activeGenre === genre ? styles.activeChip : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
-                  >
-                    <Text style={[styles.genreText, activeGenre === genre ? styles.activeGenreText : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
-                      {genre}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-
-            {/* New Releases Infinite Carousel */}
-            {!searchQuery && newReleases.length > 0 && (
-              <View style={styles.carouselSection}>
-                <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>NEW RELEASES</Text>
-                <FlatList
-                  data={newReleases}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id + '_nr'}
-                  contentContainerStyle={styles.carouselContent}
-                  renderItem={({ item, index }) => (
-                    <StoryCard 
-                      story={item} 
-                      variant="compact" 
-                      index={index}
-                      style={styles.carouselItem}
-                      onPress={() => navigation.navigate("Reader", { storyId: item.id })} 
-                    />
-                  )}
-                />
-              </View>
-            )}
-
-            <View style={styles.storiesList}>
-              {recsEnabled && !searchQuery && (
-                <View style={{ marginBottom: Spacing.xl }}>
-                   <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>RECOMMENDED FOR YOU</Text>
-                   {stories.slice(0, 3).map((s, idx) => (
-                     <StoryCard 
-                       key={s.id + '_rec'} 
-                       story={s} 
-                       index={idx}
-                       onPress={() => navigation.navigate("Reader", { storyId: s.id })} 
-                     />
-                   ))}
-                </View>
-              )}
-
-              <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginTop: Spacing.m }]}>ALL STORIES</Text>
-              {stories.map((story, idx) => (
-                <StoryCard 
-                  key={story.id + '_all'} 
-                  story={story} 
-                  index={idx}
-                  onPress={() => navigation.navigate("Reader", { storyId: story.id })} 
-                />
-              ))}
-              {stories.length === 0 && <Text style={styles.emptyText}>No stories found in the nest.</Text>}
-            </View>
-          </>
-        )}
-      </ScrollView>
+      {loading && !refreshing ? (
+        <View style={{ flex: 1, paddingHorizontal: Spacing.l, marginTop: Spacing.m }}>
+          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        </View>
+      ) : (
+        <FlatList
+          data={stories}
+          ListHeaderComponent={renderHeader}
+          keyExtractor={(item) => item.id + '_all'}
+          renderItem={({ item, index }) => (
+            <StoryCard 
+              story={item} 
+              index={index}
+              onPress={() => navigation.navigate("Reader", { storyId: item.id })} 
+            />
+          )}
+          style={styles.body}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+          ListEmptyComponent={<Text style={styles.emptyText}>No stories found in the nest.</Text>}
+        />
+      )}
     </View>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Animated } from "react-native";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Animated, Platform } from "react-native";
 import { Colors, Radii, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react-native";
@@ -69,6 +69,10 @@ export const TextField: React.FC<TextFieldProps> = ({
           multiline={multiline}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          underlineColorAndroid="transparent"
+          selectionColor={Colors.primary}
+          cursorColor={Colors.primary}
+          selectionHandleColor={Colors.primary}
         />
 
         {secureTextEntry && (
@@ -128,6 +132,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.primary,
     padding: 0,
+    ...Platform.select({
+      web: { outlineStyle: 'none' } as any,
+      default: {}
+    }),
   },
   underlineBase: {
     height: 1,

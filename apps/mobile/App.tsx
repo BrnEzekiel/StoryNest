@@ -8,44 +8,43 @@ import { initGlobalHandler } from "./src/utils/ErrorHandler";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts, Oswald_500Medium } from "@expo-google-fonts/oswald";
 import { Urbanist_400Regular, Urbanist_700Bold } from "@expo-google-fonts/urbanist";
+import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
 import { View } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const [isReady, setIsReady] = useState(false);
   const [fontsLoaded] = useFonts({
     Oswald_500Medium,
     Urbanist_400Regular,
     Urbanist_700Bold,
+    PlayfairDisplay_700Bold,
   });
 
   useEffect(() => {
     initGlobalHandler();
+  }, []);
 
-    // Give the runtime a moment to register components before showing the UI
-    const timer = setTimeout(() => {
-      setIsReady(true);
-      if (fontsLoaded) {
-        SplashScreen.hideAsync();
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
+  const onLayoutRootView = React.useCallback(async () => {
+    if (fontsLoaded) {
+      await SplashScreen.hideAsync();
+    }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded || !isReady) {
+  if (!fontsLoaded) {
     return <View style={{ flex: 1, backgroundColor: '#003631' }} />;
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" translucent={false} />
-          <MainNavigator />
-        </NavigationContainer>
-      </AuthProvider>
-    </ThemeProvider>
+    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <ThemeProvider>
+        <AuthProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" translucent={false} />
+            <MainNavigator />
+          </NavigationContainer>
+        </AuthProvider>
+      </ThemeProvider>
+    </View>
   );
 }

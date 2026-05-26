@@ -86,7 +86,14 @@ export const SignupScreen = ({ navigation }: any) => {
             <View style={styles.form}>
               <TextField label="Username" value={username} onChangeText={setUsername} placeholder="Choose your handle" icon="user" />
               <TextField label="Email" value={email} onChangeText={setEmail} placeholder="email@example.com" icon="mail" />
-              <TextField label="Password" value={password} onChangeText={setPassword} placeholder="Create a password" secureTextEntry icon="lock" />
+              <TextField 
+                label="Password" 
+                value={password} 
+                onChangeText={setPassword} 
+                placeholder="Create a password" 
+                secureTextEntry 
+                icon="lock"
+              />
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

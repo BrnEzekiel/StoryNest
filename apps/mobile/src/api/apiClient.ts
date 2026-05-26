@@ -8,16 +8,16 @@ const LIVE_URL = "https://us-central1-storynest-12345.cloudfunctions.net/api";
 
 // Local Development URL:
 const MACHINE_IP = "192.168.100.5"; 
-const LOCAL_URL = Platform.OS === "android" ? `http://${MACHINE_IP}:5000` : `http://localhost:5000`;
+const LOCAL_URL = `http://${MACHINE_IP}:5000`;
 
-// POINTING TO LOCAL FOR NOW SO THE BROWSER WORKS
-const BASE_URL = LOCAL_URL; 
+// SMART URL SELECTION: Use local only if in __DEV__ and on same network
+export const BASE_URL = __DEV__ ? LOCAL_URL : LIVE_URL; 
 
 console.log(`[API] Targeting Backend at: ${BASE_URL}`);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000, 
+  timeout: 10000, // Reduced timeout to fail faster
 });
 
 apiClient.interceptors.request.use(async (config) => {

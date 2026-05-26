@@ -2,6 +2,7 @@
   "expo": {
     "name": "StoryNest",
     "slug": "mobile",
+    "jsEngine": "jsc",
     "version": "1.0.0",
     "scheme": "storynest",
     "orientation": "portrait",
@@ -30,6 +31,12 @@
       "eas": {
         "projectId": "7557fb1f-2dfe-4def-b7b6-9fe56923d43c"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7557fb1f-2dfe-4def-b7b6-9fe56923d43c"
     }
   }
 }

@@ -8,39 +8,89 @@ datasource db {
 }
 
 model User {
-  id             String     @id @default(uuid())
-  email          String     @unique
-  username       String     @unique
-  password       String
-  firebaseUid    String?    @unique
-  refreshToken   String?
-  avatarUrl      String?
-  role           Role       @default(READER)
-  bookmarks      Bookmark[]
-  history        History[]
-  likes          Like[]
-  comments       Comment[]
-  streakCount    Int        @default(0)
-  lastReadDate   DateTime?
-  totalReadTime  Int        @default(0)
-  createdAt      DateTime   @default(now())
+  id               String       @id @default(uuid())
+  email            String       @unique
+  username         String       @unique
+  password         String
+  firebaseUid      String?      @unique
+  refreshToken     String?
+  avatarUrl        String?
+  role             Role         @default(READER)
+  isPremium        Boolean      @default(false)
+  premiumExpiresAt DateTime?
+  referrerId       String?
+  dailyGoalMinutes Int          @default(30)
+  xp               Int          @default(0)
+  bookmarks        Bookmark[]
+  history          History[]
+  likes            Like[]
+  comments         Comment[]
+  following        Follows[]    @relation("follower")
+  followers        Follows[]    @relation("following")
+  purchases        Purchase[]
+  achievements     Achievement[]
+  streakCount      Int          @default(0)
+  lastReadDate     DateTime?
+  totalReadTime    Int          @default(0)
+  createdAt        DateTime     @default(now())
+}
+
+model Achievement {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  icon      String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Purchase {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  amount    Float
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("follower", fields: [followerId], references: [id])
+  following   User   @relation("following", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
 }
 
 model Story {
   id             String     @id @default(uuid())
   title          String
   body           String     @db.Text
+  summary        String?    @db.Text
   genre          String
   coverUrl       String?
   authorName     String
   readingTime    Int        @default(0)
   isFeatured     Boolean    @default(false)
+  isDraft        Boolean    @default(true)
+  isFlagged      Boolean    @default(false)
+  publishedAt    DateTime?
+  versions       Version[]
   likes          Like[]
   comments       Comment[]
   history        History[]
   bookmarks      Bookmark[]
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+}
+
+model Version {
+  id        String   @id @default(uuid())
+  storyId   String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id])
 }
 
 model Bookmark {

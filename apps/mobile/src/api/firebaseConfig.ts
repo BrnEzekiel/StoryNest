@@ -2,9 +2,9 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth,
   initializeAuth,
+  // @ts-ignore
   getReactNativePersistence,
 } from 'firebase/auth';
-import 'firebase/auth'; // Critical side-effect import to ensure component registration
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -17,30 +17,20 @@ const firebaseConfig = {
   appId: "1:564839035602:web:bc241f38f6c57b0692330b"
 };
 
-// 1. Singleton App
+// 1. Initialize Firebase App (Singleton)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// 2. Singleton Auth
-// Using a function-wrapped singleton to ensure it's not called too early
-let _auth: any = null;
-
-export const getAuthSafe = () => {
-  if (_auth) return _auth;
-
+// 2. Initialize Auth with Persistence (Expert Recommended Pattern)
+export const auth = (() => {
   if (Platform.OS === 'web') {
-    _auth = getAuth(app);
-    return _auth;
+    return getAuth(app);
   }
-
   try {
-    _auth = initializeAuth(app, {
+    return initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage)
     });
   } catch (e) {
-    _auth = getAuth(app);
+    // If it's already been initialized (common during Hot Refresh), return the existing instance
+    return getAuth(app);
   }
-  return _auth;
-};
-
-// Export the instance for use in AuthContext
-export const auth = getAuthSafe();
+})();

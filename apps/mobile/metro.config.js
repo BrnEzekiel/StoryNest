@@ -6,30 +6,22 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
+// Monorepo Support: Watch the entire workspace and resolve modules correctly
 config.watchFolders = [workspaceRoot];
-
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-config.resolver.disableHierarchicalLookup = true;
-
-// Force ALL Firebase-related packages to use the LOCAL node_modules.
-// This prevents multiple internal registries from co-existing and conflicting.
-const firebasePackages = [
-  'firebase',
-  '@firebase/app',
-  '@firebase/auth',
-  '@firebase/component',
-  '@firebase/util',
-];
-
-firebasePackages.forEach(pkg => {
-  config.resolver.extraNodeModules[pkg] = path.resolve(projectRoot, 'node_modules', pkg);
-});
-
-config.resolver.extraNodeModules['buffer'] = require.resolve('buffer');
+// Force Firebase core packages to resolve to the workspace root
+// This prevents multiple internal registries from conflicting
+const rootNodeModules = path.resolve(workspaceRoot, 'node_modules');
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'firebase': path.resolve(rootNodeModules, 'firebase'),
+  '@firebase/app': path.resolve(rootNodeModules, '@firebase/app'),
+  '@firebase/auth': path.resolve(rootNodeModules, '@firebase/auth'),
+};
 
 config.resolver.sourceExts.push('cjs');
 

@@ -75,13 +75,14 @@ export const ExploreScreen = ({ navigation }: any) => {
             <TextInput
               placeholder="Search stories, authors..."
               placeholderTextColor="rgba(125, 184, 178, 0.5)"
-              style={styles.searchInput}
+              style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onFocus={onSearchFocus}
               onBlur={onSearchBlur}
               onSubmitEditing={() => fetchStories(searchQuery)}
               returnKeyType="search"
+              underlineColorAndroid="transparent"
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => { setSearchQuery(""); fetchStories(""); }}>

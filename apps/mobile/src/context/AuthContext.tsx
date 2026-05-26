@@ -3,30 +3,20 @@ import * as SecureStore from "expo-secure-store";
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 
-// Universal Storage Helper (Native SecureStore vs Browser LocalStorage)
 const Storage = {
   setItem: async (key: string, value: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-    } else {
-      await SecureStore.setItemAsync(key, value);
-    }
+    if (Platform.OS === 'web') localStorage.setItem(key, value);
+    else await SecureStore.setItemAsync(key, value);
   },
   getItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    } else {
-      return await SecureStore.getItemAsync(key);
-    }
+    if (Platform.OS === 'web') return localStorage.getItem(key);
+    else return await SecureStore.getItemAsync(key);
   },
   removeItem: async (key: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-    } else {
-      await SecureStore.deleteItemAsync(key);
-    }
+    if (Platform.OS === 'web') localStorage.removeItem(key);
+    else await SecureStore.deleteItemAsync(key);
   }
 };
 
@@ -35,7 +25,7 @@ interface User {
   email: string;
   username: string;
   role: "READER" | "ADMIN";
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   totalReadTime?: number;
   streakCount?: number;
 }
@@ -50,14 +40,10 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
+let isRegistering = false;
+
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-  login: async () => {},
-  register: async () => {},
-  loginWithGoogle: async () => {},
-  logout: async () => {},
-  refreshUser: async () => {},
+  user: null, loading: true, login: async () => {}, register: async () => {}, loginWithGoogle: async () => {}, logout: async () => {}, refreshUser: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -65,20 +51,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Only subscribe to auth changes if auth is initialized
     if (!auth) {
       setLoading(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        await syncWithBackend();
-      } else {
-        setUser(null);
-        await Storage.removeItem("accessToken");
+      try {
+        if (firebaseUser) {
+          if (!isRegistering) {
+            await syncWithBackend();
+          }
+        } else {
+          setUser(null);
+          await Storage.removeItem("accessToken");
+        }
+      } catch (err) {
+        console.error("[Auth] Sync Error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);
@@ -87,16 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return;
-
       const res = await apiClient.post("/auth/firebase", { idToken });
       const { user: backendUser, accessToken, refreshToken } = res.data;
-      
       await Storage.setItem("accessToken", accessToken);
       await Storage.setItem("refreshToken", refreshToken);
       setUser(backendUser);
-    } catch (e) {
-      // Quiet fail to avoid infinite loops, rely on global handler
-    }
+    } catch (e) {}
   };
 
   const login = async (email: string, password: string) => {
@@ -104,18 +92,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (email: string, password: string, username: string) => {
-    const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
-    const res = await apiClient.post("/auth/register", { 
-      email, 
-      password, 
-      username,
-      firebaseUid: firebaseUser.uid 
-    });
-    
-    const { user: backendUser, accessToken, refreshToken } = res.data;
-    await Storage.setItem("accessToken", accessToken);
-    await Storage.setItem("refreshToken", refreshToken);
-    setUser(backendUser);
+    isRegistering = true;
+    try {
+      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      const res = await apiClient.post("/auth/register", { email, password, username, firebaseUid: firebaseUser.uid });
+      const { user: backendUser, accessToken, refreshToken } = res.data;
+      await Storage.setItem("accessToken", accessToken);
+      await Storage.setItem("refreshToken", refreshToken);
+      setUser(backendUser);
+    } catch (error) {
+      isRegistering = false;
+      throw error;
+    } finally {
+      isRegistering = false;
+    }
   };
 
   const loginWithGoogle = async (idToken: string) => {

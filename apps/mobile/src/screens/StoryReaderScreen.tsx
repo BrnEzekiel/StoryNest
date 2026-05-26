@@ -301,12 +301,13 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
             <View style={[styles.commentInputRow, { backgroundColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
               <TextInput 
-                style={[styles.commentInput, { color: currentTheme.text }]} 
+                style={[styles.commentInput, { color: currentTheme.text }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} 
                 placeholder="Share your thoughts..." 
                 placeholderTextColor={currentTheme.text + '60'} 
                 value={newComment} 
                 onChangeText={setNewComment}
                 multiline
+                underlineColorAndroid="transparent"
               />
               <TouchableOpacity onPress={handlePostComment} style={styles.sendBtn}>
                 <Send size={20} color={currentTheme.accent} />

@@ -1,9 +1,14 @@
 import { Platform } from 'react-native';
 import axios from 'axios';
+import { BASE_URL } from '../api/apiClient';
 
-const BACKEND_URL = 'http://192.168.100.5:5000'; 
+let isInitialized = false;
+let isLogging = false;
 
 export const logErrorToBackend = async (error: any, isFatal: boolean = false) => {
+  if (isLogging) return; // Prevent recursive logging
+  isLogging = true;
+  
   try {
     const errorData = {
       error: error?.message || String(error),
@@ -12,15 +17,24 @@ export const logErrorToBackend = async (error: any, isFatal: boolean = false) =>
       timestamp: new Date().toISOString(),
       isFatal,
     };
-    await axios.post(`${BACKEND_URL}/logs/error`, errorData);
-  } catch (e) {}
+    // Use a fresh axios instance to avoid interceptors that might cause more errors
+    await axios.post(`${BASE_URL}/logs/error`, errorData, { timeout: 5000 });
+  } catch (e) {
+    console.log('[ErrorHandler] Failed to log to backend:', (e as any).message);
+  } finally {
+    isLogging = false;
+  }
 };
 
 export const initGlobalHandler = () => {
+  if (isInitialized) return;
+  isInitialized = true;
+
   // Global Handler for Android/iOS
   if (Platform.OS !== 'web') {
     const originalHandler = ErrorUtils.getGlobalHandler();
     ErrorUtils.setGlobalHandler((error, isFatal) => {
+      console.log('[GlobalError]', error?.message || error);
       logErrorToBackend(error, isFatal);
       if (originalHandler) originalHandler(error, isFatal);
     });

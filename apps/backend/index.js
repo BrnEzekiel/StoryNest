@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require("uuid");
 const rateLimit = require("express-rate-limit");
 const NodeCache = require("node-cache");
 const admin = require("firebase-admin");
+const fs = require("fs");
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -139,7 +140,8 @@ app.post("/auth/register", async (req, res) => {
       } 
     });
     const tokens = generateTokens(user);
-    res.status(201).json({ user, ...tokens });
+    const { password: _, ...safeUser } = user;
+    res.status(201).json({ user: safeUser, ...tokens });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -149,7 +151,8 @@ app.post("/auth/login", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: "Invalid credentials" });
     const tokens = generateTokens(user);
-    res.json({ user, ...tokens });
+    const { password: _, ...safeUser } = user;
+    res.json({ user: safeUser, ...tokens });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -180,7 +183,8 @@ app.post("/auth/firebase", async (req, res) => {
     }
 
     const tokens = generateTokens(user);
-    res.json({ user, ...tokens });
+    const { password: _, ...safeUser } = user;
+    res.json({ user: safeUser, ...tokens });
   } catch (error) {
     console.error("Firebase verification error:", error);
     res.status(401).json({ error: "Firebase verification failed" });
@@ -203,7 +207,8 @@ app.get("/stories", async (req, res) => {
         { authorName: { contains: q, mode: 'insensitive' } }
       ];
     }
-    const stories = await prisma.story.findMany({ where, include: { _count: { select: { likes: true } } }, orderBy: { createdAt: 'desc' } });
+    const take = req.query.limit ? parseInt(req.query.limit) : undefined;
+    const stories = await prisma.story.findMany({ where, include: { _count: { select: { likes: true } } }, orderBy: { createdAt: 'desc' }, ...(take && !isNaN(take) ? { take } : {}) });
     cache.set(cacheKey, stories);
     res.json(stories);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -243,8 +248,10 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
     if (req.file) {
       const result = await cloudinary.uploader.upload(req.file.path);
       coverUrl = result.secure_url;
+      fs.unlink(req.file.path, () => {});
     }
-    const story = await prisma.story.create({ data: { title, genre, body, authorName, readingTime: parseInt(readingTime), coverUrl } });
+    const parsedTime = parseInt(readingTime);
+    const story = await prisma.story.create({ data: { title, genre, body, authorName, readingTime: isNaN(parsedTime) ? 0 : parsedTime, coverUrl } });
     cache.flushAll();
     res.status(201).json(story);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -289,6 +296,7 @@ app.post("/stories/:id/read", authenticate, async (req, res) => {
     await prisma.history.deleteMany({ where: { userId, storyId } });
     await prisma.history.create({ data: { userId, storyId } });
     const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) return res.status(404).json({ error: "Story not found" });
     await prisma.user.update({ where: { id: userId }, data: { totalReadTime: { increment: story.readingTime }, lastReadDate: new Date() } });
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -310,17 +318,20 @@ app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
   const { progress } = req.body;
   const storyId = req.params.id;
   const userId = req.user.id;
+  const parsedProgress = parseInt(progress);
   try {
-    if (progress < 0) {
+    if (isNaN(parsedProgress)) return res.status(400).json({ error: "Invalid progress value" });
+    if (parsedProgress < 0) {
       await prisma.bookmark.deleteMany({
         where: { userId, storyId }
       });
       res.json({ success: true, bookmarked: false });
     } else {
+      const clampedProgress = Math.min(100, Math.max(0, parsedProgress));
       const bookmark = await prisma.bookmark.upsert({
         where: { userId_storyId: { userId, storyId } },
-        update: { progress: parseInt(progress) },
-        create: { userId, storyId, progress: parseInt(progress) }
+        update: { progress: clampedProgress },
+        create: { userId, storyId, progress: clampedProgress }
       });
       res.json({ success: true, bookmark });
     }
@@ -398,6 +409,7 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
     if (req.file) {
       const result = await cloudinary.uploader.upload(req.file.path);
       updateData.coverUrl = result.secure_url;
+      fs.unlink(req.file.path, () => {});
     }
     const story = await prisma.story.update({
       where: { id: req.params.id },
@@ -416,6 +428,7 @@ app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
       prisma.comment.deleteMany({ where: { storyId } }),
       prisma.history.deleteMany({ where: { storyId } }),
       prisma.bookmark.deleteMany({ where: { storyId } }),
+      prisma.version.deleteMany({ where: { storyId } }),
       prisma.story.delete({ where: { id: storyId } })
     ]);
     cache.flushAll();

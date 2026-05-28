@@ -1,7 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
+import { DefaultTheme } from "@react-navigation/native";
 import { Home, Compass, Bookmark, User } from "lucide-react-native";
 import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";

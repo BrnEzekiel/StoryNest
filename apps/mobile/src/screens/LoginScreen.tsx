@@ -72,7 +72,16 @@ export const LoginScreen = ({ navigation }: any) => {
       }
       await login(email, password);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Login failed. Check your credentials.");
+      const firebaseCode = err?.code;
+      if (firebaseCode === "auth/invalid-credential" || firebaseCode === "auth/wrong-password") {
+        setError("Invalid email or password.");
+      } else if (firebaseCode === "auth/user-not-found") {
+        setError("No account found with this email.");
+      } else if (firebaseCode === "auth/too-many-requests") {
+        setError("Too many attempts. Please try again later.");
+      } else {
+        setError(err.response?.data?.error || err.message || "Login failed. Check your credentials.");
+      }
     } finally {
       setLoading(false);
     }

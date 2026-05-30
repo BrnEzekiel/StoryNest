@@ -60,7 +60,7 @@ This checklist contains 100 professional features and improvements to take **Sto
 - [x] [47] Deep Linking (Open app directly to a specific story).
 - [x] [48] Error Reporting via Sentry integration (Remote logging implemented).
 - [x] [49] Multi-region Server Load Balancing.
-- [x] [50] App Size Shrinking (ProGuard / Hermes optimization).
+- [x] [50] App Size Shrinking (ProGuard optimization).
 
 ## 🤖 AI & Personalization
 - [x] [51] AI Recommendation Engine ("Because you read...")

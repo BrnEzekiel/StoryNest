@@ -1,13 +1,26 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 // --- DEPLOYMENT CONFIG ---
 // Live URL (Render/Firebase):
 const LIVE_URL = "https://us-central1-storynest-12345.cloudfunctions.net/api";
 
 // Local Development URL:
-const MACHINE_IP = "192.168.100.5"; 
+// Automatically detect Metro bundler IP, or fallback to the current machine IP (192.168.100.15)
+const getMachineIp = () => {
+  if (Platform.OS === 'web') {
+    return 'localhost';
+  }
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    return hostUri.split(':')[0];
+  }
+  return "192.168.100.5";
+};
+
+const MACHINE_IP = getMachineIp();
 const LOCAL_URL = `http://${MACHINE_IP}:5000`;
 
 // SMART URL SELECTION: Use local only if in __DEV__ and on same network

@@ -19,7 +19,7 @@ This document serves as the primary operational context for Gemini agents mainta
 - Auth: Firebase Auth (Managed Google Sign-In).
 
 ## 🚨 Error Monitoring
-All mobile errors are piped to: `POST http://192.168.100.5:5000/logs/error`.
+All mobile errors are piped to: `POST http://192.168.100.15:5000/logs/error`.
 Monitor the backend terminal for 🚨 CAPTURED ERROR logs.
 
 ## 🔐 Credentials (Dev Only)

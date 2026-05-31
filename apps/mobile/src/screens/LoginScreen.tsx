@@ -33,7 +33,7 @@ export const LoginScreen = ({ navigation }: any) => {
   const { login, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '170425305101-f18bca4o76856idjks4isv7029esgclm.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
   });
 
   useEffect(() => {
@@ -84,9 +84,11 @@ export const LoginScreen = ({ navigation }: any) => {
       } else {
         await AsyncStorage.removeItem("rememberedEmail");
       }
+      console.log(`[Auth] Logging in ${email}...`);
       await login(email, password);
+      console.log(`[Auth] Login successful`);
     } catch (err: any) {
-      console.log("[Login Error]", JSON.stringify(err));
+      console.error("[Login Error]", JSON.stringify(err));
       // Firebase errors have err.code, Axios errors have err.response.data
       if (err?.code?.startsWith("auth/")) {
         setError(getFirebaseErrorMessage(err.code));

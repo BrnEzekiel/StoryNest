@@ -32,7 +32,7 @@ export const SignupScreen = ({ navigation }: any) => {
   const { register, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '170425305101-f18bca4o76856idjks4isv7029esgclm.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
   });
 
   useEffect(() => {
@@ -50,9 +50,12 @@ export const SignupScreen = ({ navigation }: any) => {
     setLoading(true);
     setError("");
     try {
+      console.log(`[Auth] Signing up with ${email}...`);
       await register(email, password, username);
+      console.log(`[Auth] Signup successful`);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Registration failed. Try again.");
+      console.error("[Signup Error]", JSON.stringify(err));
+      setError(err.response?.data?.error || err.message || "Registration failed. Try again.");
     } finally {
       setLoading(false);
     }

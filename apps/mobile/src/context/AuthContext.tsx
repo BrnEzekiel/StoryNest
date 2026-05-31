@@ -93,14 +93,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, username: string) => {
     isRegistering = true;
+    console.log(`[Auth] Registering ${email}...`);
     try {
+      console.log(`[Auth] Creating Firebase user...`);
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      console.log(`[Auth] Firebase user created: ${firebaseUser.uid}`);
+      
+      console.log(`[Auth] Syncing with backend...`);
       const res = await apiClient.post("/auth/register", { email, password, username, firebaseUid: firebaseUser.uid });
+      console.log(`[Auth] Backend sync successful`);
+      
       const { user: backendUser, accessToken, refreshToken } = res.data;
       await Storage.setItem("accessToken", accessToken);
       await Storage.setItem("refreshToken", refreshToken);
       setUser(backendUser);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[Auth] Registration Error:", error);
+      console.error("[Auth] Error Details:", JSON.stringify(error));
       isRegistering = false;
       throw error;
     } finally {

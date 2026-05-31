@@ -34,22 +34,38 @@ export const TextField: React.FC<TextFieldProps> = ({
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const focusAnim = React.useRef(new Animated.Value(0)).current;
+  const iconScale = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
-    Animated.timing(focusAnim, {
-      toValue: isFocused || value.length > 0 ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
+    Animated.parallel([
+      Animated.timing(focusAnim, {
+        toValue: isFocused || value.length > 0 ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.spring(iconScale, {
+        toValue: isFocused ? 1.2 : 1,
+        friction: 5,
+        useNativeDriver: true,
+      })
+    ]).start();
   }, [isFocused, value]);
 
   const renderIcon = () => {
     const iconSize = 20;
     const iconColor = isFocused ? Colors.primary : Colors.mutedTeal;
-    if (icon === "mail") return <Mail size={iconSize} color={iconColor} />;
-    if (icon === "lock") return <Lock size={iconSize} color={iconColor} />;
-    if (icon === "user") return <User size={iconSize} color={iconColor} />;
-    return null;
+    let iconComp = null;
+    if (icon === "mail") iconComp = <Mail size={iconSize} color={iconColor} />;
+    if (icon === "lock") iconComp = <Lock size={iconSize} color={iconColor} />;
+    if (icon === "user") iconComp = <User size={iconSize} color={iconColor} />;
+    
+    if (!iconComp) return null;
+    
+    return (
+      <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+        {iconComp}
+      </Animated.View>
+    );
   };
 
   return (

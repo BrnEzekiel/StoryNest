@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
@@ -25,6 +26,7 @@ const GoogleIcon = () => (
 );
 
 export const LoginScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -33,15 +35,29 @@ export const LoginScreen = ({ navigation }: any) => {
   const { login, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web
+    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com', // Android
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
-      loginWithGoogle(id_token!);
+      handleGoogleLogin(id_token!);
+    } else if (response?.type === 'error') {
+      Alert.alert("Google Auth", "Unable to connect to Google. Please try again.");
     }
   }, [response]);
+
+  const handleGoogleLogin = async (idToken: string) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (err) {
+      setError("Google sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadSavedEmail();
@@ -59,15 +75,16 @@ export const LoginScreen = ({ navigation }: any) => {
 
   const getFirebaseErrorMessage = (code: string): string => {
     switch (code) {
-      case "auth/user-not-found":      return "No account found with this email.";
-      case "auth/wrong-password":      return "Incorrect password. Please try again.";
+      case "auth/user-not-found":      return "We couldn't find an account with that email.";
+      case "auth/wrong-password":      return "The password you entered is incorrect.";
       case "auth/invalid-email":       return "Please enter a valid email address.";
-      case "auth/invalid-credential": return "Invalid email or password.";
-      case "auth/too-many-requests":   return "Too many attempts. Please wait and try again.";
+      case "auth/invalid-credential": return "Email or password doesn't match our records.";
+      case "auth/too-many-requests":   return "Too many attempts. Please try again later.";
       case "auth/network-request-failed": return "Network error. Check your connection.";
       case "auth/email-already-in-use":   return "This email is already registered.";
-      case "auth/weak-password":       return "Password must be at least 6 characters.";
-      default: return `Login failed (${code})`;
+      case "auth/weak-password":       return "Password should be at least 6 characters.";
+      case "auth/operation-not-allowed": return "Sign-in method is currently disabled.";
+      default: return "An unexpected error occurred. Please try again.";
     }
   };
 
@@ -76,7 +93,7 @@ export const LoginScreen = ({ navigation }: any) => {
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail || !trimmedPassword) {
-      setError("Please fill in all fields to enter the nest");
+      setError("Please enter both email and password.");
       return;
     }
     setLoading(true);
@@ -92,11 +109,10 @@ export const LoginScreen = ({ navigation }: any) => {
       console.log(`[Auth] Login successful`);
     } catch (err: any) {
       console.error("[Login Error]", JSON.stringify(err));
-      // Firebase errors have err.code, Axios errors have err.response.data
       if (err?.code?.startsWith("auth/")) {
         setError(getFirebaseErrorMessage(err.code));
       } else {
-        setError(err?.response?.data?.error || "Login failed. Please try again.");
+        setError(err?.response?.data?.error || "Unable to reach server. Try again later.");
       }
     } finally {
       setLoading(false);
@@ -107,18 +123,18 @@ export const LoginScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       <ImageBackground 
         source={require("../../assets/auth-bg.jpg")} 
-        style={styles.topSection} 
+        style={[styles.topSection, { height: height * 0.3 + insets.top }]} 
         resizeMode="cover"
       >
         <View style={styles.brandOverlay}>
-          <SafeAreaView style={styles.safeArea}>
+          <SafeAreaView style={styles.safeArea} edges={['top']}>
              <View style={styles.logoBox} />
           </SafeAreaView>
         </View>
         <HeaderWave />
       </ImageBackground>
 
-      <View style={styles.bottomSection}>
+      <SafeAreaView style={styles.bottomSection} edges={['bottom', 'left', 'right']}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboardView}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
             <View style={styles.headerContainer}>
@@ -146,18 +162,22 @@ export const LoginScreen = ({ navigation }: any) => {
                    </View>
                    <Text style={styles.rememberText}>Remember Me</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => Alert.alert("Forgot Password", "Contact support or follow email reset steps.")}>
+                <TouchableOpacity onPress={() => Alert.alert("Reset Password", "A reset link will be sent to your email.")}>
                   <Text style={styles.forgotText}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              <Button title={loading ? "LOGGING IN..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
+              <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
 
               <View style={styles.socialSection}>
                 <Text style={styles.socialText}>OR QUICK ACCESS</Text>
-                <TouchableOpacity style={[styles.googleBtn, Shadows.s]} onPress={() => promptAsync()}>
+                <TouchableOpacity 
+                  style={[styles.googleBtn, Shadows.s]} 
+                  onPress={() => promptAsync()}
+                  disabled={!request || loading}
+                >
                   <GoogleIcon />
                   <Text style={styles.googleBtnText}>Continue with Google</Text>
                 </TouchableOpacity>
@@ -172,14 +192,14 @@ export const LoginScreen = ({ navigation }: any) => {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.paleCream },
-  topSection: { height: height * 0.35, width: "100%" },
+  topSection: { width: "100%" },
   brandOverlay: { flex: 1, backgroundColor: "rgba(0, 54, 49, 0.7)" },
   safeArea: { flex: 1 },
   logoBox: { flex: 1 },

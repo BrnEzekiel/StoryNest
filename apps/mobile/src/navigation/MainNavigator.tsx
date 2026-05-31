@@ -1,5 +1,5 @@
 import React from "react";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { Home, Compass, Bookmark, User } from "lucide-react-native";
@@ -7,6 +7,7 @@ import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Screens
 import { OnboardingScreen } from "../screens/OnboardingScreen";
@@ -19,11 +20,13 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { AdminScreen } from "../screens/AdminScreen";
 import { StoryReaderScreen } from "../screens/StoryReaderScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
+import { EditProfileScreen } from "../screens/EditProfileScreen";
+import { AchievementsScreen } from "../screens/AchievementsScreen";
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Custom Theme to kill the white background once and for all
+// Custom Theme
 export const StoryNestTheme = {
   ...DefaultTheme,
   colors: {
@@ -36,11 +39,14 @@ export const StoryNestTheme = {
 
 const TabNavigator = () => {
   const { isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
+      tabBarPosition="bottom"
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color }: any) => {
+          const size = 22;
           if (route.name === "Home") return <Home color={color} size={size} />;
           if (route.name === "Explore") return <Compass color={color} size={size} />;
           if (route.name === "Saved") return <Bookmark color={color} size={size} />;
@@ -48,30 +54,27 @@ const TabNavigator = () => {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.mutedTeal,
+        tabBarIndicatorStyle: {
+          top: 0,
+          backgroundColor: Colors.primary,
+          height: 3,
+        },
         tabBarStyle: {
           backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white,
           borderTopColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen,
-          height: 60,
-          paddingBottom: 10,
+          height: 65 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.body,
-          fontSize: 11,
+          fontSize: 10,
+          textTransform: 'none',
         },
-        headerShown: false,
-        // Liquid Transition Logic (Impeccable #21)
-        animation: 'fade',
+        tabBarShowIcon: true,
+        swipeEnabled: true,
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            navigation.navigate("Home", { reset: true });
-          },
-        })}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Explore" component={ExploreScreen} />
       <Tab.Screen name="Saved" component={BookmarksScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -105,6 +108,8 @@ export const MainNavigator = () => {
           <Stack.Screen name="Reader" component={StoryReaderScreen} options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="Admin" component={AdminScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="Achievements" component={AchievementsScreen} />
         </>
       )}
     </Stack.Navigator>

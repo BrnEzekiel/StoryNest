@@ -11,6 +11,8 @@ import { Urbanist_400Regular, Urbanist_700Bold } from "@expo-google-fonts/urbani
 import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
 import { View } from "react-native";
 
+import { SafeAreaProvider } from "react-native-safe-area-context";
+
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
@@ -38,15 +40,15 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <SafeAreaProvider onLayout={onLayoutRootView}>
       <ThemeProvider>
         <AuthProvider>
           <NavigationContainer>
-            <StatusBar style="auto" translucent={false} />
+            <StatusBar style="light" translucent backgroundColor="transparent" />
             <MainNavigator />
           </NavigationContainer>
         </AuthProvider>
       </ThemeProvider>
-    </View>
+    </SafeAreaProvider>
   );
 }

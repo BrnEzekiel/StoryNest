@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Platform, Switch, Alert, Animated,
 } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
@@ -13,10 +13,13 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import * as Updates from "expo-updates";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 type UpdateStatus = "idle" | "checking" | "available" | "upToDate" | "error";
 
 export const SettingsScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { logout, user } = useAuth();
   const { isDarkMode, toggleDarkMode, recsEnabled, setRecsEnabled, theme } = useTheme();
 
@@ -145,14 +148,15 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <SafeAreaView style={[styles.header, { backgroundColor: Colors.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+      <StatusBar style="light" />
+      <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { top: insets.top + 20 }]}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>SETTINGS</Text>
-      </SafeAreaView>
+      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
 
         {/* ── Preferences ── */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
@@ -238,9 +242,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: Platform.OS === "android" ? 10 : 0,
   },
-  backBtn: { position: "absolute", left: 20, top: Platform.OS === "android" ? 20 : 10 },
+  backBtn: { position: "absolute", left: 20 },
   headerTitle: { fontFamily: Fonts.heading, fontSize: 18, color: Colors.accent, letterSpacing: 0.05, marginTop: 10 },
   content: { flex: 1, padding: 24 },
   sectionTitle: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.mutedTeal, marginBottom: 16, marginTop: 24, letterSpacing: 0.02 },

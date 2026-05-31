@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ImageBackground, KeyboardAvoidingView, Platform, Animated, Dimensions, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
@@ -24,6 +25,7 @@ const GoogleIcon = () => (
 );
 
 export const SignupScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,15 +34,29 @@ export const SignupScreen = ({ navigation }: any) => {
   const { register, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web
+    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com', // Android
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
-      loginWithGoogle(id_token!);
+      handleGoogleSignup(id_token!);
+    } else if (response?.type === 'error') {
+      Alert.alert("Google Auth", "Unable to connect to Google. Please try again.");
     }
   }, [response]);
+
+  const handleGoogleSignup = async (idToken: string) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (err) {
+      setError("Google account creation failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleSignup = async () => {
     const trimmedEmail = email.trim();
@@ -48,7 +64,7 @@ export const SignupScreen = ({ navigation }: any) => {
     const trimmedPassword = password.trim();
 
     if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
-      setError("Please fill in all fields to join the nest");
+      setError("Please fill in all fields to join the Nest.");
       return;
     }
     setLoading(true);
@@ -69,18 +85,18 @@ export const SignupScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       <ImageBackground 
         source={require("../../assets/auth-bg.jpg")} 
-        style={styles.topSection} 
+        style={[styles.topSection, { height: height * 0.3 + insets.top }]} 
         resizeMode="cover"
       >
         <View style={styles.brandOverlay}>
-          <SafeAreaView style={styles.safeArea}>
+          <SafeAreaView style={styles.safeArea} edges={['top']}>
              <View style={styles.logoBox} />
           </SafeAreaView>
         </View>
         <HeaderWave />
       </ImageBackground>
 
-      <View style={styles.bottomSection}>
+      <SafeAreaView style={styles.bottomSection} edges={['bottom', 'left', 'right']}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboardView}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
             <View style={styles.headerContainer}>
@@ -97,7 +113,7 @@ export const SignupScreen = ({ navigation }: any) => {
                 label="Password" 
                 value={password} 
                 onChangeText={setPassword} 
-                placeholder="Create a password" 
+                placeholder="••••••••" 
                 secureTextEntry 
                 icon="lock"
               />
@@ -108,14 +124,18 @@ export const SignupScreen = ({ navigation }: any) => {
 
               <View style={styles.socialSection}>
                 <Text style={styles.socialText}>OR QUICK ACCESS</Text>
-                <TouchableOpacity style={[styles.googleBtn, Shadows.s]} onPress={() => promptAsync()}>
+                <TouchableOpacity 
+                  style={[styles.googleBtn, Shadows.s]} 
+                  onPress={() => promptAsync()}
+                  disabled={!request || loading}
+                >
                   <GoogleIcon />
                   <Text style={styles.googleBtnText}>Join with Google</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an Account? </Text>
+                <Text style={styles.footerText}>Already part of the Nest? </Text>
                 <TouchableOpacity onPress={() => navigation.navigate("Login")}>
                   <Text style={styles.footerLink}>Sign in</Text>
                 </TouchableOpacity>
@@ -123,14 +143,14 @@ export const SignupScreen = ({ navigation }: any) => {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.paleCream },
-  topSection: { height: height * 0.35, width: width },
+  topSection: { width: width },
   brandOverlay: { flex: 1, backgroundColor: "rgba(0, 54, 49, 0.7)" },
   safeArea: { flex: 1 },
   logoBox: { flex: 1 },

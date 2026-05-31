@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus } from "lucide-react-native";
+import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus, X, FolderPlus } from "lucide-react-native";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
 import * as ImagePicker from "expo-image-picker";
-
-const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery"];
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export const AdminScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { isDarkMode, theme } = useTheme();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -21,7 +21,12 @@ export const AdminScreen = ({ navigation }: any) => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [stories, setStories] = useState<any[]>([]);
   const [stats, setStats] = useState({ storyCount: 0, totalReads: 0, userCount: 0 });
+  
+  // Genre management
+  const [availableGenres, setAvailableGenres] = useState(["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"]);
   const [showGenreDropdown, setShowGenreDropdown] = useState(false);
+  const [showAddGenreModal, setShowGenreModal] = useState(false);
+  const [newGenreName, setNewGenreName] = useState("");
   
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("Fiction");
@@ -31,7 +36,16 @@ export const AdminScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     fetchAdminData();
+    loadUniqueGenres();
   }, []);
+
+  const loadUniqueGenres = async () => {
+    try {
+        const res = await apiClient.get("/stories");
+        const unique = [...new Set([...availableGenres, ...res.data.map((s: any) => s.genre)])];
+        setAvailableGenres(unique);
+    } catch (e) {}
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -44,6 +58,18 @@ export const AdminScreen = ({ navigation }: any) => {
       setStats(statsRes.data);
     } catch (error) { console.log("Error fetching admin data:", error); }
     finally { setLoading(false); }
+  };
+
+  const handleAddNewGenre = () => {
+    if (!newGenreName.trim()) return;
+    const formatted = newGenreName.trim().charAt(0).toUpperCase() + newGenreName.trim().slice(1).toLowerCase();
+    if (!availableGenres.includes(formatted)) {
+        setAvailableGenres([...availableGenres, formatted]);
+        setGenre(formatted);
+    }
+    setNewGenreName("");
+    setShowGenreModal(false);
+    setShowGenreDropdown(false);
   };
 
   const pickImage = async () => {
@@ -123,13 +149,13 @@ export const AdminScreen = ({ navigation }: any) => {
   if (isAdding) {
     return (
       <View style={[styles.container, { backgroundColor: theme.white }]}>
-        <SafeAreaView style={[styles.headerSection, { backgroundColor: Colors.primary }]}>
-          <TouchableOpacity onPress={() => { setIsAdding(false); resetForm(); }} style={styles.backBtnHeader}>
+        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => { setIsAdding(false); resetForm(); }} style={[styles.backBtnHeader, { top: insets.top + 10 }]}>
             <ArrowLeft size={24} color={Colors.accent} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{isEditing ? 'EDIT STORY' : 'UPLOAD'}</Text>
-        </SafeAreaView>
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        </View>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
           <TouchableOpacity style={[styles.imagePicker, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.mutedTeal }]} onPress={pickImage}>
             {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : (
               <View style={styles.imagePlaceholder}><Camera size={32} color={Colors.mutedTeal} /><Text style={styles.imagePlaceholderText}>Upload Cover Image</Text></View>
@@ -141,14 +167,12 @@ export const AdminScreen = ({ navigation }: any) => {
             value={title} 
             onChangeText={setTitle} 
             placeholder="Enter title" 
-            variant={isDarkMode ? "dark" : "light"}
           />
           <TextField 
             label="Author Name" 
             value={authorName} 
             onChangeText={setAuthorName} 
             placeholder="Author name" 
-            variant={isDarkMode ? "dark" : "light"}
           />
           
           <Text style={[styles.dropdownLabel, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>GENRE</Text>
@@ -159,11 +183,17 @@ export const AdminScreen = ({ navigation }: any) => {
           
           {showGenreDropdown && (
             <View style={[styles.dropdownMenu, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
-              {GENRES.map((g) => (
+              {availableGenres.map((g) => (
                 <TouchableOpacity key={g} style={styles.dropdownItem} onPress={() => { setGenre(g); setShowGenreDropdown(false); }}>
                   <Text style={[styles.dropdownItemText, { color: isDarkMode ? Colors.paleGreen : Colors.mutedTeal }, g === genre && { color: Colors.accent, fontWeight: "700" }]}>{g}</Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity style={[styles.dropdownItem, { borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 8 }]} onPress={() => setShowGenreModal(true)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <FolderPlus size={16} color={Colors.error} style={{ marginRight: 8 }} />
+                    <Text style={[styles.dropdownItemText, { color: Colors.error, fontWeight: '700' }]}>Add New Genre...</Text>
+                  </View>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -174,7 +204,6 @@ export const AdminScreen = ({ navigation }: any) => {
             placeholder="Paste story here..." 
             multiline 
             style={{ height: 300, textAlignVertical: "top" }} 
-            variant={isDarkMode ? "dark" : "light"}
           />
 
           {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginVertical: 20 }} /> : (
@@ -184,18 +213,39 @@ export const AdminScreen = ({ navigation }: any) => {
             </View>
           )}
         </ScrollView>
+
+        {/* Add Genre Modal */}
+        <Modal visible={showAddGenreModal} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+                <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white }]}>
+                    <View style={styles.modalHeader}>
+                        <Text style={[styles.modalTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>NEW GENRE</Text>
+                        <TouchableOpacity onPress={() => setShowGenreModal(false)}><X size={20} color={Colors.mutedTeal} /></TouchableOpacity>
+                    </View>
+                    <TextInput 
+                        style={[styles.modalInput, { color: isDarkMode ? Colors.white : Colors.primary, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+                        placeholder="e.g. Fantasy, History"
+                        placeholderTextColor={Colors.mutedTeal}
+                        value={newGenreName}
+                        onChangeText={setNewGenreName}
+                        autoFocus
+                    />
+                    <Button title="ADD TO LIST" onPress={handleAddNewGenre} type="primary" />
+                </View>
+            </View>
+        </Modal>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <SafeAreaView style={[styles.headerSection, { backgroundColor: Colors.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnHeader}>
+      <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtnHeader, { top: insets.top + 10 }]}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>MANAGE CONTENT</Text>
-      </SafeAreaView>
+      </View>
 
       <View style={styles.statsGrid}>
         <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
@@ -215,7 +265,7 @@ export const AdminScreen = ({ navigation }: any) => {
       <View style={styles.actionSection}>
         <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="secondary" style={{ marginBottom: 24 }} />
         <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ALL STORIES</Text>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
           {loading ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
             stories.map((story) => (
               <View key={story.id} style={[styles.storyRow, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
@@ -245,7 +295,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerSection: { paddingBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontFamily: Fonts.heading, fontSize: 18, color: Colors.accent, textAlign: "center", marginTop: 10, letterSpacing: 0.05 },
-  backBtnHeader: { position: "absolute", left: 24, top: Platform.OS === 'android' ? 20 : 10 },
+  backBtnHeader: { position: "absolute", left: 24 },
   content: { padding: 24 },
   imagePicker: { width: "100%", aspectRatio: 1.5, borderRadius: 16, marginBottom: 24, overflow: "hidden", justifyContent: "center", alignItems: "center", borderWidth: 1, borderStyle: "dashed" },
   previewImage: { width: "100%", height: "100%" },
@@ -270,4 +320,10 @@ const styles = StyleSheet.create({
   storyActions: { flexDirection: "row" },
   actionBtn: { marginLeft: 16, padding: 8 },
   emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 20 },
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { width: '100%', borderRadius: 24, padding: 24, ...Shadows.m },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontFamily: Fonts.heading, fontSize: 16, letterSpacing: 1 },
+  modalInput: { height: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, marginBottom: 20, fontFamily: Fonts.body, fontSize: 16 }
 });

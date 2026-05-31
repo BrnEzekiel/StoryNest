@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, Bell, X, ChevronRight } from "lucide-react-native";
@@ -10,10 +10,13 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
 import { useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
 
 export const HomeScreen = ({ navigation, route }: any) => {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { theme, isDarkMode, recsEnabled } = useTheme();
   
@@ -176,7 +179,8 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <View style={[styles.header, { backgroundColor: Colors.primary }]}>
+      <StatusBar style="light" />
+      <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 10 }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={resetHome} activeOpacity={0.7}>
             <Text style={styles.greeting}>{greeting}</Text>
@@ -253,7 +257,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
             />
           )}
           style={styles.body}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No stories found in the nest.</Text>}
@@ -265,7 +269,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: Spacing.l, paddingTop: 16 },
+  header: { paddingBottom: Spacing.l },
   headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Spacing.l },
   greeting: { fontFamily: Fonts.body, fontSize: 13, color: Colors.paleGreen, opacity: 0.8 },
   username: { fontFamily: Fonts.heading, fontSize: 24, color: Colors.accent, marginTop: 2 },

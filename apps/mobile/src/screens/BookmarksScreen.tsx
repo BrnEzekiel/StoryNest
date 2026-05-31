@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, RefreshControl, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform } from "react-native";
 import { Colors, Radii, Spacing, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Trash2, Bookmark, Compass } from "lucide-react-native";
@@ -8,8 +8,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { Button } from "../components/Button";
 import { useTheme } from "../context/ThemeContext";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 export const BookmarksScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { theme, isDarkMode } = useTheme();
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,16 +71,15 @@ export const BookmarksScreen = ({ navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <View style={[styles.header, { backgroundColor: Colors.primary }]}>
-        <SafeAreaView>
-          <Text style={styles.headerTitle}>YOUR LIBRARY</Text>
-        </SafeAreaView>
+      <StatusBar style="light" />
+      <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 10 }]}>
+        <Text style={styles.headerTitle}>YOUR LIBRARY</Text>
       </View>
 
       <ScrollView 
         style={styles.body} 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={bookmarks.length === 0 && { flex: 1 }}
+        contentContainerStyle={[bookmarks.length === 0 && { flex: 1 }, { paddingBottom: insets.bottom + 20 }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />
         }

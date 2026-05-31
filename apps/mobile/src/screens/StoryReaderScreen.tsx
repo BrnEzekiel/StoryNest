@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2 } from "lucide-react-native";
@@ -8,11 +8,13 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SkeletonCard } from "../components/SkeletonCard";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 const THEMES = {
-  light: { bg: Colors.white, text: Colors.darkTextGreen, accent: Colors.primary, muted: Colors.mutedTeal },
-  sepia: { bg: Colors.paleCream, text: Colors.darkTextCream, accent: Colors.primary, muted: "#8C7B6E" },
-  dark: { bg: Colors.primary, text: Colors.accent, accent: Colors.accent, muted: Colors.paleGreen },
+  light: { bg: Colors.white, text: Colors.darkTextGreen, accent: Colors.primary, muted: Colors.mutedTeal, bar: "dark" as const },
+  sepia: { bg: Colors.paleCream, text: Colors.darkTextCream, accent: Colors.primary, muted: "#8C7B6E", bar: "dark" as const },
+  dark: { bg: Colors.primary, text: Colors.accent, accent: Colors.accent, muted: Colors.paleGreen, bar: "light" as const },
 };
 
 const FONT_SIZES = {
@@ -22,6 +24,7 @@ const FONT_SIZES = {
 };
 
 export const StoryReaderScreen = ({ route, navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { storyId } = route.params;
   const { user, refreshUser } = useAuth();
   const { isDarkMode } = useTheme();
@@ -188,12 +191,13 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: THEMES.light.bg }]}>
-        <SafeAreaView style={styles.topBar}>
+      <View style={[styles.container, { backgroundColor: THEMES.light.bg, paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
+        <View style={styles.topBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingLeft: 20 }}>
             <ArrowLeft size={24} color={Colors.primary} />
           </TouchableOpacity>
-        </SafeAreaView>
+        </View>
         <View style={{ padding: Spacing.l }}>
           <View style={[styles.skeletonTitle, { backgroundColor: Colors.paleGreen }]} />
           <View style={[styles.skeletonMeta, { backgroundColor: Colors.paleGreen }]} />
@@ -207,7 +211,8 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.bg }]}>
-      <SafeAreaView style={[styles.topBar, { backgroundColor: currentTheme.bg, borderBottomColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+      <StatusBar style={currentTheme.bar} />
+      <View style={[styles.topBar, { backgroundColor: currentTheme.bg, borderBottomColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingTop: insets.top }]}>
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={currentTheme.text} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
@@ -230,7 +235,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             }
           ]} />
         </View>
-      </SafeAreaView>
+      </View>
 
       <ScrollView 
         style={styles.content} 
@@ -241,6 +246,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setScrollProgress(totalHeight > 0 ? contentOffset.y / totalHeight : 0);
         }} 
         scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={styles.header}>
           <Text style={[styles.genre, { color: currentTheme.accent }]}>{story.genre}</Text>
@@ -278,7 +284,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       </ScrollView>
 
       {showComments && (
-        <View style={[styles.commentsOverlay, { backgroundColor: currentTheme.bg }]}>
+        <View style={[styles.commentsOverlay, { backgroundColor: currentTheme.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
           <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
             style={{ flex: 1 }}
@@ -317,7 +323,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         </View>
       )}
 
-      <View style={[styles.bottomBar, { backgroundColor: currentTheme.bg, borderTopColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+      <View style={[styles.bottomBar, { backgroundColor: currentTheme.bg, borderTopColor: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
             <Animated.View style={{ transform: [{ scale: likeScale }] }}>
@@ -360,12 +366,12 @@ const styles = StyleSheet.create({
   endOfStory: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 150 },
   endDot: { width: 4, height: 4, borderRadius: 2, marginHorizontal: 12 },
   endText: { fontFamily: Fonts.heading, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.2 },
-  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, borderTopWidth: 1, paddingBottom: 34, paddingTop: 16 },
+  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, borderTopWidth: 1, paddingTop: 16 },
   bottomBarContent: { flexDirection: "row", justifyContent: "space-around", alignItems: "center", paddingHorizontal: 20 },
   actionBtn: { flexDirection: "row", alignItems: "center", padding: 8 },
   actionCount: { fontFamily: Fonts.body, fontSize: 13, marginLeft: 8, fontWeight: "500" },
-  commentsOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, padding: 24, zIndex: 100 },
-  commentsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 40 },
+  commentsOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, paddingHorizontal: 24, zIndex: 100 },
+  commentsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   commentsTitle: { fontFamily: Fonts.heading, fontSize: 20 },
   closeComments: { fontFamily: Fonts.body, fontSize: 14 },
   commentItem: { marginBottom: 20, borderBottomWidth: 1, paddingBottom: 16 },

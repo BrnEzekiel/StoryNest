@@ -1,45 +1,58 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Image, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, Edit2, ShieldCheck, Flame, ChevronRight } from "lucide-react-native";
+import { Settings, LogOut, ChevronRight, Edit3, Award, Flame, Clock, BookOpen, Camera, ShieldCheck, Zap } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import apiClient from "../api/apiClient";
-import { StoryCard } from "../components/StoryCard";
 import * as ImagePicker from "expo-image-picker";
-import { SkeletonCard } from "../components/SkeletonCard";
+import apiClient from "../api/apiClient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { HeaderWave } from "../components/HeaderWave";
+import { StatusBar } from "expo-status-bar";
+
+const { width } = Dimensions.get("window");
 
 export const ProfileScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuth();
   const { theme, isDarkMode } = useTheme();
-  
-  const [history, setHistory] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [finishedCount, setFinishedCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [updatingAvatar, setUpdatingAvatar] = useState(false);
 
   useEffect(() => {
-    fetchHistory();
+    fetchProfileData();
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchProfileData = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get("/users/me/history");
-      setHistory(res.data);
+      const res = await apiClient.get("/users/me/bookmarks");
+      // Count stories where progress is 100
+      const finished = res.data.filter((b: any) => b.progress >= 100).length;
+      setFinishedCount(finished);
     } catch (error) {
-      console.log("Error fetching history:", error);
+      console.log("[Profile] Error fetching data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditProfile = async () => {
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to leave the Nest?", [
+      { text: "Stay", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: logout }
+    ]);
+  };
+
+  const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 1,
+      quality: 0.5,
     });
 
     if (!result.canceled) {
@@ -48,125 +61,162 @@ export const ProfileScreen = ({ navigation }: any) => {
   };
 
   const uploadAvatar = async (uri: string) => {
-    setUpdatingAvatar(true);
+    setUploading(true);
     try {
       const formData = new FormData();
       const filename = uri.split("/").pop();
       const match = /\.(\w+)$/.exec(filename || "");
       const type = match ? `image/${match[1]}` : `image`;
-      formData.append("avatar", { uri, name: filename, type } as any);
 
-      await apiClient.put("/users/me", formData, {
+      formData.append("avatar", {
+        uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+        name: filename,
+        type,
+      } as any);
+
+      await apiClient.post("/users/me/avatar", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
       await refreshUser();
-      Alert.alert("Success", "Avatar updated successfully!");
     } catch (error) {
+      console.log(error);
       Alert.alert("Error", "Failed to update avatar.");
     } finally {
-      setUpdatingAvatar(false);
+      setUploading(false);
     }
   };
 
-  const totalTimeHours = Math.round((user?.totalReadTime || 0) / 60);
+  const StatItem = ({ icon: Icon, label, value, color }: any) => (
+    <View style={[styles.statItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }, Shadows.s]}>
+      <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
+        <Icon size={22} color={color} />
+      </View>
+      <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <SafeAreaView>
-            <View style={styles.headerTop}>
-              <Text style={styles.headerTitle}>YOUR NEST</Text>
-              <View style={styles.headerActions}>
-                <TouchableOpacity onPress={() => navigation.navigate("Settings")} style={styles.iconBtn}>
-                  <Settings size={22} color={Colors.accent} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </SafeAreaView>
-
-          <View style={styles.profileSection}>
-            <TouchableOpacity onPress={handleEditProfile} activeOpacity={0.9} style={styles.avatarWrapper}>
-              <View style={[styles.avatarBorder, { borderColor: Colors.accent }, Shadows.m]}>
-                {user?.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>{user?.username?.substring(0, 2).toUpperCase() || "ST"}</Text>
-                  </View>
-                )}
-                {updatingAvatar && (
-                  <View style={styles.avatarOverlay}><ActivityIndicator color={Colors.accent} /></View>
-                )}
-              </View>
-              <View style={styles.editBadge}><Edit2 size={12} color={Colors.primary} /></View>
-            </TouchableOpacity>
+      <StatusBar style="light" />
+      <View style={styles.headerWrapper}>
+        <ImageBackground 
+            source={require("../../assets/onboarding-bg.jpg")}
+            style={[styles.headerBg, { paddingTop: insets.top + 20 }]}
+            resizeMode="cover"
+        >
+            <LinearGradient
+                colors={["rgba(0, 30, 28, 0.85)", "rgba(0, 30, 28, 0.99)"]}
+                style={StyleSheet.absoluteFill}
+            />
             
-            <Text style={styles.username}>{user?.username || "Reader"}</Text>
-            <Text style={styles.email}>{user?.email}</Text>
-          </View>
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle}>YOUR SANCTUARY</Text>
+              <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}>
+                <Settings size={22} color={Colors.accent} />
+              </TouchableOpacity>
+            </View>
 
-          <View style={[styles.statsCard, Shadows.m, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white }]}>
-            <View style={styles.statBox}>
-              <Text style={[styles.statVal, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{history.length}</Text>
-              <Text style={styles.statLab}>Stories</Text>
-            </View>
-            <View style={[styles.statDiv, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statVal, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{totalTimeHours}h</Text>
-              <Text style={styles.statLab}>Reading</Text>
-            </View>
-            <View style={[styles.statDiv, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]} />
-            <View style={styles.statBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.statVal, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{user?.streakCount || 0}</Text>
-                <Flame size={16} color="#FF6B6B" style={{ marginLeft: 4 }} />
+            <View style={styles.profileInfo}>
+              <View style={styles.avatarWrapper}>
+                <TouchableOpacity onPress={pickImage} activeOpacity={0.9} style={styles.avatarContainer}>
+                  {user?.avatarUrl ? (
+                    <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Text style={styles.avatarText}>{user?.username?.substring(0, 2).toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <View style={styles.editBadge}>
+                    {uploading ? <ActivityIndicator size="small" color={Colors.primary} /> : <Camera size={14} color={Colors.primary} />}
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.statusDot} />
               </View>
-              <Text style={styles.statLab}>Streak</Text>
+              
+              <View style={styles.userDetails}>
+                <View style={styles.nameRow}>
+                    <Text style={styles.username}>{user?.username || "Story Reader"}</Text>
+                    {user?.role === "ADMIN" && <ShieldCheck size={18} color={Colors.accent} style={{ marginLeft: 8 }} />}
+                </View>
+                <Text style={styles.email}>{user?.email}</Text>
+                
+                {user?.role === "ADMIN" && (
+                    <TouchableOpacity style={styles.adminBadge} onPress={() => navigation.navigate("Admin")}>
+                       <Zap size={12} color={Colors.primary} style={{ marginRight: 4 }} />
+                       <Text style={styles.adminBadgeText}>SUPER ADMIN DASHBOARD</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
+            <HeaderWave color={isDarkMode ? "#121212" : theme.white} />
+        </ImageBackground>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        <View style={styles.statsGrid}>
+          <StatItem icon={Flame} label="Day Streak" value={user?.streakCount || 0} color="#FF9500" />
+          <StatItem icon={Clock} label="Min Read" value={user?.totalReadTime || 0} color="#34C759" />
+          <StatItem icon={BookOpen} label="Finished" value={loading ? "..." : finishedCount} color="#5856D6" />
         </View>
 
-        <View style={styles.content}>
-          {user?.role === "ADMIN" && (
-            <TouchableOpacity 
-              style={[styles.adminCard, Shadows.s, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}
-              onPress={() => navigation.navigate("Admin")}
-            >
-              <View style={styles.adminLeft}>
-                <View style={[styles.adminIcon, { backgroundColor: isDarkMode ? Colors.primary : Colors.white }]}><ShieldCheck size={20} color={isDarkMode ? Colors.accent : Colors.primary} /></View>
-                <View>
-                  <Text style={[styles.adminTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>Admin Control</Text>
-                  <Text style={styles.adminSub}>Manage stories and analytics</Text>
-                </View>
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ACCOUNT SETTINGS</Text>
+          
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+            onPress={() => navigation.navigate("EditProfile")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: Colors.primary + '10' }]}><Edit3 size={20} color={Colors.primary} /></View>
+              <View>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : Colors.primary }]}>Profile Identity</Text>
+                <Text style={styles.menuSubtext}>Update your bio and handle</Text>
               </View>
-              <ChevronRight size={20} color={Colors.mutedTeal} />
-            </TouchableOpacity>
-          )}
+            </View>
+            <ChevronRight size={18} color={Colors.mutedTeal} />
+          </TouchableOpacity>
 
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>RECENTLY READ</Text>
-            <TouchableOpacity onPress={fetchHistory}><Text style={[styles.refreshLink, { color: isDarkMode ? Colors.accent : Colors.primary }]}>Refresh</Text></TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+            onPress={() => navigation.navigate("Achievements")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: '#FF950015' }]}><Award size={20} color="#FF9500" /></View>
+              <View>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : Colors.primary }]}>Reader Achievements</Text>
+                <Text style={styles.menuSubtext}>View your unlocked badges</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={Colors.mutedTeal} />
+          </TouchableOpacity>
 
-          <View style={styles.historyList}>
-            {loading ? [1, 2].map(i => <SkeletonCard key={i} />) : (
-              history.length === 0 ? (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyText}>No reading history found yet.</Text>
-                </View>
-              ) : (
-                history.slice(0, 5).map((item) => (
-                  <StoryCard 
-                    key={item.id} 
-                    story={item.story} 
-                    onPress={() => navigation.navigate("Reader", { storyId: item.story.id })} 
-                  />
-                ))
-              )
-            )}
-          </View>
+          <TouchableOpacity style={[styles.menuItem, { borderLeftColor: Colors.error, borderLeftWidth: 4 }]} onPress={handleLogout}>
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: Colors.error + '10' }]}><LogOut size={20} color={Colors.error} /></View>
+              <Text style={[styles.menuText, { color: Colors.error, fontWeight: '700' }]}>Sign Out of the Nest</Text>
+            </View>
+          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={[styles.proCard, Shadows.m]}>
+          <LinearGradient
+            colors={[Colors.primary, "#004D46"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.proGradient}
+          >
+            <View style={styles.proContent}>
+               <Text style={styles.proTitle}>Elevate to Premium</Text>
+               <Text style={styles.proDesc}>Access high-fidelity audio stories and exclusive author notes.</Text>
+               <View style={styles.proBadge}><Text style={styles.proBadgeText}>EARLY BIRD 50% OFF</Text></View>
+            </View>
+            <Image source={require("../../assets/icon.png")} style={styles.proIcon} />
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <Text style={styles.footerVersion}>StoryNest v1.0.4 • Crafted with passion</Text>
       </ScrollView>
     </View>
   );
@@ -174,37 +224,45 @@ export const ProfileScreen = ({ navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 40 },
-  header: { backgroundColor: Colors.primary, paddingBottom: 60, borderBottomLeftRadius: Radii.xl, borderBottomRightRadius: Radii.xl },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Spacing.l, paddingTop: 10 },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.mutedTeal, letterSpacing: 0.1 },
-  headerActions: { flexDirection: "row" },
-  iconBtn: { padding: 4 },
-  profileSection: { alignItems: "center", marginTop: Spacing.l },
-  avatarWrapper: { position: "relative" },
-  avatarBorder: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, overflow: "hidden", backgroundColor: Colors.midForest },
-  avatar: { width: "100%", height: "100%" },
-  avatarPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center" },
-  avatarText: { fontFamily: Fonts.heading, fontSize: 32, color: Colors.accent },
-  avatarOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-  editBadge: { position: "absolute", bottom: 4, right: 4, backgroundColor: Colors.accent, width: 26, height: 26, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: Colors.primary },
-  username: { fontFamily: Fonts.heading, fontSize: 28, color: Colors.accent, marginTop: Spacing.m },
-  email: { fontFamily: Fonts.body, fontSize: 14, color: Colors.paleGreen, opacity: 0.7, marginTop: 2 },
-  statsCard: { position: "absolute", bottom: -35, left: Spacing.l, right: Spacing.l, borderRadius: Radii.l, flexDirection: "row", paddingVertical: Spacing.l, justifyContent: "space-around", alignItems: "center" },
-  statBox: { alignItems: "center" },
-  statVal: { fontFamily: Fonts.heading, fontSize: 20 },
-  statLab: { fontFamily: Fonts.body, fontSize: 11, color: Colors.mutedTeal, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.05 },
-  statDiv: { width: 1, height: 30 },
-  content: { marginTop: 60, paddingHorizontal: Spacing.l },
-  adminCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: Spacing.m, borderRadius: Radii.m, marginBottom: Spacing.xl },
-  adminLeft: { flexDirection: "row", alignItems: "center" },
-  adminIcon: { width: 40, height: 40, borderRadius: Radii.s, justifyContent: "center", alignItems: "center", marginRight: Spacing.m },
-  adminTitle: { fontFamily: Fonts.heading, fontSize: 16 },
-  adminSub: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.m },
-  sectionTitle: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.08 },
-  refreshLink: { fontFamily: Fonts.body, fontSize: 13, textDecorationLine: "underline" },
-  historyList: { marginTop: Spacing.s },
-  emptyBox: { paddingVertical: Spacing.xl, alignItems: "center" },
-  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal },
+  headerWrapper: { overflow: 'hidden' },
+  headerBg: { paddingBottom: 60 },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 32 },
+  headerTitle: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.accent, letterSpacing: 2, opacity: 0.9 },
+  settingsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
+  profileInfo: { flexDirection: 'row', alignItems: "center", paddingHorizontal: 24 },
+  avatarWrapper: { marginRight: 20 },
+  avatarContainer: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: Colors.accent, padding: 4 },
+  avatar: { width: "100%", height: "100%", borderRadius: 40 },
+  avatarPlaceholder: { width: "100%", height: "100%", borderRadius: 40, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center" },
+  avatarText: { fontFamily: Fonts.heading, fontSize: 32, color: Colors.primary },
+  editBadge: { position: "absolute", bottom: -2, right: -2, backgroundColor: Colors.accent, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#003631" },
+  statusDot: { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34C759', borderWidth: 2, borderColor: '#003631' },
+  userDetails: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center' },
+  username: { fontFamily: Fonts.heading, fontSize: 28, color: Colors.white },
+  email: { fontFamily: Fonts.body, fontSize: 14, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
+  adminBadge: { backgroundColor: Colors.accent, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  adminBadgeText: { fontFamily: Fonts.heading, fontSize: 9, color: Colors.primary, letterSpacing: 0.5 },
+  content: { flex: 1, padding: 20 },
+  statsGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 32, marginTop: 10 },
+  statItem: { width: (width - 60) / 3, padding: 16, borderRadius: 24, alignItems: "center" },
+  statIcon: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  statValue: { fontFamily: Fonts.heading, fontSize: 20, marginBottom: 2 },
+  statLabel: { fontFamily: Fonts.body, fontSize: 10, color: Colors.mutedTeal, textTransform: "uppercase", letterSpacing: 0.5 },
+  section: { marginBottom: 32 },
+  sectionHeader: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
+  menuItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderRadius: 20, marginBottom: 12 },
+  menuLeft: { flexDirection: "row", alignItems: "center" },
+  menuIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 16 },
+  menuText: { fontFamily: Fonts.heading, fontSize: 15 },
+  menuSubtext: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal, marginTop: 1 },
+  proCard: { borderRadius: 28, overflow: "hidden" },
+  proGradient: { padding: 24, flexDirection: "row", alignItems: "center" },
+  proContent: { flex: 1, zIndex: 1 },
+  proTitle: { fontFamily: Fonts.heading, fontSize: 22, color: Colors.accent, marginBottom: 4 },
+  proDesc: { fontFamily: Fonts.body, fontSize: 13, color: Colors.paleGreen, marginBottom: 16, lineHeight: 18, opacity: 0.9 },
+  proBadge: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
+  proBadgeText: { fontFamily: Fonts.heading, fontSize: 9, color: Colors.white, letterSpacing: 1 },
+  proIcon: { width: 120, height: 120, opacity: 0.08, position: "absolute", right: -20, bottom: -20, transform: [{ rotate: '-15deg' }] },
+  footerVersion: { textAlign: "center", marginTop: 10, marginBottom: 20, fontFamily: Fonts.body, fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 },
 });

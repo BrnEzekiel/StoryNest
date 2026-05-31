@@ -1,21 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, Book, Heart, Zap, Scroll, X } from "lucide-react-native";
+import { Search, X, TrendingUp, Sparkles, Filter } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
+import { HeaderWave } from "../components/HeaderWave";
 
-const GENRES = [
-  { id: "1", name: "FICTION", icon: <Book size={24} color={Colors.primary} />, bg: Colors.paleGreen },
-  { id: "2", name: "ROMANCE", icon: <Heart size={24} color="#D2691E" />, bg: Colors.paleCream },
-  { id: "3", name: "THRILLER", icon: <Zap size={24} color={Colors.accent} />, bg: Colors.primary },
-  { id: "4", name: "FAITH", icon: <Scroll size={24} color={Colors.darkTextCream} />, bg: Colors.accent },
-];
+const { width } = Dimensions.get("window");
+
+// Clean genre list without icons
+const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"];
 
 export const ExploreScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const { theme, isDarkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [stories, setStories] = useState<any[]>([]);
@@ -48,8 +51,7 @@ export const ExploreScreen = ({ navigation }: any) => {
   };
 
   const handleGenrePress = (name: string) => {
-    const formattedGenre = name.charAt(0) + name.slice(1).toLowerCase();
-    navigation.navigate("Home", { genre: formattedGenre });
+    navigation.navigate("Home", { genre: name });
   };
 
   const onSearchFocus = () => {
@@ -64,98 +66,128 @@ export const ExploreScreen = ({ navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <View style={[styles.header, { backgroundColor: Colors.primary }]}>
-        <SafeAreaView>
-          <Text style={styles.headerTitle}>EXPLORE THE NEST</Text>
-        </SafeAreaView>
-        
-        <View style={styles.searchWrapper}>
-          <View style={styles.searchUnderlineRow}>
-            <Search size={18} color={Colors.mutedTeal} style={styles.searchIcon} />
-            <TextInput
-              placeholder="Search stories, authors..."
-              placeholderTextColor="rgba(125, 184, 178, 0.5)"
-              style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={onSearchFocus}
-              onBlur={onSearchBlur}
-              onSubmitEditing={() => fetchStories(searchQuery)}
-              returnKeyType="search"
-              underlineColorAndroid="transparent"
+      <StatusBar style="light" />
+      
+      <View style={styles.headerContainer}>
+        <ImageBackground 
+            source={require("../../assets/auth-bg.jpg")}
+            style={[styles.headerBg, { paddingTop: insets.top + 20 }]}
+            resizeMode="cover"
+        >
+            <LinearGradient
+                colors={["rgba(0, 30, 28, 0.85)", "rgba(0, 30, 28, 0.99)"]}
+                style={StyleSheet.absoluteFill}
             />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => { setSearchQuery(""); fetchStories(""); }}>
-                <X size={18} color={Colors.mutedTeal} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <Animated.View style={[
-            styles.underlineBar,
-            {
-              width: searchFocusAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ["0%", "100%"]
-              }),
-              backgroundColor: Colors.accent
-            }
-          ]} />
-        </View>
+            
+            <View style={styles.headerContent}>
+                <Text style={styles.headerTitle}>EXPLORE THE NEST</Text>
+                <Text style={styles.headerSubtitle}>Discover worlds beyond imagination</Text>
+            </View>
+
+            <View style={styles.searchWrapper}>
+              <View style={[styles.searchBar, isDarkMode && { borderBottomColor: "rgba(255,237,168,0.3)" }]}>
+                <Search size={18} color={Colors.accent} style={styles.searchIcon} />
+                <TextInput
+                  placeholder="Search stories or authors..."
+                  placeholderTextColor="rgba(255, 237, 168, 0.5)"
+                  style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onFocus={onSearchFocus}
+                  onBlur={onSearchBlur}
+                  onSubmitEditing={() => fetchStories(searchQuery)}
+                  returnKeyType="search"
+                  underlineColorAndroid="transparent"
+                  selectionColor={Colors.accent}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => { setSearchQuery(""); fetchStories(""); }}>
+                    <X size={20} color={Colors.accent} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Animated.View style={[
+                styles.searchUnderline,
+                {
+                  width: searchFocusAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"]
+                  }),
+                }
+              ]} />
+            </View>
+            <HeaderWave color={isDarkMode ? "#121212" : theme.white} />
+        </ImageBackground>
       </View>
 
       <ScrollView 
         style={styles.body} 
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         {!searchQuery && (
-          <>
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>BROWSE GENRES</Text>
+              <View style={styles.titleRow}>
+                <Filter size={16} color={Colors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>BROWSE GENRES</Text>
+              </View>
             </View>
 
-            <View style={styles.genreGrid}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll} contentContainerStyle={{ paddingRight: 40 }}>
               {GENRES.map((genre) => (
                 <TouchableOpacity 
-                  key={genre.id} 
-                  style={[styles.genreTile, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : genre.bg }, Shadows.s]}
-                  onPress={() => handleGenrePress(genre.name)}
+                  key={genre} 
+                  style={[styles.genreChip, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0, 54, 49, 0.05)" }]}
+                  onPress={() => handleGenrePress(genre)}
                 >
-                  <View style={styles.genreIcon}>{genre.icon}</View>
-                  <Text style={[styles.genreName, { color: isDarkMode ? Colors.accent : (genre.id === "3" ? Colors.accent : Colors.primary) }]}>
-                    {genre.name}
+                  <Text style={[styles.genreName, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
+                    {genre}
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          </>
+            </ScrollView>
+          </View>
         )}
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
-            {searchQuery ? "SEARCH RESULTS" : "TRENDING IN THE NEST"}
-          </Text>
-        </View>
-
-        <View style={styles.trendingList}>
-          {loading && !refreshing ? (
-            <View>
-              {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+        <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.titleRow}>
+                <TrendingUp size={16} color={Colors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
+                    {searchQuery ? "SEARCH RESULTS" : "TRENDING NOW"}
+                </Text>
+              </View>
+              {!searchQuery && <Sparkles size={16} color={Colors.error} />}
             </View>
-          ) : (
-            <>
-              {stories.map((story) => (
-                <StoryCard 
-                  key={story.id} 
-                  story={story} 
-                  onPress={() => navigation.navigate("Reader", { storyId: story.id })} 
-                />
-              ))}
-              {stories.length === 0 && (
-                <Text style={styles.emptyText}>No stories found for this path.</Text>
+
+            <View style={styles.listContainer}>
+              {loading && !refreshing ? (
+                <View>
+                  {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+                </View>
+              ) : (
+                <>
+                  {stories.map((story, index) => (
+                    <StoryCard 
+                      key={story.id} 
+                      story={story} 
+                      index={index}
+                      onPress={() => navigation.navigate("Reader", { storyId: story.id })} 
+                    />
+                  ))}
+                  {stories.length === 0 && (
+                    <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>The nest is quiet... no stories found here.</Text>
+                        <TouchableOpacity style={styles.resetBtn} onPress={() => { setSearchQuery(""); fetchStories(""); }}>
+                            <Text style={styles.resetBtnText}>Explore All</Text>
+                        </TouchableOpacity>
+                    </View>
+                  )}
+                </>
               )}
-            </>
-          )}
+            </View>
         </View>
       </ScrollView>
     </View>
@@ -164,20 +196,27 @@ export const ExploreScreen = ({ navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: 24 },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 16, color: Colors.accent, textAlign: "center", marginTop: 10, letterSpacing: 0.1, textTransform: "uppercase" },
-  searchWrapper: { marginHorizontal: Spacing.l, marginTop: 16 },
-  searchUnderlineRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  headerContainer: { overflow: 'hidden' },
+  headerBg: { paddingBottom: 80 },
+  headerContent: { paddingHorizontal: 32, marginBottom: 20, alignItems: 'center' },
+  headerTitle: { fontFamily: Fonts.heading, fontSize: 18, color: Colors.accent, letterSpacing: 3, textTransform: "uppercase" },
+  headerSubtitle: { fontFamily: Fonts.body, fontSize: 13, color: Colors.paleGreen, opacity: 0.8, marginTop: 4 },
+  searchWrapper: { paddingHorizontal: 40, marginTop: 10 },
+  searchBar: { flexDirection: "row", alignItems: "center", borderBottomWidth: 1.5, borderBottomColor: "rgba(255, 237, 168, 0.2)", height: 48, paddingHorizontal: 4 },
   searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontFamily: Fonts.body, fontSize: 16, color: Colors.white },
-  underlineBar: { height: 1.5, width: "100%", opacity: 0.5 },
-  body: { flex: 1, paddingHorizontal: Spacing.l, paddingTop: Spacing.l },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.m },
-  sectionTitle: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.08, textTransform: "uppercase" },
-  genreGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: Spacing.xl },
-  genreTile: { width: "48%", padding: 20, borderRadius: Radii.m, marginBottom: 16, alignItems: "center", justifyContent: "center" },
-  genreIcon: { marginBottom: 12 },
-  genreName: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.02 },
-  trendingList: { marginBottom: 40 },
-  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 20 },
+  searchInput: { flex: 1, fontFamily: Fonts.body, fontSize: 15, color: Colors.accent, height: "100%" },
+  searchUnderline: { height: 2, backgroundColor: Colors.accent, alignSelf: 'center', marginTop: -1.5 },
+  body: { flex: 1 },
+  section: { marginTop: 32 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 20 },
+  titleRow: { flexDirection: 'row', alignItems: 'center' },
+  sectionTitle: { fontFamily: Fonts.heading, fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase" },
+  genreScroll: { paddingLeft: 24 },
+  genreChip: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, marginRight: 12 },
+  genreName: { fontFamily: Fonts.heading, fontSize: 13, letterSpacing: 0.5 },
+  listContainer: { paddingHorizontal: 24, paddingBottom: 40 },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center" },
+  resetBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, backgroundColor: Colors.primary + '10' },
+  resetBtnText: { fontFamily: Fonts.heading, fontSize: 12, color: Colors.primary },
 });

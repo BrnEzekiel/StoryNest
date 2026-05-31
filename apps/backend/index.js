@@ -119,14 +119,24 @@ const generateTokens = (user) => {
 app.post("/auth/register", async (req, res) => {
   const { email, password, username, firebaseUid } = req.body;
   try {
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ email }, { username }] }
+    const existing = await prisma.user.findUnique({
+      where: { email }
     });
 
-    if (existing) {
-      if (existing.email === email) return res.status(400).json({ error: "Email already exists" });
-      if (existing.username === username) return res.status(400).json({ error: "Username taken" });
+    // If user exists and doesn't have a Firebase UID yet (seeded account), link them!
+    if (existing && !existing.firebaseUid) {
+      const user = await prisma.user.update({
+        where: { id: existing.id },
+        data: { firebaseUid }
+      });
+      const tokens = generateTokens(user);
+      return res.status(200).json({ user, ...tokens });
     }
+
+    if (existing) return res.status(400).json({ error: "Email already exists" });
+
+    const existingUsername = await prisma.user.findUnique({ where: { username } });
+    if (existingUsername) return res.status(400).json({ error: "Username taken" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({ 

@@ -35,15 +35,15 @@ export const LoginScreen = ({ navigation }: any) => {
   const { login, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web
-    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com', // Android
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web client ID (REQUIRED for Expo Go)
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
       handleGoogleLogin(id_token!);
-    } else if (response?.type === 'error') {
+    } else if (response?.type === 'error' && response.error) {
+      console.error("[Google Auth Response Error]", response.error);
       Alert.alert("Google Auth", "Unable to connect to Google. Please try again.");
     }
   }, [response]);

@@ -57,6 +57,20 @@ export const LoginScreen = ({ navigation }: any) => {
     } catch (e) {}
   };
 
+  const getFirebaseErrorMessage = (code: string): string => {
+    switch (code) {
+      case "auth/user-not-found":      return "No account found with this email.";
+      case "auth/wrong-password":      return "Incorrect password. Please try again.";
+      case "auth/invalid-email":       return "Please enter a valid email address.";
+      case "auth/invalid-credential": return "Invalid email or password.";
+      case "auth/too-many-requests":   return "Too many attempts. Please wait and try again.";
+      case "auth/network-request-failed": return "Network error. Check your connection.";
+      case "auth/email-already-in-use":   return "This email is already registered.";
+      case "auth/weak-password":       return "Password must be at least 6 characters.";
+      default: return `Login failed (${code})`;
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Please fill in all fields to enter the nest");
@@ -72,7 +86,13 @@ export const LoginScreen = ({ navigation }: any) => {
       }
       await login(email, password);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Login failed. Check your credentials.");
+      console.log("[Login Error]", JSON.stringify(err));
+      // Firebase errors have err.code, Axios errors have err.response.data
+      if (err?.code?.startsWith("auth/")) {
+        setError(getFirebaseErrorMessage(err.code));
+      } else {
+        setError(err?.response?.data?.error || "Login failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -4,8 +4,8 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 
 // --- DEPLOYMENT CONFIG ---
-// Live URL (Render/Firebase):
-const LIVE_URL = "https://us-central1-storynest-12345.cloudfunctions.net/api";
+// Live URL (Render backend):
+const LIVE_URL = "https://storynest-qzwm.onrender.com";
 
 // Local Development URL:
 // Automatically detect Metro bundler IP, or fallback to the current machine IP (192.168.100.15)
@@ -23,8 +23,9 @@ const getMachineIp = () => {
 const MACHINE_IP = getMachineIp();
 const LOCAL_URL = `http://${MACHINE_IP}:5000`;
 
-// SMART URL SELECTION: Use local only if in __DEV__ and on same network
-export const BASE_URL = __DEV__ ? LOCAL_URL : LIVE_URL; 
+// SMART URL SELECTION: Set to true to use live backend on Expo Go
+const FORCE_LIVE = true;
+export const BASE_URL = (__DEV__ && !FORCE_LIVE) ? LOCAL_URL : LIVE_URL; 
 
 console.log(`[API] Targeting Backend at: ${BASE_URL}`);
 

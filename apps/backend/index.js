@@ -13,7 +13,7 @@ const admin = require("firebase-admin");
 
 // Initialize Firebase Admin
 admin.initializeApp({
-  projectId: "storynest-12345"
+  projectId: "fir-ai-logic"
 });
 
 const prisma = new PrismaClient();

@@ -72,7 +72,10 @@ export const LoginScreen = ({ navigation }: any) => {
   };
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
       setError("Please fill in all fields to enter the nest");
       return;
     }
@@ -80,12 +83,12 @@ export const LoginScreen = ({ navigation }: any) => {
     setError("");
     try {
       if (rememberMe) {
-        await AsyncStorage.setItem("rememberedEmail", email);
+        await AsyncStorage.setItem("rememberedEmail", trimmedEmail);
       } else {
         await AsyncStorage.removeItem("rememberedEmail");
       }
-      console.log(`[Auth] Logging in ${email}...`);
-      await login(email, password);
+      console.log(`[Auth] Logging in ${trimmedEmail}...`);
+      await login(trimmedEmail, trimmedPassword);
       console.log(`[Auth] Login successful`);
     } catch (err: any) {
       console.error("[Login Error]", JSON.stringify(err));

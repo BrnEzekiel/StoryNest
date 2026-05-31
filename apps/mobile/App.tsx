@@ -14,6 +14,8 @@ import { View } from "react-native";
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
+  console.log("--- APP STARTING UP ---");
+  console.log(`[ENV] __DEV__: ${__DEV__}`);
   const [fontsLoaded] = useFonts({
     Oswald_500Medium,
     Urbanist_400Regular,

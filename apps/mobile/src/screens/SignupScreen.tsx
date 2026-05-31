@@ -43,15 +43,19 @@ export const SignupScreen = ({ navigation }: any) => {
   }, [response]);
   
   const handleSignup = async () => {
-    if (!username || !email || !password) {
+    const trimmedEmail = email.trim();
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedEmail || !trimmedPassword) {
       setError("Please fill in all fields to join the nest");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      console.log(`[Auth] Signing up with ${email}...`);
-      await register(email, password, username);
+      console.log(`[Auth] Signing up with ${trimmedEmail}...`);
+      await register(trimmedEmail, trimmedPassword, trimmedUsername);
       console.log(`[Auth] Signup successful`);
     } catch (err: any) {
       console.error("[Signup Error]", JSON.stringify(err));

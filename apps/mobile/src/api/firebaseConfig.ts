@@ -10,9 +10,9 @@ import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBxVKKTyzGAcqtaA0TZxODqjyTVfP-Ghzw",
-  authDomain: "fir-ai-logic.firebaseapp.com",
-  projectId: "fir-ai-logic",
-  storageBucket: "fir-ai-logic.firebasestorage.app",
+  authDomain: "storynest-12345.firebaseapp.com",
+  projectId: "storynest-12345",
+  storageBucket: "storynest-12345.firebasestorage.app",
   messagingSenderId: "564839035602",
   appId: "1:564839035602:web:bc241f38f6c57b0692330b"
 };

@@ -16,6 +16,7 @@ const axios = require("axios");
 const { config, transporter } = require("./config");
 
 const prisma = new PrismaClient();
+console.log("[Prisma] User model fields:", Object.keys(prisma.user || {}));
 const cache = new NodeCache({ stdTTL: 600 }); // 10 minutes cache
 
 // Initialize Firebase Admin

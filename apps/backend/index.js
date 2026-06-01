@@ -48,7 +48,7 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
     console.log(`[Email] Preparing to send ${type} OTP to ${email}...`);
     const subjects = {
         registration: "Your StoryNest Verification Code",
-        password: "🔑 Reset Your StoryNest Password"
+        password: "Reset Your StoryNest Password"
     };
     const titles = {
         registration: "Welcome to the Nest",
@@ -123,8 +123,8 @@ const isAdmin = (req, res, next) => {
 app.get("/health", async (req, res) => {
     res.json({ 
         status: "ok", 
-        version: "2.1.0",
-        commit: "d5f8d96",
+        version: "2.1.1",
+        commit: "094ac2d",
         mail: !!transporter
     });
 });
@@ -405,9 +405,12 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
         transporter.sendMail({
             from: `"StoryNest" <${config.email.user}>`,
             bcc: emails,
-            subject: `📖 New Story Added: ${title}`,
+            subject: `New Story Added: ${title}`,
             text: `A new world awaits! Read "${title}" by ${authorName} in the StoryNest app now.`,
             html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <span style="font-size: 28px; font-weight: bold; color: #FFEDA8; letter-spacing: 3px; border-bottom: 3px solid #E91E63; padding-bottom: 5px;">STORYNEST</span>
+                    </div>
                     <h1>A New Discovery</h1>
                     <p>"${title}" by <b>${authorName}</b> has been added to the nest.</p>
                     <p>Open the app to start reading now.</p>
@@ -415,7 +418,7 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
         }).catch(e => console.error("Notification Email Error:", e.message));
     }
 
-    sendSlackNotification(`📖 New Story! "${title}" by ${authorName} is now in the nest.`);
+    sendSlackNotification(`New Story! "${title}" by ${authorName} is now in the nest.`);
     res.status(201).json(story);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -435,9 +438,12 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
             transporter.sendMail({
                 from: `"StoryNest" <${config.email.user}>`,
                 bcc: emails,
-                subject: `✨ Story Updated: ${title}`,
+                subject: `Story Updated: ${title}`,
                 text: `Something new has been added to "${title}". Open StoryNest to see what's changed!`,
                 html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <span style="font-size: 28px; font-weight: bold; color: #FFEDA8; letter-spacing: 3px; border-bottom: 3px solid #E91E63; padding-bottom: 5px;">STORYNEST</span>
+                        </div>
                         <h1>A World Evolves</h1>
                         <p>"${title}" has been updated with new content.</p>
                         <p>Open the app to continue your journey.</p>

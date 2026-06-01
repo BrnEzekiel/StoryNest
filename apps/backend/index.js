@@ -76,7 +76,7 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         console.log(`[Email] OTP sent successfully to ${email}`);
     } catch (e) { 
         console.error("[Email] Error sending OTP:", e.message); 
-        throw new Error("Failed to send verification email. Please check your address.");
+        throw e;
     }
 };
 
@@ -165,7 +165,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
             });
         }
 
-        // Send OTP Email (Blocking to catch errors)
+        // Send OTP Email
         try {
             await sendOTPEmail(email, otp, "registration");
             res.json({ message: "OTP sent" });
@@ -251,8 +251,13 @@ app.post("/auth/password/forgot", async (req, res) => {
         const expiry = new Date(Date.now() + 10 * 60 * 1000);
 
         await prisma.user.update({ where: { email }, data: { otpCode: otp, otpExpiry: expiry } });
-        await sendOTPEmail(email, otp, "password");
-        res.json({ message: "Reset code sent" });
+        
+        try {
+            await sendOTPEmail(email, otp, "password");
+            res.json({ message: "Reset code sent" });
+        } catch (mailError) {
+            res.status(500).json({ error: "Email failed", message: mailError.message });
+        }
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

@@ -1,6 +1,4 @@
 require("dotenv").config();
-const dns = require("dns");
-dns.setDefaultResultOrder("ipv4first"); // Fix for Render IPv6 reachability issues
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -16,7 +14,6 @@ const axios = require("axios");
 const { config, transporter } = require("./config");
 
 const prisma = new PrismaClient();
-console.log("[Prisma] User model fields:", Object.keys(prisma.user || {}));
 const cache = new NodeCache({ stdTTL: 600 }); // 10 minutes cache
 
 // Initialize Firebase Admin
@@ -124,8 +121,8 @@ const isAdmin = (req, res, next) => {
 app.get("/health", async (req, res) => {
     res.json({ 
         status: "ok", 
-        version: "2.1.1",
-        commit: "094ac2d",
+        version: "2.2.0",
+        commit: "ipv4_force",
         mail: !!transporter
     });
 });
@@ -188,17 +185,14 @@ app.post("/auth/otp/initiate", async (req, res) => {
             });
         }
 
-        // Send OTP Email
-        try {
-            await sendOTPEmail(email, otp, "registration");
-            res.json({ message: "OTP sent" });
-        } catch (mailError) {
-            console.error("[Email] Critical failure:", mailError.message);
-            res.status(500).json({ 
-                error: "Email delivery failed", 
-                message: mailError.message || "Unknown SMTP error"
-            });
-        }
+        // Send OTP Email (NON-BLOCKING v2.2 to fix 10-minute hang)
+        sendOTPEmail(email, otp, "registration").catch(e => {
+            console.error("[Email] Critical failure logged in background:", e.message);
+        });
+        
+        // Return instantly to UI
+        res.json({ message: "OTP sent" });
+
     } catch (error) { 
         console.error("[Auth] OTP Initiate Error:", error.message);
         res.status(500).json({ error: error.message }); 
@@ -279,7 +273,7 @@ app.post("/auth/password/forgot", async (req, res) => {
         await prisma.user.update({ where: { email }, data: { otpCode: otp, otpExpiry: expiry } });
         
         try {
-            await sendOTPEmail(email, otp, "password");
+            sendOTPEmail(email, otp, "password").catch(e => console.error("Forgot pass error:", e.message));
             res.json({ message: "Reset code sent" });
         } catch (mailError) {
             res.status(500).json({ error: "Email failed", message: mailError.message });

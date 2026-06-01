@@ -18,6 +18,16 @@ model User {
   role             Role         @default(READER)
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
+
+  // v2.0 Compliance & Growth
+  dateOfBirth      DateTime?
+  tosAccepted      Boolean      @default(false)
+  privacyAccepted  Boolean      @default(false)
+  emailVerified    Boolean      @default(false)
+  otpCode          String?
+  otpExpiry        DateTime?
+  notificationsOn  Boolean      @default(true)
+
   referrerId       String?
   dailyGoalMinutes Int          @default(30)
   xp               Int          @default(0)

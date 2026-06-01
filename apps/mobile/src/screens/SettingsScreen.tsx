@@ -1,7 +1,7 @@
 import React from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform, Switch, Alert, Animated,
+  ScrollView, Platform, Switch, Alert, Animated, ActivityIndicator
 } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -13,19 +13,22 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import * as Updates from "expo-updates";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import apiClient from "../api/apiClient";
 
 type UpdateStatus = "idle" | "checking" | "available" | "upToDate" | "error";
 
 export const SettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { logout, user } = useAuth();
+  const { logout, user, refreshUser } = useAuth();
   const { isDarkMode, toggleDarkMode, recsEnabled, setRecsEnabled, theme } = useTheme();
 
-  const [notifications, setNotifications] = React.useState(true);
+  const [notifications, setNotifications] = React.useState(user?.notificationsOn || false);
+  const [updatingNotifs, setUpdatingNotifs] = React.useState(false);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [isUpdating, setIsUpdating] = React.useState(false);
+  
   const spinAnim = React.useRef(new Animated.Value(0)).current;
   const spinLoop = React.useRef<Animated.CompositeAnimation | null>(null);
 
@@ -33,6 +36,20 @@ export const SettingsScreen = ({ navigation }: any) => {
   React.useEffect(() => {
     checkForUpdates();
   }, []);
+
+  const handleToggleNotifications = async (value: boolean) => {
+    setNotifications(value);
+    setUpdatingNotifs(true);
+    try {
+        await apiClient.post("/users/me/settings", { notificationsOn: value });
+        await refreshUser();
+    } catch (e) {
+        setNotifications(!value);
+        Alert.alert("Error", "Failed to update notification settings.");
+    } finally {
+        setUpdatingNotifs(false);
+    }
+  };
 
   const startSpin = () => {
     spinAnim.setValue(0);
@@ -48,7 +65,6 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const checkForUpdates = async () => {
-    // expo-updates doesn't run in Expo Go / dev mode
     if (__DEV__ || !Updates.isEnabled) {
       setUpdateStatus("upToDate");
       return;
@@ -114,13 +130,13 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const SettingItem = ({
-    icon, title, value, onPress, isSwitch, switchValue, onValueChange,
+    icon, title, value, onPress, isSwitch, switchValue, onValueChange, loading
   }: any) => (
     <TouchableOpacity
       style={[styles.item, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}
       onPress={onPress}
       activeOpacity={isSwitch ? 1 : 0.7}
-      disabled={isSwitch && !onPress}
+      disabled={(isSwitch && !onPress) || loading}
     >
       <View style={styles.itemLeft}>
         <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
@@ -129,18 +145,20 @@ export const SettingsScreen = ({ navigation }: any) => {
         <Text style={[styles.itemTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{title}</Text>
       </View>
       <View style={styles.itemRight}>
-        {isSwitch ? (
-          <Switch
-            value={switchValue}
-            onValueChange={onValueChange}
-            trackColor={{ false: "#767577", true: Colors.primary }}
-            thumbColor={switchValue ? Colors.accent : "#f4f3f4"}
-          />
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            {value && <Text style={styles.itemValue}>{value}</Text>}
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </View>
+        {loading ? <ActivityIndicator size="small" color={Colors.primary} /> : (
+            isSwitch ? (
+            <Switch
+                value={switchValue}
+                onValueChange={onValueChange}
+                trackColor={{ false: "#767577", true: Colors.primary }}
+                thumbColor={switchValue ? Colors.accent : "#f4f3f4"}
+            />
+            ) : (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {value && <Text style={styles.itemValue}>{value}</Text>}
+                <ChevronRight size={18} color={Colors.mutedTeal} />
+            </View>
+            )
         )}
       </View>
     </TouchableOpacity>
@@ -162,8 +180,9 @@ export const SettingsScreen = ({ navigation }: any) => {
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
         <SettingItem
           icon={<Bell size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
-          title="Push Notifications"
-          isSwitch switchValue={notifications} onValueChange={setNotifications}
+          title="Email Notifications"
+          isSwitch switchValue={notifications} onValueChange={handleToggleNotifications}
+          loading={updatingNotifs}
         />
         <SettingItem
           icon={<Moon size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
@@ -192,13 +211,12 @@ export const SettingsScreen = ({ navigation }: any) => {
         <SettingItem
           icon={<Shield size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Privacy Policy"
-          onPress={() => Alert.alert("Privacy", "Your reading habits are private and never shared.")}
+          onPress={() => navigation.navigate("Legal", { type: 'privacy' })}
         />
         <SettingItem
           icon={<Info size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
-          title="About StoryNest"
-          value="v1.0.0"
-          onPress={() => Alert.alert("About", "StoryNest - The home for your imagination.")}
+          title="Terms of Service"
+          onPress={() => navigation.navigate("Legal", { type: 'tos' })}
         />
 
         {/* ── App Updates ── */}

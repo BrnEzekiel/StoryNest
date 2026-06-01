@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -31,20 +31,29 @@ export const LoginScreen = ({ navigation }: any) => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const { login, loginWithGoogle } = useAuth();
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web client ID (REQUIRED for Expo Go)
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
+  }, {
+    useProxy: true,
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
       handleGoogleLogin(id_token!);
-    } else if (response?.type === 'error' && response.error) {
+    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
+      setGoogleLoading(false);
+    } else if (response?.type === 'error') {
+      setGoogleLoading(false);
       console.error("[Google Auth Response Error]", response.error);
-      Alert.alert("Google Auth", "Unable to connect to Google. Please try again.");
+      // Only alert if it's a real error, not just a state mismatch from reload
+      if (response.error?.message?.indexOf("state") === -1) {
+        Alert.alert("Google Auth", "Handshake failed. Try clearing your phone's browser cache.");
+      }
     }
   }, [response]);
 
@@ -56,6 +65,7 @@ export const LoginScreen = ({ navigation }: any) => {
       setError("Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -162,7 +172,7 @@ export const LoginScreen = ({ navigation }: any) => {
                    </View>
                    <Text style={styles.rememberText}>Remember Me</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => Alert.alert("Reset Password", "A reset link will be sent to your email.")}>
+                <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
                   <Text style={styles.forgotText}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
@@ -170,18 +180,6 @@ export const LoginScreen = ({ navigation }: any) => {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
-
-              <View style={styles.socialSection}>
-                <Text style={styles.socialText}>OR QUICK ACCESS</Text>
-                <TouchableOpacity 
-                  style={[styles.googleBtn, Shadows.s]} 
-                  onPress={() => promptAsync()}
-                  disabled={!request || loading}
-                >
-                  <GoogleIcon />
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
-                </TouchableOpacity>
-              </View>
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don't have an Account? </Text>

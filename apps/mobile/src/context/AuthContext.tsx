@@ -34,92 +34,97 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, username: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  
+  // v2.0 Methods
+  initiateRegistration: (email: string, dob: Date) => Promise<void>;
+  verifyOTP: (email: string, otp: string) => Promise<void>;
+  finalizeRegistration: (data: any) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (data: any) => Promise<void>;
 }
 
-let isRegistering = false;
-
 const AuthContext = createContext<AuthContextType>({
-  user: null, loading: true, login: async () => {}, register: async () => {}, loginWithGoogle: async () => {}, logout: async () => {}, refreshUser: async () => {},
+  user: null, 
+  loading: true, 
+  login: async () => {}, 
+  logout: async () => {}, 
+  refreshUser: async () => {},
+  initiateRegistration: async () => {},
+  verifyOTP: async () => {},
+  finalizeRegistration: async () => {},
+  forgotPassword: async () => {},
+  resetPassword: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // --- PERSISTENCE LOGIC ---
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          if (!isRegistering) {
-            await syncWithBackend();
-          }
-        } else {
-          setUser(null);
-          await Storage.removeItem("accessToken");
-        }
-      } catch (err) {
-        console.error("[Auth] Sync Error:", err);
-      } finally {
-        setLoading(false);
-      }
-    });
-    return unsubscribe;
+    restoreSession();
   }, []);
 
-  const syncWithBackend = async () => {
+  const restoreSession = async () => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
-      const res = await apiClient.post("/auth/firebase", { idToken });
-      const { user: backendUser, accessToken, refreshToken } = res.data;
-      await Storage.setItem("accessToken", accessToken);
-      await Storage.setItem("refreshToken", refreshToken);
-      setUser(backendUser);
-    } catch (e) {}
+      const accessToken = await Storage.getItem("accessToken");
+      if (accessToken) {
+        // Try to fetch current user to verify token
+        const res = await apiClient.get("/users/me");
+        setUser(res.data);
+      }
+    } catch (err) {
+      console.log("[Auth] Session restoration failed, token likely expired.");
+      // Token might be expired, apiClient interceptor will try to refresh it
+      // if it fails there, user remains null and must log in.
+    } finally {
+      setLoading(false);
+    }
   };
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
+    const idToken = await firebaseUser.getIdToken();
+    const res = await apiClient.post("/auth/login", { idToken });
+    
+    const { user: backendUser, accessToken, refreshToken } = res.data;
+    await Storage.setItem("accessToken", accessToken);
+    await Storage.setItem("refreshToken", refreshToken);
+    setUser(backendUser);
   };
 
-  const register = async (email: string, password: string, username: string) => {
-    isRegistering = true;
-    console.log(`[Auth] Registering ${email}...`);
-    try {
-      console.log(`[Auth] Creating Firebase user...`);
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
-      console.log(`[Auth] Firebase user created: ${firebaseUser.uid}`);
-      
-      console.log(`[Auth] Syncing with backend...`);
-      const res = await apiClient.post("/auth/register", { email, password, username, firebaseUid: firebaseUser.uid });
-      console.log(`[Auth] Backend sync successful`);
-      
-      const { user: backendUser, accessToken, refreshToken } = res.data;
-      await Storage.setItem("accessToken", accessToken);
-      await Storage.setItem("refreshToken", refreshToken);
-      setUser(backendUser);
-    } catch (error: any) {
-      console.error("[Auth] Registration Error:", error);
-      console.error("[Auth] Error Details:", JSON.stringify(error));
-      isRegistering = false;
-      throw error;
-    } finally {
-      isRegistering = false;
-    }
+  const initiateRegistration = async (email: string, dob: Date) => {
+    await apiClient.post("/auth/otp/initiate", { email, dob: dob.toISOString() });
   };
 
-  const loginWithGoogle = async (idToken: string) => {
-    const credential = GoogleAuthProvider.credential(idToken);
-    await signInWithCredential(auth, credential);
+  const verifyOTP = async (email: string, otp: string) => {
+    await apiClient.post("/auth/otp/verify", { email, otp });
+  };
+
+  const finalizeRegistration = async (data: any) => {
+    // 1. Create Firebase User
+    const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    
+    // 2. Complete Backend Registration
+    const res = await apiClient.post("/auth/register", {
+        ...data,
+        firebaseUid: firebaseUser.uid
+    });
+
+    const { user: backendUser, accessToken, refreshToken } = res.data;
+    await Storage.setItem("accessToken", accessToken);
+    await Storage.setItem("refreshToken", refreshToken);
+    setUser(backendUser);
+  };
+
+  const forgotPassword = async (email: string) => {
+    await apiClient.post("/auth/password/forgot", { email });
+  };
+
+  const resetPassword = async (data: any) => {
+    await apiClient.post("/auth/password/reset", data);
   };
 
   const logout = async () => {
@@ -137,7 +142,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, logout, refreshUser }}>
+    <AuthContext.Provider value={{ 
+      user, loading, login, logout, refreshUser,
+      initiateRegistration, verifyOTP, finalizeRegistration,
+      forgotPassword, resetPassword
+    }}>
       {children}
     </AuthContext.Provider>
   );

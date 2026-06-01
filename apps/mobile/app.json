@@ -39,6 +39,11 @@
     "updates": {
       "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363"
     },
-    "owner": "brnezekiel"
+    "owner": "brnezekiel",
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

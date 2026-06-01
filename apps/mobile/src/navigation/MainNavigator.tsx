@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
@@ -8,11 +8,16 @@ import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Screens
 import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { SignupScreen } from "../screens/SignupScreen";
+import { OTPScreen } from "../screens/OTPScreen";
+import { ForgotPasswordScreen } from "../screens/ForgotPasswordScreen";
+import { ResetPasswordScreen } from "../screens/ResetPasswordScreen";
+import { LegalScreen } from "../screens/LegalScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ExploreScreen } from "../screens/ExploreScreen";
 import { BookmarksScreen } from "../screens/BookmarksScreen";
@@ -25,17 +30,6 @@ import { AchievementsScreen } from "../screens/AchievementsScreen";
 
 const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
-
-// Custom Theme
-export const StoryNestTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: Colors.primary,
-    card: Colors.white,
-    text: Colors.primary,
-  },
-};
 
 const TabNavigator = () => {
   const { isDarkMode } = useTheme();
@@ -83,10 +77,24 @@ const TabNavigator = () => {
 };
 
 export const MainNavigator = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isDarkMode } = useTheme();
+  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
 
-  if (loading) return null;
+  useEffect(() => {
+    checkFirstLaunch();
+  }, []);
+
+  const checkFirstLaunch = async () => {
+    const value = await AsyncStorage.getItem("onboardingComplete");
+    if (value === null) {
+      setIsFirstLaunch(true);
+    } else {
+      setIsFirstLaunch(false);
+    }
+  };
+
+  if (authLoading || isFirstLaunch === null) return null;
 
   return (
     <Stack.Navigator 
@@ -98,9 +106,13 @@ export const MainNavigator = () => {
     >
       {!user ? (
         <>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          {isFirstLaunch && <Stack.Screen name="Onboarding" component={OnboardingScreen} />}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="OTP" component={OTPScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+          <Stack.Screen name="Legal" component={LegalScreen} />
         </>
       ) : (
         <>

@@ -1,4 +1,6 @@
 require("dotenv").config();
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first"); // Fix for Render IPv6 reachability issues
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");

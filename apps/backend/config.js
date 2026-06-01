@@ -34,20 +34,23 @@ console.log("[Config] Email Pass present:", !!config.email.pass);
 
 /**
  * Mail Transporter Setup
- * v2.0 Production Fix: Use Port 587 (STARTTLS) to avoid Render connection timeouts on 465.
+ * v2.0 Production Fix: Force IPv4 and Port 587 (STARTTLS)
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, // true for 465, false for other ports
+  secure: false, 
+  family: 4, // CRITICAL: Force IPv4 to avoid Render ENETUNREACH errors
   auth: {
     user: config.email.user,
     pass: config.email.pass,
   },
   tls: {
-    // Do not fail on invalid certs
     rejectUnauthorized: false
-  }
+  },
+  connectionTimeout: 20000, // 20 seconds
+  greetingTimeout: 20000,
+  socketTimeout: 20000,
 });
 
 // Verify connection on startup

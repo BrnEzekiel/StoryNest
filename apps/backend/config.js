@@ -1,4 +1,4 @@
-const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
 
 /**
  * v2.0 Centralized Configuration
@@ -16,8 +16,15 @@ const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
   },
-  resend: {
-    apiKey: process.env.RESEND_API_KEY,
+  smtp: {
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    from: process.env.SMTP_FROM || '"StoryNest" <no-reply@storynest.com>',
   },
   frontendUrl: process.env.FRONTEND_URL || "storynest://",
   slack: {
@@ -29,12 +36,19 @@ const config = {
   }
 };
 
-console.log("[Config] v2.5 Switching to Resend API...");
+console.log("[Config] v3.0 Switching to Nodemailer SMTP...");
 
 /**
- * Resend Client Setup
- * Using REST API to bypass cloud port blocks.
+ * Nodemailer Transporter Setup
  */
-const resend = new Resend(config.resend.apiKey);
+const transporter = nodemailer.createTransport({
+  host: config.smtp.host,
+  port: config.smtp.port,
+  secure: config.smtp.secure,
+  auth: {
+    user: config.smtp.auth.user,
+    pass: config.smtp.auth.pass,
+  },
+});
 
-module.exports = { config, resend };
+module.exports = { config, transporter };

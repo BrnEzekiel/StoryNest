@@ -37,8 +37,6 @@ export const LoginScreen = ({ navigation }: any) => {
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
-  }, {
-    useProxy: true,
   });
 
   useEffect(() => {
@@ -181,6 +179,27 @@ export const LoginScreen = ({ navigation }: any) => {
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
+
+              <View style={styles.socialSection}>
+                <Text style={styles.socialText}>OR JOIN WITH</Text>
+                <TouchableOpacity 
+                  style={styles.googleBtn} 
+                  onPress={() => {
+                    setGoogleLoading(true);
+                    promptAsync();
+                  }}
+                  disabled={loading || googleLoading}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <>
+                      <GoogleIcon />
+                      <Text style={styles.googleBtnText}>Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.footer}>
                 <Text style={styles.footerText}>Don't have an Account? </Text>

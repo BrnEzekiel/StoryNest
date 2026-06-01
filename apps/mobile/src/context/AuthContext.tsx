@@ -28,12 +28,14 @@ interface User {
   avatarUrl?: string | null;
   totalReadTime?: number;
   streakCount?: number;
+  notificationsOn?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   
@@ -49,6 +51,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null, 
   loading: true, 
   login: async () => {}, 
+  loginWithGoogle: async () => {},
   logout: async () => {}, 
   refreshUser: async () => {},
   initiateRegistration: async () => {},
@@ -88,6 +91,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
     const idToken = await firebaseUser.getIdToken();
     const res = await apiClient.post("/auth/login", { idToken });
+    
+    const { user: backendUser, accessToken, refreshToken } = res.data;
+    await Storage.setItem("accessToken", accessToken);
+    await Storage.setItem("refreshToken", refreshToken);
+    setUser(backendUser);
+  };
+
+  const loginWithGoogle = async (idToken: string) => {
+    const credential = GoogleAuthProvider.credential(idToken);
+    const { user: firebaseUser } = await signInWithCredential(auth, credential);
+    const firebaseIdToken = await firebaseUser.getIdToken();
+    const res = await apiClient.post("/auth/login", { idToken: firebaseIdToken });
     
     const { user: backendUser, accessToken, refreshToken } = res.data;
     await Storage.setItem("accessToken", accessToken);
@@ -143,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ 
-      user, loading, login, logout, refreshUser,
+      user, loading, login, loginWithGoogle, logout, refreshUser,
       initiateRegistration, verifyOTP, finalizeRegistration,
       forgotPassword, resetPassword
     }}>

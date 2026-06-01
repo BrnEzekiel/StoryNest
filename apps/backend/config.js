@@ -35,25 +35,21 @@ console.log("[Config] Email Pass present:", !!config.email.pass);
 
 /**
  * Mail Transporter Setup
- * v2.1 Production Fix: Use custom lookup to strictly force IPv4 and bypass ENETUNREACH errors.
+ * v2.2 Production Fix: Use explicit host and force family 4.
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false, // STARTTLS
-  lookup: (hostname, options, callback) => {
-    // Aggressively force IPv4 for cloud stability
-    dns.lookup(hostname, { family: 4 }, callback);
-  },
   auth: {
     user: config.email.user,
     pass: config.email.pass,
   },
   tls: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    minVersion: "TLSv1.2"
   },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
+  family: 4 // CRITICAL: Force IPv4 for Render network stability
 });
 
 // Verify connection on startup

@@ -1,5 +1,4 @@
-const dns = require("dns");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 /**
  * v2.0 Centralized Configuration
@@ -17,43 +16,25 @@ const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
   },
-  email: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : "",
+  resend: {
+    apiKey: process.env.RESEND_API_KEY,
   },
   frontendUrl: process.env.FRONTEND_URL || "storynest://",
   slack: {
     webhookUrl: process.env.SLACK_WEBHOOK_URL,
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
   },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
   }
 };
 
-console.log("[Config] v2.4 Testing Port 465 (Legacy SSL)...");
+console.log("[Config] v2.5 Switching to Resend API...");
 
 /**
- * Mail Transporter Setup
- * v2.4 Production Fix: Switch to Port 465 (Implicit SSL) and keep family 4 force.
+ * Resend Client Setup
+ * Using REST API to bypass cloud port blocks.
  */
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // true for 465, false for other ports
-  lookup: (hostname, options, callback) => {
-    // Strictly force IPv4
-    dns.lookup(hostname, { family: 4 }, callback);
-  },
-  auth: {
-    user: config.email.user,
-    pass: config.email.pass,
-  },
-  tls: {
-    rejectUnauthorized: false,
-    servername: 'smtp.gmail.com'
-  },
-  connectionTimeout: 20000,
-  greetingTimeout: 20000,
-});
+const resend = new Resend(config.resend.apiKey);
 
-module.exports = { config, transporter };
+module.exports = { config, resend };

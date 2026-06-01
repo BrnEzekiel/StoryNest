@@ -119,6 +119,16 @@ const isAdmin = (req, res, next) => {
 // Health Check
 app.get("/health", (req, res) => res.json({ status: "ok", version: "2.0.0" }));
 
+// Diagnostic: Check Mail Server
+app.get("/diag/mail", async (req, res) => {
+    try {
+        await transporter.verify();
+        res.json({ status: "connected", user: config.email.user });
+    } catch (e) {
+        res.status(500).json({ status: "failed", error: e.message, code: e.code });
+    }
+});
+
 // --- v2.0 AUTH FLOW ---
 
 // 1. Initiate Registration (Age & Email Check)

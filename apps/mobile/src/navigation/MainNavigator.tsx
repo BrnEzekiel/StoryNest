@@ -8,10 +8,8 @@ import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Screens
-import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { SignupScreen } from "../screens/SignupScreen";
 import { OTPScreen } from "../screens/OTPScreen";
@@ -77,24 +75,10 @@ const TabNavigator = () => {
 };
 
 export const MainNavigator = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading } = useAuth();
   const { isDarkMode } = useTheme();
-  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    checkFirstLaunch();
-  }, []);
-
-  const checkFirstLaunch = async () => {
-    const value = await AsyncStorage.getItem("onboardingComplete");
-    if (value === null) {
-      setIsFirstLaunch(true);
-    } else {
-      setIsFirstLaunch(false);
-    }
-  };
-
-  if (authLoading || isFirstLaunch === null) return null;
+  if (loading) return null;
 
   return (
     <Stack.Navigator 
@@ -106,7 +90,6 @@ export const MainNavigator = () => {
     >
       {!user ? (
         <>
-          {isFirstLaunch && <Stack.Screen name="Onboarding" component={OnboardingScreen} />}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="OTP" component={OTPScreen} />

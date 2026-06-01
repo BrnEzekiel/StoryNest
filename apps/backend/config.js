@@ -40,4 +40,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verify connection on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("[Email] Transporter Configuration Error:", error.message);
+  } else {
+    console.log("[Email] StoryNest Mail Server is ready to take messages");
+  }
+});
+
 module.exports = { config, transporter };

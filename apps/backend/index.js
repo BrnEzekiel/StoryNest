@@ -43,6 +43,7 @@ app.use(express.json());
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTPEmail = async (email, otp, type = "registration") => {
+    console.log(`[Email] Preparing to send ${type} OTP to ${email}...`);
     const subjects = {
         registration: "🕊️ Your StoryNest Verification Code",
         password: "🔑 Reset Your StoryNest Password"
@@ -72,7 +73,11 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
                     <p style="font-size: 10px; text-align: center; color: #8C7B6E; letter-spacing: 1px;">STORYNEST • THE HOME FOR IMAGINATION</p>
                    </div>`
         });
-    } catch (e) { console.error("Email Error:", e.message); }
+        console.log(`[Email] OTP sent successfully to ${email}`);
+    } catch (e) { 
+        console.error("[Email] Error sending OTP:", e.message); 
+        throw new Error("Failed to send verification email. Please check your address.");
+    }
 };
 
 const generateTokens = (user) => {
@@ -117,6 +122,7 @@ app.get("/health", (req, res) => res.json({ status: "ok", version: "2.0.0" }));
 // 1. Initiate Registration (Age & Email Check)
 app.post("/auth/otp/initiate", async (req, res) => {
     const { email, dob } = req.body;
+    console.log(`[Auth] Initiating OTP for ${email}, DOB: ${dob}`);
     try {
         // Age Check
         const birthDate = new Date(dob);
@@ -128,6 +134,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
         }
 
         if (age < 13) {
+            console.log(`[Auth] Blocked Underage User: ${age} years old`);
             return res.status(403).json({ 
                 error: "Underage", 
                 message: "Thank you for your interest in StoryNest. However, you must be 13 years or older to join our community." 
@@ -149,7 +156,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
             await prisma.user.create({ 
                 data: { 
                     email, 
-                    username: `user_${uuidv4().substring(0, 8)}`,
+                    username: `nestling_${uuidv4().substring(0, 4)}`,
                     password: "otp_pending",
                     otpCode: otp, 
                     otpExpiry: expiry,
@@ -158,9 +165,14 @@ app.post("/auth/otp/initiate", async (req, res) => {
             });
         }
 
-        await sendOTPEmail(email, otp, "registration");
+        // Send OTP Email (Non-blocking)
+        sendOTPEmail(email, otp, "registration").catch(e => console.error("[Email] Registration OTP send error:", e.message));
+        
         res.json({ message: "OTP sent" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        console.error("[Auth] OTP Initiate Error:", error.message);
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 // 2. Verify OTP
@@ -204,7 +216,7 @@ app.post("/auth/register", async (req, res) => {
     sendSlackNotification(`🎉 New Nestling! ${username} (${email}) has joined the nest.`);
     const tokens = generateTokens(updatedUser);
 
-    // Welcome Email
+    // Welcome Email (Non-blocking)
     transporter.sendMail({
         from: `"StoryNest" <${config.email.user}>`,
         to: email,
@@ -215,7 +227,7 @@ app.post("/auth/register", async (req, res) => {
                 <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>
                 <p>We're glad to have you here.</p>
                </div>`
-    });
+    }).catch(e => console.error("Welcome Email Error:", e.message));
 
     res.status(201).json({ user: updatedUser, ...tokens });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -363,7 +375,7 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
                     <p>"${title}" by <b>${authorName}</b> has been added to the nest.</p>
                     <p>Open the app to start reading now.</p>
                    </div>`
-        });
+        }).catch(e => console.error("Notification Email Error:", e.message));
     }
 
     sendSlackNotification(`📖 New Story! "${title}" by ${authorName} is now in the nest.`);
@@ -393,7 +405,7 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
                         <p>"${title}" has been updated with new content.</p>
                         <p>Open the app to continue your journey.</p>
                        </div>`
-            });
+            }).catch(e => console.error("Update Email Error:", e.message));
         }
 
         res.json(story);

@@ -47,7 +47,7 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 const sendOTPEmail = async (email, otp, type = "registration") => {
     console.log(`[Email] Preparing to send ${type} OTP to ${email}...`);
     const subjects = {
-        registration: "🕊️ Your StoryNest Verification Code",
+        registration: "Your StoryNest Verification Code",
         password: "🔑 Reset Your StoryNest Password"
     };
     const titles = {
@@ -246,7 +246,7 @@ app.post("/auth/register", async (req, res) => {
     transporter.sendMail({
         from: `"StoryNest" <${config.email.user}>`,
         to: email,
-        subject: "🕊️ Welcome to the Nest!",
+        subject: "Welcome to the Nest!",
         html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
                 <h1>The Nest Welcomes You</h1>
                 <p>Hello <b>${username}</b>,</p>

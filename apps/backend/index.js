@@ -65,6 +65,9 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
             to: email,
             subject: subjects[type],
             html: `<div style="font-family: 'Georgia', serif; padding: 40px; background-color: #fdfaf5; color: #003631; border: 1px solid #e8e0d5; border-radius: 16px; max-width: 500px; margin: auto;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <span style="font-size: 28px; font-weight: bold; color: #003631; letter-spacing: 3px; border-bottom: 3px solid #FFEDA8; padding-bottom: 5px;">STORYNEST</span>
+                    </div>
                     <h1 style="color: #003631; font-size: 24px; text-align: center;">${titles[type]}</h1>
                     <p style="font-size: 16px; line-height: 1.6; text-align: center;">${messages[type]}</p>
                     <div style="background-color: #003631; color: #FFEDA8; padding: 20px; border-radius: 12px; text-align: center; margin: 30px 0;">
@@ -248,6 +251,9 @@ app.post("/auth/register", async (req, res) => {
         to: email,
         subject: "Welcome to the Nest!",
         html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <span style="font-size: 28px; font-weight: bold; color: #FFEDA8; letter-spacing: 3px; border-bottom: 3px solid #E91E63; padding-bottom: 5px;">STORYNEST</span>
+                </div>
                 <h1>The Nest Welcomes You</h1>
                 <p>Hello <b>${username}</b>,</p>
                 <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>

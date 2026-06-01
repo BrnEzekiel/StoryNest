@@ -30,16 +30,16 @@ const config = {
   }
 };
 
-console.log("[Config] v2.3 Loading Environment...");
+console.log("[Config] v2.4 Testing Port 465 (Legacy SSL)...");
 
 /**
  * Mail Transporter Setup
- * v2.3 Cloud Hardened: Increased timeouts and explicit SNI servername.
+ * v2.4 Production Fix: Switch to Port 465 (Implicit SSL) and keep family 4 force.
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // STARTTLS
+  port: 465,
+  secure: true, // true for 465, false for other ports
   lookup: (hostname, options, callback) => {
     // Strictly force IPv4
     dns.lookup(hostname, { family: 4 }, callback);
@@ -50,14 +50,10 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     rejectUnauthorized: false,
-    servername: 'smtp.gmail.com', // Explicit SNI for cloud routing
-    minVersion: "TLSv1.2"
+    servername: 'smtp.gmail.com'
   },
-  connectionTimeout: 30000, // 30 seconds for slow cloud handshakes
-  greetingTimeout: 30000,
-  socketTimeout: 30000,
-  debug: true, // Enable detailed SMTP logs in Render console
-  logger: true
+  connectionTimeout: 20000,
+  greetingTimeout: 20000,
 });
 
 module.exports = { config, transporter };

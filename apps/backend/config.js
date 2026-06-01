@@ -18,7 +18,7 @@ const config = {
   },
   email: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, "") : "",
   },
   frontendUrl: process.env.FRONTEND_URL || "storynest://",
   slack: {

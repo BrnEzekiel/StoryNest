@@ -173,7 +173,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
             console.error("[Email] Critical failure:", mailError.message);
             res.status(500).json({ 
                 error: "Email delivery failed", 
-                message: "We couldn't send your code. Please check if the email address is correct." 
+                message: mailError.message || "Unknown SMTP error"
             });
         }
     } catch (error) { 

@@ -117,7 +117,14 @@ const isAdmin = (req, res, next) => {
 // --- ROUTES ---
 
 // Health Check
-app.get("/health", (req, res) => res.json({ status: "ok", version: "2.0.0" }));
+app.get("/health", async (req, res) => {
+    res.json({ 
+        status: "ok", 
+        version: "2.1.0",
+        commit: "d5f8d96",
+        mail: !!transporter
+    });
+});
 
 // Diagnostic: Check Mail Server
 app.get("/diag/mail", async (req, res) => {

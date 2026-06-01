@@ -75,7 +75,7 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         });
         console.log(`[Email] OTP sent successfully to ${email}`);
     } catch (e) { 
-        console.error("[Email] Error sending OTP:", e.message); 
+        console.error("[Email] Error sending OTP:", e); 
         throw e;
     }
 };

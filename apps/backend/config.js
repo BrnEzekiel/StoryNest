@@ -29,6 +29,9 @@ const config = {
   }
 };
 
+console.log("[Config] Email User present:", !!config.email.user);
+console.log("[Config] Email Pass present:", !!config.email.pass);
+
 /**
  * Mail Transporter Setup
  */

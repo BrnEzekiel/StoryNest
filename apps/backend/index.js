@@ -165,10 +165,17 @@ app.post("/auth/otp/initiate", async (req, res) => {
             });
         }
 
-        // Send OTP Email (Non-blocking)
-        sendOTPEmail(email, otp, "registration").catch(e => console.error("[Email] Registration OTP send error:", e.message));
-        
-        res.json({ message: "OTP sent" });
+        // Send OTP Email (Blocking to catch errors)
+        try {
+            await sendOTPEmail(email, otp, "registration");
+            res.json({ message: "OTP sent" });
+        } catch (mailError) {
+            console.error("[Email] Critical failure:", mailError.message);
+            res.status(500).json({ 
+                error: "Email delivery failed", 
+                message: "We couldn't send your code. Please check if the email address is correct." 
+            });
+        }
     } catch (error) { 
         console.error("[Auth] OTP Initiate Error:", error.message);
         res.status(500).json({ error: error.message }); 

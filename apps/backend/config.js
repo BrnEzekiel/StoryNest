@@ -30,35 +30,34 @@ const config = {
   }
 };
 
-console.log("[Config] Email User present:", !!config.email.user);
-console.log("[Config] Email Pass present:", !!config.email.pass);
+console.log("[Config] v2.3 Loading Environment...");
 
 /**
  * Mail Transporter Setup
- * v2.2 Production Fix: Use explicit host and force family 4.
+ * v2.3 Cloud Hardened: Increased timeouts and explicit SNI servername.
  */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false, // STARTTLS
+  lookup: (hostname, options, callback) => {
+    // Strictly force IPv4
+    dns.lookup(hostname, { family: 4 }, callback);
+  },
   auth: {
     user: config.email.user,
     pass: config.email.pass,
   },
   tls: {
     rejectUnauthorized: false,
+    servername: 'smtp.gmail.com', // Explicit SNI for cloud routing
     minVersion: "TLSv1.2"
   },
-  family: 4 // CRITICAL: Force IPv4 for Render network stability
-});
-
-// Verify connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("[Email] Transporter Configuration Error:", error.message);
-  } else {
-    console.log("[Email] StoryNest Mail Server is ready to take messages");
-  }
+  connectionTimeout: 30000, // 30 seconds for slow cloud handshakes
+  greetingTimeout: 30000,
+  socketTimeout: 30000,
+  debug: true, // Enable detailed SMTP logs in Render console
+  logger: true
 });
 
 module.exports = { config, transporter };

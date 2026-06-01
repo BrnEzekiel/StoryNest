@@ -118,11 +118,12 @@ export const LoginScreen = ({ navigation }: any) => {
       await login(trimmedEmail, trimmedPassword);
       console.log(`[Auth] Login successful`);
     } catch (err: any) {
-      console.error("[Login Error]", JSON.stringify(err));
+      console.error("[Login Error]", err.message || JSON.stringify(err));
       if (err?.code?.startsWith("auth/")) {
         setError(getFirebaseErrorMessage(err.code));
       } else {
-        setError(err?.response?.data?.error || "Unable to reach server. Try again later.");
+        const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
+        setError(serverMsg || "Unable to reach server. Try again later.");
       }
     } finally {
       setLoading(false);

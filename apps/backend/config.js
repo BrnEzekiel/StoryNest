@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 
 /**
- * v3.1 Centralized Configuration
+ * v3.0 Centralized Configuration
  */
 const config = {
   port: process.env.PORT || 5000,
@@ -16,13 +16,10 @@ const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
   },
-  resend: {
-    apiKey: process.env.RESEND_API_KEY,
-  },
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "465"),
-    secure: process.env.SMTP_SECURE !== "false",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -39,10 +36,10 @@ const config = {
   }
 };
 
-console.log("[Config] v3.1 — Email: Resend HTTP API (primary) + SMTP (local fallback)");
+console.log("[Config] v3.0 — Email: Nodemailer SMTP (Gmail)");
 
 /**
- * Nodemailer SMTP Transporter (local/fallback only)
+ * Nodemailer Transporter
  */
 const transporter = nodemailer.createTransport({
   host: config.smtp.host,

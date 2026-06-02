@@ -42,25 +42,8 @@ app.use(express.json());
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-const sendEmail = async ({ to, subject, html }) => {
-    // PRIMARY: Resend REST API over HTTPS (port 443) — works on Render
-    if (config.resend.apiKey) {
-        console.log(`[Email] Sending via Resend API to ${to}...`);
-        const response = await axios.post(
-            "https://api.resend.com/emails",
-            { from: "StoryNest <onboarding@resend.dev>", to: Array.isArray(to) ? to : [to], subject, html },
-            { headers: { "Authorization": `Bearer ${config.resend.apiKey}`, "Content-Type": "application/json" } }
-        );
-        console.log(`[Email] Resend API success: ${response.data.id}`);
-        return;
-    }
-    // FALLBACK: SMTP (local dev only — blocked on Render)
-    console.log(`[Email] Sending via SMTP to ${to}...`);
-    await transporter.sendMail({ from: config.smtp.from, to, subject, html });
-    console.log(`[Email] SMTP success to ${to}`);
-};
-
 const sendOTPEmail = async (email, otp, type = "registration") => {
+    console.log(`[SMTP] Preparing to send ${type} OTP to ${email}...`);
     const subjects = {
         registration: "Your StoryNest Verification Code",
         password: "Reset Your StoryNest Password"
@@ -73,7 +56,12 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         registration: "Thank you for joining StoryNest. Use the code below to verify your account and start your journey.",
         password: "We received a request to reset your password. Use the code below to proceed."
     };
-    const html = `<div style="font-family: 'Georgia', serif; padding: 40px; background-color: #fdfaf5; color: #003631; border: 1px solid #e8e0d5; border-radius: 16px; max-width: 500px; margin: auto;">
+    try {
+        await transporter.sendMail({
+            from: config.smtp.from,
+            to: email,
+            subject: subjects[type],
+            html: `<div style="font-family: 'Georgia', serif; padding: 40px; background-color: #fdfaf5; color: #003631; border: 1px solid #e8e0d5; border-radius: 16px; max-width: 500px; margin: auto;">
                     <div style="text-align: center; margin-bottom: 30px;">
                         <span style="font-size: 28px; font-weight: bold; color: #003631; letter-spacing: 3px; border-bottom: 3px solid #FFEDA8; padding-bottom: 5px;">STORYNEST</span>
                     </div>
@@ -85,8 +73,13 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
                     <p style="font-size: 12px; color: #8C7B6E; text-align: center;">This code will expire in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
                     <hr style="border: none; border-top: 1px solid #e8e0d5; margin: 30px 0;" />
                     <p style="font-size: 10px; text-align: center; color: #8C7B6E; letter-spacing: 1px;">STORYNEST • THE HOME FOR IMAGINATION</p>
-                   </div>`;
-    await sendEmail({ to: email, subject: subjects[type], html });
+                   </div>`
+        });
+        console.log(`[SMTP] OTP sent successfully to ${email}`);
+    } catch (e) {
+        console.error("[SMTP] Critical failure:", e.message);
+        throw e;
+    }
 };
 
 const generateTokens = (user) => {
@@ -181,9 +174,9 @@ app.post("/auth/otp/initiate", async (req, res) => {
             });
         }
 
-        // Send OTP Email
+        // Send OTP Email via SMTP
         sendOTPEmail(email, otp, "registration").catch(e => {
-            console.error("[Email] OTP send failure:", e.message);
+            console.error("[SMTP] Background failure:", e.message);
         });
         
         res.json({ message: "OTP sent" });
@@ -236,8 +229,9 @@ app.post("/auth/register", async (req, res) => {
     sendSlackNotification(`🎉 New Nestling! ${username} (${email}) has joined the nest.`);
     const tokens = generateTokens(updatedUser);
 
-    // Welcome Email
-    sendEmail({
+    // Welcome Email via SMTP
+    transporter.sendMail({
+        from: config.smtp.from,
         to: email,
         subject: "Welcome to the Nest!",
         html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -249,7 +243,7 @@ app.post("/auth/register", async (req, res) => {
                 <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>
                 <p>We're glad to have you here.</p>
                </div>`
-    }).catch(e => console.error("[Email] Welcome Email Error:", e.message));
+    }).catch(e => console.error("[SMTP] Welcome Email Error:", e.message));
 
     res.status(201).json({ user: updatedUser, ...tokens });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -268,7 +262,7 @@ app.post("/auth/password/forgot", async (req, res) => {
 
         await prisma.user.update({ where: { email }, data: { otpCode: otp, otpExpiry: expiry } });
         
-        sendOTPEmail(email, otp, "password").catch(e => console.error("[Email] Forgot pass error:", e.message));
+        sendOTPEmail(email, otp, "password").catch(e => console.error("[SMTP] Forgot pass error:", e.message));
         res.json({ message: "Reset code sent" });
 
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -341,8 +335,9 @@ app.post("/auth/login", async (req, res) => {
       
       sendSlackNotification(`🎉 New Nestling via Google! ${user.username} (${email}) has joined the nest.`);
       
-      // Welcome Email
-      sendEmail({
+      // Welcome Email via SMTP
+      transporter.sendMail({
+          from: config.smtp.from,
           to: email,
           subject: "Welcome to the Nest!",
           html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -354,7 +349,7 @@ app.post("/auth/login", async (req, res) => {
                   <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>
                   <p>We're glad to have you here.</p>
                  </div>`
-      }).catch(e => console.error("[Email] Google Welcome Email Error:", e.message));
+      }).catch(e => console.error("[SMTP] Google Welcome Email Error:", e.message));
     }
 
     if (!user.firebaseUid) {
@@ -428,12 +423,13 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
     const story = await prisma.story.create({ data: { title, genre, body, authorName, readingTime: parseInt(readingTime), coverUrl } });
     cache.flushAll();
     
-    // Notify users
+    // Notify subscribed users via SMTP
     const subbedUsers = await prisma.user.findMany({ where: { notificationsOn: true }, select: { email: true } });
     if (subbedUsers.length > 0) {
         const emails = subbedUsers.map(u => u.email);
-        sendEmail({
-            to: emails,
+        transporter.sendMail({
+            from: config.smtp.from,
+            to: emails.join(", "),
             subject: `New Story Added: ${title}`,
             html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
                     <div style="text-align: center; margin-bottom: 30px;">
@@ -443,7 +439,7 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
                     <p>"${title}" by <b>${authorName}</b> has been added to the nest.</p>
                     <p>Open the app to start reading now.</p>
                    </div>`
-        }).catch(e => console.error("[Email] Story Notification Error:", e.message));
+        }).catch(e => console.error("[SMTP] Story Notification Error:", e.message));
     }
 
     sendSlackNotification(`New Story! "${title}" by ${authorName} is now in the nest.`);
@@ -459,12 +455,13 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         cache.flushAll();
 
-        // Notify users
+        // Notify subscribed users via SMTP
         const subbedUsers = await prisma.user.findMany({ where: { notificationsOn: true }, select: { email: true } });
         if (subbedUsers.length > 0) {
             const emails = subbedUsers.map(u => u.email);
-            sendEmail({
-                to: emails,
+            transporter.sendMail({
+                from: config.smtp.from,
+                to: emails.join(", "),
                 subject: `Story Updated: ${title}`,
                 html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
                         <div style="text-align: center; margin-bottom: 30px;">
@@ -474,7 +471,7 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
                         <p>"${title}" has been updated with new content.</p>
                         <p>Open the app to continue your journey.</p>
                        </div>`
-            }).catch(e => console.error("[Email] Update Notification Error:", e.message));
+            }).catch(e => console.error("[SMTP] Update Notification Error:", e.message));
         }
 
         res.json(story);

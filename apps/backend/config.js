@@ -45,11 +45,7 @@ console.log("[Config] v3.2 — Email: Gmail REST API (Port 443)");
  * Bypasses Render's SMTP blocks.
  */
 const sendGmail = async ({ to, subject, html }) => {
-    const { google } = require("googleapis"); // Add googleapis if not present, or use axios
     const axios = require("axios");
-    
-    // We'll use Axios directly to avoid extra heavy dependencies if possible, 
-    // but google-auth-library is already in package.json
     const { OAuth2Client } = require("google-auth-library");
     
     const client = new OAuth2Client(

@@ -244,7 +244,14 @@ app.post("/auth/register", async (req, res) => {
     }).catch(e => console.error("[Gmail API] Welcome Email Error:", e.message));
 
     res.status(201).json({ user: updatedUser, ...tokens });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { 
+    console.error("[Auth] Registration Error:", error.message);
+    if (error.code === 'P2002') {
+        const field = error.meta?.target?.[0] || "Username";
+        return res.status(400).json({ error: `${field} is already taken. Please try another.` });
+    }
+    res.status(500).json({ error: error.message }); 
+  }
 });
 
 // 4. Forgot Password OTP

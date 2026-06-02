@@ -94,8 +94,9 @@ export const OTPScreen = ({ route, navigation }: any) => {
         } catch (err: any) {
             setStatus("error");
             setOtp(["", "", "", "", "", ""]);
-            const msg = err.response?.data?.error || err.response?.data?.message || "Final registration failed. Try again.";
-            Alert.alert("Registration Error", msg);
+            const serverMsg = err.response?.data?.error || err.response?.data?.message;
+            const statusStr = err.response ? `(HTTP ${err.response.status})` : "(Network Error)";
+            Alert.alert("Registration Error", `${serverMsg || "Final registration failed."} ${statusStr}`);
         } finally {
             setLoading(false);
         }

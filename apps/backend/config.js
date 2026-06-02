@@ -15,6 +15,8 @@ const config = {
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
   },
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -36,18 +38,58 @@ const config = {
   }
 };
 
-console.log("[Config] v3.0 — Email: Nodemailer SMTP (Gmail)");
+console.log("[Config] v3.2 — Email: Gmail REST API (Port 443)");
 
 /**
- * Nodemailer Transporter
- * Optimized for Gmail service
+ * Gmail REST API Email Sender (Port 443)
+ * Bypasses Render's SMTP blocks.
  */
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: config.smtp.auth.user,
-    pass: config.smtp.auth.pass,
-  },
-});
+const sendGmail = async ({ to, subject, html }) => {
+    const { google } = require("googleapis"); // Add googleapis if not present, or use axios
+    const axios = require("axios");
+    
+    // We'll use Axios directly to avoid extra heavy dependencies if possible, 
+    // but google-auth-library is already in package.json
+    const { OAuth2Client } = require("google-auth-library");
+    
+    const client = new OAuth2Client(
+        config.google.clientId,
+        config.google.clientSecret
+    );
+    client.setCredentials({ refresh_token: config.google.refreshToken });
 
-module.exports = { config, transporter };
+    try {
+        const { token } = await client.getAccessToken();
+        
+        const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
+        const messageParts = [
+            `From: ${config.smtp.from}`,
+            `To: ${to}`,
+            `Content-Type: text/html; charset=utf-8`,
+            `MIME-Version: 1.0`,
+            `Subject: ${utf8Subject}`,
+            '',
+            html
+        ];
+        const message = messageParts.join('\n');
+
+        // The body needs to be base64url encoded
+        const encodedMessage = Buffer.from(message)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+        await axios.post(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            { raw: encodedMessage },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        return { success: true };
+    } catch (error) {
+        console.error("[Gmail API] Send Failure:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+module.exports = { config, sendGmail };

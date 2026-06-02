@@ -11,7 +11,7 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const NodeCache = require("node-cache");
 const axios = require("axios");
-const { config, transporter } = require("./config");
+const { config, sendGmail } = require("./config");
 
 const prisma = new PrismaClient();
 const cache = new NodeCache({ stdTTL: 600 }); // 10 minutes cache
@@ -57,8 +57,7 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         password: "We received a request to reset your password. Use the code below to proceed."
     };
     try {
-        await transporter.sendMail({
-            from: config.smtp.from,
+        await sendGmail({
             to: email,
             subject: subjects[type],
             html: `<div style="font-family: 'Georgia', serif; padding: 40px; background-color: #fdfaf5; color: #003631; border: 1px solid #e8e0d5; border-radius: 16px; max-width: 500px; margin: auto;">
@@ -75,9 +74,9 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
                     <p style="font-size: 10px; text-align: center; color: #8C7B6E; letter-spacing: 1px;">STORYNEST • THE HOME FOR IMAGINATION</p>
                    </div>`
         });
-        console.log(`[SMTP] OTP sent successfully to ${email}`);
+        console.log(`[Gmail API] OTP sent successfully to ${email}`);
     } catch (e) {
-        console.error("[SMTP] Critical failure:", e.message);
+        console.error("[Gmail API] Critical failure:", e.message);
         throw e;
     }
 };
@@ -229,9 +228,8 @@ app.post("/auth/register", async (req, res) => {
     sendSlackNotification(`🎉 New Nestling! ${username} (${email}) has joined the nest.`);
     const tokens = generateTokens(updatedUser);
 
-    // Welcome Email via SMTP
-    transporter.sendMail({
-        from: config.smtp.from,
+    // Welcome Email via Gmail API
+    sendGmail({
         to: email,
         subject: "Welcome to the Nest!",
         html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -243,7 +241,7 @@ app.post("/auth/register", async (req, res) => {
                 <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>
                 <p>We're glad to have you here.</p>
                </div>`
-    }).catch(e => console.error("[SMTP] Welcome Email Error:", e.message));
+    }).catch(e => console.error("[Gmail API] Welcome Email Error:", e.message));
 
     res.status(201).json({ user: updatedUser, ...tokens });
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -335,9 +333,8 @@ app.post("/auth/login", async (req, res) => {
       
       sendSlackNotification(`🎉 New Nestling via Google! ${user.username} (${email}) has joined the nest.`);
       
-      // Welcome Email via SMTP
-      transporter.sendMail({
-          from: config.smtp.from,
+      // Welcome Email via Gmail API
+      sendGmail({
           to: email,
           subject: "Welcome to the Nest!",
           html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -349,7 +346,7 @@ app.post("/auth/login", async (req, res) => {
                   <p>Your journey into imagination has officially begun. Explore new worlds, connect with stories, and find your sanctuary.</p>
                   <p>We're glad to have you here.</p>
                  </div>`
-      }).catch(e => console.error("[SMTP] Google Welcome Email Error:", e.message));
+      }).catch(e => console.error("[Gmail API] Google Welcome Email Error:", e.message));
     }
 
     if (!user.firebaseUid) {
@@ -423,12 +420,11 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
     const story = await prisma.story.create({ data: { title, genre, body, authorName, readingTime: parseInt(readingTime), coverUrl } });
     cache.flushAll();
     
-    // Notify subscribed users via SMTP
+    // Notify subscribed users via Gmail API
     const subbedUsers = await prisma.user.findMany({ where: { notificationsOn: true }, select: { email: true } });
     if (subbedUsers.length > 0) {
         const emails = subbedUsers.map(u => u.email);
-        transporter.sendMail({
-            from: config.smtp.from,
+        sendGmail({
             to: emails.join(", "),
             subject: `New Story Added: ${title}`,
             html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -439,7 +435,7 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
                     <p>"${title}" by <b>${authorName}</b> has been added to the nest.</p>
                     <p>Open the app to start reading now.</p>
                    </div>`
-        }).catch(e => console.error("[SMTP] Story Notification Error:", e.message));
+        }).catch(e => console.error("[Gmail API] Story Notification Error:", e.message));
     }
 
     sendSlackNotification(`New Story! "${title}" by ${authorName} is now in the nest.`);
@@ -455,12 +451,11 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         cache.flushAll();
 
-        // Notify subscribed users via SMTP
+        // Notify subscribed users via Gmail API
         const subbedUsers = await prisma.user.findMany({ where: { notificationsOn: true }, select: { email: true } });
         if (subbedUsers.length > 0) {
             const emails = subbedUsers.map(u => u.email);
-            transporter.sendMail({
-                from: config.smtp.from,
+            sendGmail({
                 to: emails.join(", "),
                 subject: `Story Updated: ${title}`,
                 html: `<div style="font-family: serif; padding: 40px; background-color: #003631; color: #FFEDA8;">
@@ -471,7 +466,7 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
                         <p>"${title}" has been updated with new content.</p>
                         <p>Open the app to continue your journey.</p>
                        </div>`
-            }).catch(e => console.error("[SMTP] Update Notification Error:", e.message));
+            }).catch(e => console.error("[Gmail API] Update Notification Error:", e.message));
         }
 
         res.json(story);

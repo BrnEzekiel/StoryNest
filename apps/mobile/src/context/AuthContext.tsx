@@ -119,19 +119,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const finalizeRegistration = async (data: any) => {
-    // 1. Create Firebase User
-    const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
-    
-    // 2. Complete Backend Registration
-    const res = await apiClient.post("/auth/register", {
-        ...data,
-        firebaseUid: firebaseUser.uid
-    });
+    try {
+        // 1. Create Firebase User
+        console.log(`[Auth] Creating Firebase user for ${data.email}...`);
+        const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        
+        // 2. Complete Backend Registration
+        console.log(`[Auth] Completing backend registration for ${data.email}...`);
+        const res = await apiClient.post("/auth/register", {
+            ...data,
+            firebaseUid: firebaseUser.uid
+        });
 
-    const { user: backendUser, accessToken, refreshToken } = res.data;
-    await Storage.setItem("accessToken", accessToken);
-    await Storage.setItem("refreshToken", refreshToken);
-    setUser(backendUser);
+        const { user: backendUser, accessToken, refreshToken } = res.data;
+        await Storage.setItem("accessToken", accessToken);
+        await Storage.setItem("refreshToken", refreshToken);
+        setUser(backendUser);
+    } catch (err: any) {
+        console.log("[Auth] Finalization error:", err.message || JSON.stringify(err));
+        // If backend failed, but firebase user was created, we might need to handle cleanup
+        // for now just rethrow so UI can catch it
+        throw err;
+    }
   };
 
   const forgotPassword = async (email: string) => {

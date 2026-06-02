@@ -94,7 +94,8 @@ export const OTPScreen = ({ route, navigation }: any) => {
         } catch (err: any) {
             setStatus("error");
             setOtp(["", "", "", "", "", ""]);
-            Alert.alert("Error", "Final registration failed. Try again.");
+            const msg = err.response?.data?.error || err.response?.data?.message || "Final registration failed. Try again.";
+            Alert.alert("Registration Error", msg);
         } finally {
             setLoading(false);
         }

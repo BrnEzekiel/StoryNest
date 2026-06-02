@@ -47,11 +47,15 @@ export const LoginScreen = ({ navigation }: any) => {
       setGoogleLoading(false);
     } else if (response?.type === 'error') {
       setGoogleLoading(false);
-      console.error("[Google Auth Response Error]", response.error);
-      // Only alert if it's a real error, not just a state mismatch from reload
-      if (response.error?.message?.indexOf("state") === -1) {
-        Alert.alert("Google Auth", "Handshake failed. Try clearing your phone's browser cache.");
+      const errorMsg = response.error?.message || "";
+      console.log("[Google Auth Response Error]", errorMsg);
+      
+      // Silence state mismatch errors as they are often false positives during reload/fast refresh
+      if (errorMsg.indexOf("state") !== -1 || errorMsg.indexOf("verification failed") !== -1) {
+          return;
       }
+      
+      Alert.alert("Google Auth", "Unable to complete sign-in. Please try again or use email.");
     }
   }, [response]);
 

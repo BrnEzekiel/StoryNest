@@ -40,11 +40,10 @@ console.log("[Config] v3.0 — Email: Nodemailer SMTP (Gmail)");
 
 /**
  * Nodemailer Transporter
+ * Optimized for Gmail service
  */
 const transporter = nodemailer.createTransport({
-  host: config.smtp.host,
-  port: config.smtp.port,
-  secure: config.smtp.secure,
+  service: 'gmail',
   auth: {
     user: config.smtp.auth.user,
     pass: config.smtp.auth.pass,

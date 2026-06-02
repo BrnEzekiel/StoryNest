@@ -120,25 +120,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const finalizeRegistration = async (data: any) => {
     try {
-        // 1. Create Firebase User
-        console.log(`[Auth] Creating Firebase user for ${data.email}...`);
-        const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        let firebaseUid = "";
+        try {
+            // 1. Create Firebase User
+            console.log(`[Auth] STEP 1: Creating Firebase user for ${data.email}...`);
+            const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+            firebaseUid = firebaseUser.uid;
+            console.log(`[Auth] Firebase User Created: ${firebaseUid}`);
+        } catch (firebaseErr: any) {
+            // If user already exists in Firebase, just sign in to get the UID
+            if (firebaseErr.code === 'auth/email-already-in-use') {
+                console.log(`[Auth] Firebase user already exists, signing in...`);
+                const { user: firebaseUser } = await signInWithEmailAndPassword(auth, data.email, data.password);
+                firebaseUid = firebaseUser.uid;
+            } else {
+                throw firebaseErr;
+            }
+        }
         
         // 2. Complete Backend Registration
-        console.log(`[Auth] Completing backend registration for ${data.email}...`);
+        console.log(`[Auth] STEP 2: Completing backend registration...`);
         const res = await apiClient.post("/auth/register", {
             ...data,
-            firebaseUid: firebaseUser.uid
+            firebaseUid
         });
+        console.log(`[Auth] Backend Registration Success`);
 
         const { user: backendUser, accessToken, refreshToken } = res.data;
         await Storage.setItem("accessToken", accessToken);
         await Storage.setItem("refreshToken", refreshToken);
         setUser(backendUser);
     } catch (err: any) {
-        console.log("[Auth] Finalization error:", err.message || JSON.stringify(err));
-        // If backend failed, but firebase user was created, we might need to handle cleanup
-        // for now just rethrow so UI can catch it
+        console.log("[Auth] Finalization error details:", {
+            message: err.message,
+            code: err.code,
+            response: err.response?.data
+        });
         throw err;
     }
   };

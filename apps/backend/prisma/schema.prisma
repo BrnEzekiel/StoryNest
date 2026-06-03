@@ -63,6 +63,7 @@ model User {
   totalReadTime    Int          @default(0)
   lastCommentDate  DateTime?
   lastLikeDate     DateTime?
+  readerTheme      String       @default("light")
   createdAt        DateTime     @default(now())
 }
 

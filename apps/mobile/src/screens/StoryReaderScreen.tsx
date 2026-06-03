@@ -33,7 +33,8 @@ import {
   Star, 
   Moon, 
   Sun, 
-  Send 
+  Send,
+  Palette
 } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
@@ -46,11 +47,19 @@ import axios from "axios";
 const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
 const FONT_SIZES = { small: 15, medium: 18, large: 22 };
 
+const READER_THEMES = {
+  light: { bg: "#FFFFFF", text: "#003631", meta: "#7db8b2", primary: "#003631" },
+  dark: { bg: "#121212", text: "#FFFFFF", meta: "#7db8b2", primary: "#FFEDA8" },
+  sepia: { bg: "#f4ecd8", text: "#433422", meta: "#5f4b32", primary: "#5f4b32" },
+  solarized: { bg: "#fdf6e3", text: "#073642", meta: "#586e75", primary: "#268bd2" },
+  oled: { bg: "#000000", text: "#FFFFFF", meta: "#7db8b2", primary: "#FFEDA8" }
+};
+
 export const StoryReaderScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { storyId } = route.params;
-  const { user } = useAuth();
-  const { theme, fonts, isDarkMode, setThemeMode } = useTheme();
+  const { user, refreshUser } = useAuth();
+  const { theme: appTheme, fonts, isDarkMode: appIsDarkMode } = useTheme();
   
   const [story, setStory] = useState<any>(null);
   const [chapters, setChapters] = useState<any[]>([]);
@@ -63,14 +72,20 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   
+  // Reader Theme
+  const [readerThemeMode, setReaderThemeMode] = useState<string>(user?.readerTheme || "light");
+  const readerTheme = READER_THEMES[readerThemeMode as keyof typeof READER_THEMES] || READER_THEMES.light;
+  const isReaderDark = readerThemeMode === "dark" || readerThemeMode === "oled";
+
   // Modals
   const [showTOC, setShowTOC] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   
   // Comments logic
   const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewNote] = useState("");
+  const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
 
   // Dictionary/Translate
@@ -82,7 +97,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   const progressBarWidth = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-  const scrollY = useRef(0);
 
   const fontSize = FONT_SIZES[fontSizeMode];
 
@@ -98,6 +112,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const loadSavedSettings = async () => {
     const savedFont = await AsyncStorage.getItem("readerFontSize");
     if (savedFont) setFontSizeMode(savedFont as any);
+    
+    // Sync reader theme from backend preference
+    if (user?.readerTheme) {
+        setReaderThemeMode(user.readerTheme);
+    }
   };
 
   const fetchStory = async () => {
@@ -158,7 +177,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       if (!newComment.trim()) return;
       try {
           await apiClient.post(`/stories/${storyId}/comments`, { content: newComment });
-          setNewNote("");
+          setNewComment("");
           fetchComments();
       } catch (e) { console.log(e); }
   };
@@ -202,10 +221,19 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsBookmarked(wasBookmarked); }
   };
 
+  const updateReaderTheme = async (mode: string) => {
+      setReaderThemeMode(mode);
+      setShowThemePicker(false);
+      try {
+          await apiClient.post("/users/me/preferences", { readerTheme: mode });
+          refreshUser();
+      } catch (e) { console.log("Failed to sync preference"); }
+  };
+
   if (loading && !currentChapter) {
       return (
-          <View style={[styles.container, { backgroundColor: theme.white, justifyContent: 'center' }]}>
-              <ActivityIndicator size="large" color={theme.primary} />
+          <View style={[styles.container, { backgroundColor: appTheme.white, justifyContent: 'center' }]}>
+              <ActivityIndicator size="large" color={appTheme.primary} />
           </View>
       );
   }
@@ -214,24 +242,29 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <StatusBar style={isDarkMode ? "light" : "dark"} animated={true} />
+    <View style={[styles.container, { backgroundColor: readerTheme.bg }]}>
+      <StatusBar 
+        style={isReaderDark ? "light" : "dark"} 
+        backgroundColor={readerTheme.bg} 
+        translucent={true}
+        animated={true} 
+      />
       
       {/* Top Bar */}
-      <View style={[styles.topBar, { backgroundColor: theme.white, paddingTop: insets.top }]}>
+      <View style={[styles.topBar, { backgroundColor: readerTheme.bg, paddingTop: insets.top, borderBottomColor: 'rgba(0,0,0,0.05)' }]}>
         <View style={styles.topBarContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={readerTheme.text} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
-            <TouchableOpacity onPress={() => setThemeMode(isDarkMode ? "light" : "dark")} style={styles.iconBtn}>
-                {isDarkMode ? <Sun size={20} color={theme.black} /> : <Moon size={20} color={theme.black} />}
+            <TouchableOpacity onPress={() => setShowThemePicker(true)} style={styles.iconBtn}>
+                <Palette size={20} color={readerTheme.text} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowTOC(true)} style={styles.iconBtn}><List size={20} color={theme.black} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowTranslate(true)} style={styles.iconBtn}><Globe size={20} color={theme.black} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowDictionary(true)} style={styles.iconBtn}><Book size={20} color={theme.black} /></TouchableOpacity>
-            <TouchableOpacity onPress={handleBookmark} style={styles.iconBtn}><Bookmark size={20} color={isBookmarked ? Colors.accent : theme.black} fill={isBookmarked ? Colors.accent : "none"} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowTOC(true)} style={styles.iconBtn}><List size={20} color={readerTheme.text} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowTranslate(true)} style={styles.iconBtn}><Globe size={20} color={readerTheme.text} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowDictionary(true)} style={styles.iconBtn}><Book size={20} color={readerTheme.text} /></TouchableOpacity>
+            <TouchableOpacity onPress={handleBookmark} style={styles.iconBtn}><Bookmark size={20} color={isBookmarked ? Colors.accent : readerTheme.text} fill={isBookmarked ? Colors.accent : "none"} /></TouchableOpacity>
           </View>
         </View>
-        <View style={styles.progressContainer}><Animated.View style={[styles.progressBar, { width: progressBarWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), backgroundColor: theme.primary }]} /></View>
+        <View style={styles.progressContainer}><Animated.View style={[styles.progressBar, { width: progressBarWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }), backgroundColor: readerTheme.primary }]} /></View>
       </View>
 
       <ScrollView 
@@ -241,16 +274,15 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
           const totalHeight = contentSize.height - layoutMeasurement.height;
           setScrollProgress(totalHeight > 0 ? contentOffset.y / totalHeight : 0);
-          scrollY.current = contentOffset.y;
         }} 
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={styles.header}>
-          <Text style={[styles.genre, { color: theme.primary, fontFamily: fonts.body }]}>{story?.genre}</Text>
-          <Text style={[styles.title, { color: theme.black, fontFamily: fonts.heading }]}>{story?.title}</Text>
+          <Text style={[styles.genre, { color: readerTheme.primary, fontFamily: fonts.body }]}>{story?.genre}</Text>
+          <Text style={[styles.title, { color: readerTheme.text, fontFamily: fonts.heading }]}>{story?.title}</Text>
           <View style={styles.chapterHeader}>
-              <Text style={[styles.chapterLabel, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>
+              <Text style={[styles.chapterLabel, { color: readerTheme.meta, fontFamily: fonts.heading }]}>
                   {currentChapter?.title ? currentChapter.title.toUpperCase() : "CHAPTER 1"}
               </Text>
           </View>
@@ -258,27 +290,42 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         
         <View style={styles.bodyContainer}>
           {paragraphs.length > 0 ? paragraphs.map((para, idx) => (
-            <Text key={idx} style={[styles.bodyText, { color: theme.black, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
+            <Text key={idx} style={[styles.bodyText, { color: readerTheme.text, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
           )) : (
-            <Text style={[styles.bodyText, { color: theme.black, opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 40 }]}>No content found for this chapter.</Text>
+            <Text style={[styles.bodyText, { color: readerTheme.text, opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 40 }]}>No content found for this chapter.</Text>
           )}
         </View>
         
         {chapters.length > 1 && (
-            <View style={styles.chapterNav}>
-                <TouchableOpacity style={[styles.navBtn, currentChapterIdx <= 0 && { opacity: 0.3 }]} disabled={currentChapterIdx <= 0} onPress={() => loadChapter(chapters[currentChapterIdx - 1].id)}><ChevronLeft size={24} color={theme.black} /><Text style={styles.navBtnText}>Previous</Text></TouchableOpacity>
-                <Text style={[styles.navProgress, { fontFamily: fonts.heading }]}>{currentChapterIdx + 1} / {chapters.length}</Text>
-                <TouchableOpacity style={[styles.navBtn, currentChapterIdx >= chapters.length - 1 && { opacity: 0.3 }]} disabled={currentChapterIdx >= chapters.length - 1} onPress={() => loadChapter(chapters[currentChapterIdx + 1].id)}><Text style={styles.navBtnText}>Next</Text><ChevronRight size={24} color={theme.black} /></TouchableOpacity>
+            <View style={[styles.chapterNav, { borderTopColor: 'rgba(0,0,0,0.05)' }]}>
+                <TouchableOpacity style={[styles.navBtn, currentChapterIdx <= 0 && { opacity: 0.3 }]} disabled={currentChapterIdx <= 0} onPress={() => loadChapter(chapters[currentChapterIdx - 1].id)}><ChevronLeft size={24} color={readerTheme.text} /><Text style={[styles.navBtnText, { color: readerTheme.text }]}>Previous</Text></TouchableOpacity>
+                <Text style={[styles.navProgress, { fontFamily: fonts.heading, color: readerTheme.text }]}>{currentChapterIdx + 1} / {chapters.length}</Text>
+                <TouchableOpacity style={[styles.navBtn, currentChapterIdx >= chapters.length - 1 && { opacity: 0.3 }]} disabled={currentChapterIdx >= chapters.length - 1} onPress={() => loadChapter(chapters[currentChapterIdx + 1].id)}><Text style={[styles.navBtnText, { color: readerTheme.text }]}>Next</Text><ChevronRight size={24} color={readerTheme.text} /></TouchableOpacity>
             </View>
         )}
       </ScrollView>
 
-      {/* Modals: Warning, TOC, Comments */}
+      {/* Modals: Warning, TOC, Comments, Theme Picker */}
+      <Modal visible={showThemePicker} animationType="slide" transparent>
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }]}>
+              <View style={[styles.modalContent, { backgroundColor: appTheme.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: insets.bottom + 40 }]}>
+                  <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: appTheme.black, fontFamily: fonts.heading }]}>READING MOOD</Text><TouchableOpacity onPress={() => setShowThemePicker(false)}><X size={24} color={appTheme.black} /></TouchableOpacity></View>
+                  <View style={styles.themeGrid}>
+                      {Object.keys(READER_THEMES).map((mode) => (
+                          <TouchableOpacity key={mode} style={[styles.themeOption, { backgroundColor: (READER_THEMES as any)[mode].bg, borderColor: readerThemeMode === mode ? Colors.accent : 'rgba(0,0,0,0.1)' }]} onPress={() => updateReaderTheme(mode)}>
+                              <Text style={[styles.themeOptionText, { color: (READER_THEMES as any)[mode].text }]}>{mode.toUpperCase()}</Text>
+                          </TouchableOpacity>
+                      ))}
+                  </View>
+              </View>
+          </View>
+      </Modal>
+
       <Modal visible={showWarning} animationType="fade" transparent>
           <View style={styles.centeredOverlay}>
-              <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
+              <View style={[styles.warningContent, { backgroundColor: appTheme.white }]}>
                   <AlertTriangle size={48} color={Colors.error} />
-                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>ADVISORY</Text>
+                  <Text style={[styles.modalTitle, { color: appTheme.black, fontFamily: fonts.heading, marginTop: 20 }]}>ADVISORY</Text>
                   <Text style={[styles.modalDesc, { fontFamily: fonts.body, textAlign: 'center' }]}>{story?.contentWarnings || "General adult themes."}</Text>
                   <TouchableOpacity style={styles.actionBtnPrimary} onPress={() => setShowWarning(false)}>
                       <Text style={styles.actionBtnTextPrimary}>I UNDERSTAND</Text>
@@ -288,43 +335,50 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       </Modal>
 
       <Modal visible={showTOC} animationType="slide" transparent>
-          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>CHAPTERS</Text><TouchableOpacity onPress={() => setShowTOC(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
-              <ScrollView style={{ padding: 24 }}>{chapters.map((c, i) => (<TouchableOpacity key={c.id} style={[styles.tocItem, currentChapter?.id === c.id && { backgroundColor: theme.primary + '10' }]} onPress={() => loadChapter(c.id)}><Text style={[styles.tocOrder, { color: theme.primary }]}>{i + 1}</Text><Text style={[styles.tocTitle, { color: theme.black }]}>{c.title}</Text></TouchableOpacity>))}</ScrollView>
+          <View style={[styles.modalOverlay, { backgroundColor: appTheme.white, paddingTop: insets.top + 20 }]}>
+              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: appTheme.black, fontFamily: fonts.heading }]}>CHAPTERS</Text><TouchableOpacity onPress={() => setShowTOC(false)}><X size={24} color={appTheme.black} /></TouchableOpacity></View>
+              <ScrollView style={{ padding: 24 }}>{chapters.map((c, i) => (<TouchableOpacity key={c.id} style={[styles.tocItem, currentChapter?.id === c.id && { backgroundColor: appTheme.primary + '10' }]} onPress={() => loadChapter(c.id)}><Text style={[styles.tocOrder, { color: appTheme.primary }]}>{i + 1}</Text><Text style={[styles.tocTitle, { color: appTheme.black }]}>{c.title}</Text></TouchableOpacity>))}</ScrollView>
           </View>
       </Modal>
 
       <Modal visible={showComments} animationType="slide" transparent>
-          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>COMMENTS</Text><TouchableOpacity onPress={() => setShowComments(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
+          <View style={[styles.modalOverlay, { backgroundColor: appTheme.white, paddingTop: insets.top + 20 }]}>
+              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: appTheme.black, fontFamily: fonts.heading }]}>COMMENTS</Text><TouchableOpacity onPress={() => setShowComments(false)}><X size={24} color={appTheme.black} /></TouchableOpacity></View>
               <ScrollView style={{ padding: 24 }} refreshControl={<RefreshControl refreshing={commentsLoading} onRefresh={fetchComments} />}>
                   {comments.map(c => (
                       <View key={c.id} style={styles.commentItem}>
-                          <Text style={[styles.commentUser, { fontFamily: fonts.heading, color: theme.primary }]}>{c.user?.username}</Text>
-                          <Text style={[styles.commentText, { fontFamily: fonts.body, color: theme.black }]}>{c.content}</Text>
+                          <Text style={[styles.commentUser, { fontFamily: fonts.heading, color: appTheme.primary }]}>{c.user?.username}</Text>
+                          <Text style={[styles.commentText, { fontFamily: fonts.body, color: appTheme.black }]}>{c.content}</Text>
                       </View>
                   ))}
                   {comments.length === 0 && !commentsLoading && <Text style={{ textAlign: 'center', marginTop: 40, opacity: 0.5 }}>No comments yet.</Text>}
               </ScrollView>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
                   <View style={[styles.commentInputRow, { borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 20 }]}>
-                      <TextInput style={[styles.commentInput, { fontFamily: fonts.body, color: theme.black, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]} placeholder="Add a comment..." value={newComment} onChangeText={setNewNote} />
-                      <TouchableOpacity onPress={handlePostComment} style={[styles.sendBtn, { backgroundColor: theme.primary }]}><Send size={18} color={theme.white} /></TouchableOpacity>
+                      <TextInput style={[styles.commentInput, { fontFamily: fonts.body, color: appTheme.black, backgroundColor: appIsDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]} placeholder="Add a comment..." value={newComment} onChangeText={setNewComment} />
+                      <TouchableOpacity onPress={handlePostComment} style={[styles.sendBtn, { backgroundColor: appTheme.primary }]}><Send size={18} color={appTheme.white} /></TouchableOpacity>
                   </View>
               </KeyboardAvoidingView>
           </View>
       </Modal>
 
       {/* Bottom Bar */}
-      <View style={[styles.bottomBar, { backgroundColor: theme.white, borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.bottomBar, { backgroundColor: readerTheme.bg, borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
-            <Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} />
-            <Text style={[styles.actionCount, { color: theme.black, fontFamily: fonts.body }]}>{likeCount}</Text>
+            <Heart size={22} color={isLiked ? "red" : readerTheme.text} fill={isLiked ? "red" : "none"} />
+            <View style={{ marginLeft: 8 }}>
+                <Text style={[styles.actionLabel, { color: readerTheme.text, fontFamily: fonts.heading }]}>LIKE</Text>
+                <Text style={[styles.actionCount, { color: readerTheme.text, fontFamily: fonts.body }]}>{likeCount}</Text>
+            </View>
           </TouchableOpacity>
+          
           <TouchableOpacity onPress={() => { setShowComments(true); fetchComments(); }} style={styles.actionBtn}>
-            <MessageSquare size={22} color={theme.black} />
-            <Text style={[styles.actionCount, { color: theme.black, fontFamily: fonts.body }]}>{story?._count?.comments || 0}</Text>
+            <MessageSquare size={22} color={readerTheme.text} />
+            <View style={{ marginLeft: 8 }}>
+                <Text style={[styles.actionLabel, { color: readerTheme.text, fontFamily: fonts.heading }]}>COMMENTS</Text>
+                <Text style={[styles.actionCount, { color: readerTheme.text, fontFamily: fonts.body }]}>{story?._count?.comments || 0}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -334,7 +388,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: { borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  topBar: { borderBottomWidth: 1 },
   topBarContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
   topBarIcons: { flexDirection: "row", alignItems: "center" },
   iconBtn: { marginLeft: 16 },
@@ -348,14 +402,15 @@ const styles = StyleSheet.create({
   chapterLabel: { fontSize: 14, letterSpacing: 2 },
   bodyContainer: { paddingHorizontal: 24, marginBottom: 40 },
   bodyText: { fontSize: 18 },
-  chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginBottom: 100 },
+  chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, marginBottom: 100 },
   navBtn: { flexDirection: 'row', alignItems: 'center' },
   navBtnText: { fontSize: 14, marginHorizontal: 8 },
   navProgress: { fontSize: 16 },
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, borderTopWidth: 1, paddingTop: 16 },
   bottomBarContent: { flexDirection: "row", justifyContent: "space-around", alignItems: "center", paddingHorizontal: 20 },
   actionBtn: { flexDirection: "row", alignItems: "center", padding: 8 },
-  actionCount: { fontSize: 13, marginLeft: 8 },
+  actionLabel: { fontSize: 10, letterSpacing: 1, opacity: 0.7 },
+  actionCount: { fontSize: 12, marginTop: -2 },
   modalOverlay: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
   modalTitle: { fontSize: 18, letterSpacing: 1 },
@@ -372,5 +427,8 @@ const styles = StyleSheet.create({
   commentText: { fontSize: 14, lineHeight: 20 },
   commentInputRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1 },
   commentInput: { flex: 1, height: 44, borderRadius: 22, paddingHorizontal: 16, fontSize: 14 },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, marginLeft: 12, justifyContent: 'center', alignItems: 'center' }
+  sendBtn: { width: 44, height: 44, borderRadius: 22, marginLeft: 12, justifyContent: 'center', alignItems: 'center' },
+  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 24, justifyContent: 'space-between' },
+  themeOption: { width: '48%', height: 60, borderRadius: 16, marginBottom: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
+  themeOptionText: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 1 }
 });

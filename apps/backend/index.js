@@ -566,6 +566,14 @@ app.get("/users/me", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/users/me/preferences", authenticate, async (req, res) => {
+    const { readerTheme } = req.body;
+    try {
+        const user = await prisma.user.update({ where: { id: req.user.id }, data: { readerTheme } });
+        res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- 404 ---
 app.use((req, res) => {
     console.log(`[404] Unhandled: ${req.method} ${req.url}`);

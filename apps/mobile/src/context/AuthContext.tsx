@@ -182,9 +182,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
+      console.log("[Auth] Refreshing user data from backend...");
       const res = await apiClient.get("/users/me");
       setUser(res.data);
-    } catch (e) {}
+      console.log("[Auth] User data refreshed:", res.data.username);
+    } catch (e: any) {
+      console.log("[Auth] Refresh failed:", e.message);
+    }
   };
 
   return (

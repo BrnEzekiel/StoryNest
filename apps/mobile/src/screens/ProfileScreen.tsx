@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -8,6 +8,7 @@ import { useTheme } from "../context/ThemeContext";
 import * as ImagePicker from "expo-image-picker";
 import apiClient from "../api/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { HeaderWave } from "../components/HeaderWave";
 import { StatusBar } from "expo-status-bar";
@@ -22,9 +23,12 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [finishedCount, setFinishedCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProfileData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+      fetchProfileData();
+    }, [])
+  );
 
   const fetchProfileData = async () => {
     try {

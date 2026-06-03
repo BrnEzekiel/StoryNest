@@ -26,6 +26,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- DEBUG LOGGER ---
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // --- UTILS ---
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -97,7 +103,7 @@ const canEditStory = async (req, res, next) => {
 
 // --- ROUTES ---
 
-app.get("/health", (req, res) => res.json({ status: "ok", version: "3.5.4" }));
+app.get("/health", (req, res) => res.json({ status: "ok", version: "3.5.5" }));
 
 // --- AUTH FLOW ---
 
@@ -158,6 +164,18 @@ app.post("/auth/login", async (req, res) => {
     const tokens = generateTokens(user);
     res.json({ user, ...tokens });
   } catch (error) { res.status(401).json({ error: "Login failed" }); }
+});
+
+app.post("/auth/refresh", async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(401).json({ error: "No refresh token" });
+    try {
+        const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
+        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+        if (!user) throw new Error();
+        const tokens = generateTokens(user);
+        res.json(tokens);
+    } catch (e) { res.status(401).json({ error: "Invalid refresh token" }); }
 });
 
 // --- STORIES ---
@@ -227,13 +245,6 @@ app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), asyn
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
-    try {
-        await prisma.story.delete({ where: { id: req.params.id } });
-        res.json({ message: "Deleted" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 // --- CHAPTERS ---
 
 app.get("/chapters/:id", async (req, res) => {
@@ -253,28 +264,15 @@ app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) =
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put("/chapters/:id", authenticate, async (req, res) => {
-    try {
-        const updated = await prisma.chapter.update({ where: { id: req.params.id }, data: req.body });
-        res.json(updated);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete("/chapters/:id", authenticate, async (req, res) => {
-    try {
-        await prisma.chapter.delete({ where: { id: req.params.id } });
-        res.json({ message: "Deleted" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 // --- MESSAGING & SOCIAL ---
 
 app.get("/messages/conversations", authenticate, async (req, res) => {
     try {
+        const userId = req.user.id;
         const messages = await prisma.message.findMany({
-            where: { OR: [{ senderId: req.user.id }, { receiverId: req.user.id }] },
+            where: { OR: [{ senderId: userId }, { receiverId: userId }] },
             orderBy: { createdAt: "desc" },
-            include: { sender: { select: { id: true, username: true, avatarUrl: true } }, receiver: { select: { id: true, username: true, avatarUrl: true } } }
+            include: { sender: true, receiver: true }
         });
         const convs = []; const seen = new Set();
         for (const m of messages) {
@@ -294,71 +292,6 @@ app.post("/messages", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/users/:id/follow", authenticate, async (req, res) => {
-    try {
-        await prisma.follows.create({ data: { followerId: req.user.id, followingId: req.params.id } });
-        res.json({ message: "Followed" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/users/:id/profile", async (req, res) => {
-    try {
-        const user = await prisma.user.findUnique({
-            where: { id: req.params.id },
-            select: { id: true, username: true, avatarUrl: true, bio: true, xp: true, _count: { select: { followers: true, following: true } } }
-        });
-        res.json(user);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- POLLS & REVIEWS ---
-
-app.post("/polls/:id/vote", authenticate, async (req, res) => {
-    const { optionId } = req.body;
-    try {
-        const vote = await prisma.pollVote.create({ data: { userId: req.user.id, pollId: req.params.id, optionId } });
-        res.status(201).json(vote);
-    } catch (e) { res.status(400).json({ error: "Already voted or invalid" }); }
-});
-
-app.post("/stories/:id/reviews", authenticate, async (req, res) => {
-    const { rating, content } = req.body;
-    try {
-        const review = await prisma.review.create({ data: { userId: req.user.id, storyId: req.params.id, rating, content } });
-        res.status(201).json(review);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- ANALYTICS ---
-
-app.get("/admin/my-stories", authenticate, async (req, res) => {
-    try {
-        const stories = await prisma.story.findMany({
-            where: { OR: [{ ownerId: req.user.id }, { coAuthors: { some: { id: req.user.id } } }] },
-            include: { _count: { select: { likes: true, history: true } }, coAuthors: true },
-            orderBy: { updatedAt: "desc" }
-        });
-        res.json(stories);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/admin/analytics", authenticate, async (req, res) => {
-    try {
-        const stories = await prisma.story.findMany({
-            where: { ownerId: req.user.id },
-            include: { _count: { select: { likes: true, comments: true, history: true, reviews: true } } }
-        });
-        res.json(stories.map(s => ({ id: s.id, title: s.title, reads: s._count.history, likes: s._count.likes, comments: s._count.comments, reviews: s._count.reviews })));
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
-    try {
-        const [storyCount, totalReads, userCount] = await Promise.all([prisma.story.count(), prisma.history.count(), prisma.user.count()]);
-        res.json({ storyCount, totalReads, userCount });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 app.get("/users/me", authenticate, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { bookmarks: true, achievements: true } });
@@ -366,5 +299,11 @@ app.get("/users/me", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- 404 HANDLER ---
+app.use((req, res) => {
+    console.log(`[404] ${req.method} ${req.url}`);
+    res.status(404).json({ error: "Route not found", method: req.method, url: req.url });
+});
+
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.5.4 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.5.5 running on port ${PORT}`));

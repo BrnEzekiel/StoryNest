@@ -83,29 +83,26 @@ export const OTPScreen = ({ route, navigation }: any) => {
       await verifyOTP(email, code);
       setStatus("success");
       
-      // Short delay to show the green "success" state
-      setTimeout(async () => {
-        try {
-            if (type === 'registration') {
-                await finalizeRegistration({ ...data, email });
-            } else {
-                navigation.navigate("ResetPassword", { email, otp: code });
-            }
-        } catch (err: any) {
-            setStatus("error");
-            setOtp(["", "", "", "", "", ""]);
-            const serverMsg = err.response?.data?.error || err.response?.data?.message;
-            const statusStr = err.response ? `(HTTP ${err.response.status})` : "(Network Error)";
-            Alert.alert("Registration Error", `${serverMsg || "Final registration failed."} ${statusStr}`);
-        } finally {
-            setLoading(false);
-        }
-      }, 800);
+      console.log(`[Auth] OTP Verified. Starting final registration for ${email}...`);
+      
+      if (type === 'registration') {
+          await finalizeRegistration({ ...data, email });
+          console.log(`[Auth] Registration Complete.`);
+      } else {
+          setLoading(false);
+          navigation.navigate("ResetPassword", { email, otp: code });
+      }
 
     } catch (err: any) {
+      console.log("[Auth] Verification/Registration Error:", err.message);
       setStatus("error");
       setLoading(false);
-      // Brief delay then clear
+      
+      const serverMsg = err.response?.data?.error || err.response?.data?.message;
+      const statusStr = err.response ? `(HTTP ${err.response.status})` : (err.message?.includes("network") ? "(Network Error)" : "");
+      
+      Alert.alert("Registration Error", `${serverMsg || err.message || "Process failed."} ${statusStr}`);
+      
       setTimeout(() => {
         setOtp(["", "", "", "", "", ""]);
         inputs.current[0].focus();

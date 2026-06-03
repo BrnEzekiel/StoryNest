@@ -62,10 +62,13 @@ export const SignupScreen = ({ navigation }: any) => {
   }, [response]);
 
   const handleGoogleLogin = async (idToken: string) => {
+    console.log("[Signup] Starting Google login with ID Token...");
     setLoading(true);
     try {
       await loginWithGoogle(idToken);
-    } catch (err) {
+      console.log("[Signup] Google Login Success");
+    } catch (err: any) {
+      console.log("[Signup] Google login failed:", err.message);
       Alert.alert("Google Auth", "Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);

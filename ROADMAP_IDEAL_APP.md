@@ -51,8 +51,8 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 41. **Leveling System:** Gain XP for reading, commenting, and writing. ✅
 42. **User Badges:** "Bookworm," "Night Owl," "First Commenter" badges. ✅
 43. **Daily Quests:** "Read for 10 minutes," "Like 3 stories." ✅
-44. **Global Leaderboard:** Weekly rankings for top readers and authors.
-45. **Achievement Shop:** Spend XP/Coins on exclusive themes or avatars.
+44. **Global Leaderboard:** Weekly rankings for top readers and authors. ✅
+45. **Achievement Shop:** Spend XP/Coins on exclusive themes or avatars. ✅
 46. **Reading Streaks:** Visual calendar showing consecutive days read.
 47. **Story Milestones:** Popups when a story reaches 1k/10k/100k reads.
 48. **Collectible Items:** Find "hidden artifacts" while reading specific genres.

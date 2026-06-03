@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Dimensions } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Zap, Crown, Check, ShoppingCart, Sparkles, Star } from "lucide-react-native";
+import { ArrowLeft, Zap, Crown, Check, ShoppingCart, Sparkles, Star, Palette, Image as ImageIcon, Frame } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
@@ -17,6 +17,12 @@ const COIN_PLANS = [
     { id: 'c1', amount: 100, price: '1.99', color: '#FF9500' },
     { id: 'c2', amount: 500, price: '7.99', color: '#FFCC00', popular: true },
     { id: 'c3', amount: 1200, price: '14.99', color: Colors.accent }
+];
+
+const SHOP_ITEMS = [
+    { id: 'i1', name: 'Midnight Theme', price: 100, desc: 'A sleek deep-blue theme', icon: Palette, color: '#5856D6' },
+    { id: 'i2', name: 'Elite Border', price: 250, desc: 'Golden ring around avatar', icon: Frame, color: '#FFCC00' },
+    { id: 'i3', name: 'Custom Icon', price: 500, desc: 'Change your app icon', icon: ImageIcon, color: Colors.accent }
 ];
 
 export const ShopScreen = ({ navigation }: any) => {
@@ -36,6 +42,24 @@ export const ShopScreen = ({ navigation }: any) => {
     } finally {
         setLoading(null);
     }
+  };
+
+  const handleBuyItem = async (item: any) => {
+      if ((user?.coins || 0) < item.price) {
+          Alert.alert("Need more coins", "You don't have enough coins for this item.");
+          return;
+      }
+
+      setLoading(item.id);
+      try {
+          await apiClient.post("/gamification/shop/purchase", { itemId: item.id, price: item.price, name: item.name });
+          await refreshUser();
+          Alert.alert("Unlocked!", `${item.name} is now yours. You can activate it in settings.`);
+      } catch (e) {
+          Alert.alert("Error", "Purchase failed.");
+      } finally {
+          setLoading(null);
+      }
   };
 
   const handleSubscribe = async () => {
@@ -118,6 +142,38 @@ export const ShopScreen = ({ navigation }: any) => {
             </LinearGradient>
         </View>
 
+        {/* Feature 45: Achievement Shop */}
+        <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>ACHIEVEMENT SHOP</Text>
+                <Text style={[styles.sectionSub, { fontFamily: fonts.body }]}>Exclusive rewards for dedicated readers</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+                {SHOP_ITEMS.map((item) => (
+                    <TouchableOpacity 
+                        key={item.id} 
+                        style={[styles.itemCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}
+                        onPress={() => handleBuyItem(item)}
+                        disabled={!!loading}
+                    >
+                        <View style={[styles.itemIconBox, { backgroundColor: item.color + '15' }]}>
+                            <item.icon size={24} color={item.color} />
+                        </View>
+                        <Text style={[styles.itemCardTitle, { color: theme.black, fontFamily: fonts.heading }]}>{item.name}</Text>
+                        <View style={styles.itemPriceRow}>
+                            <Zap size={12} color={Colors.accent} fill={Colors.accent} />
+                            <Text style={[styles.itemPriceText, { color: theme.primary, fontFamily: fonts.heading }]}>{item.price}</Text>
+                        </View>
+                        {loading === item.id ? <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 10 }} /> : (
+                            <View style={[styles.itemBuyBtn, { backgroundColor: theme.primary }]}>
+                                <Text style={[styles.itemBuyText, { fontFamily: fonts.heading }]}>BUY</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
+
         {/* Coins Section */}
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -197,6 +253,13 @@ const styles = StyleSheet.create({
   coinAmount: { fontSize: 20, marginBottom: 2 },
   coinPrice: { fontSize: 12, color: Colors.mutedTeal, marginBottom: 12 },
   buyBtn: { padding: 8, borderRadius: 10 },
+  itemCard: { width: 140, padding: 20, borderRadius: 24, marginRight: 16, alignItems: 'center' },
+  itemIconBox: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  itemCardTitle: { fontSize: 13, textAlign: 'center', marginBottom: 6 },
+  itemPriceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  itemPriceText: { fontSize: 12, marginLeft: 4 },
+  itemBuyBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8 },
+  itemBuyText: { color: Colors.white, fontSize: 10 },
   footer: { alignItems: 'center', marginTop: 10 },
   footerText: { fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 }
 });

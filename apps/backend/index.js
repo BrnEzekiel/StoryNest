@@ -971,6 +971,49 @@ app.post("/stories/:id/purchase", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- GAMIFICATION ---
+
+app.get("/gamification/leaderboard", async (req, res) => {
+    try {
+        const leaders = await prisma.user.findMany({
+            take: 10,
+            orderBy: { xp: "desc" },
+            select: {
+                username: true,
+                avatarUrl: true,
+                xp: true,
+                isPremium: true
+            }
+        });
+        res.json(leaders);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/gamification/shop/purchase", authenticate, async (req, res) => {
+    const { itemId, price, name } = req.body;
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (user.coins < price) return res.status(400).json({ error: "Insufficient coins" });
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { coins: { decrement: price } }
+        });
+
+        await prisma.purchase.create({
+            data: {
+                userId: req.user.id,
+                type: "COINS", // Using COINS as a general virtual purchase type for now
+                amount: price,
+                currency: "COIN"
+            }
+        });
+
+        sendSlackNotification(`🎁 **${user.username}** bought ${name} from the Achievement Shop!`);
+        res.json({ message: "Success", coins: updatedUser.coins });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- ADMIN STATS ---
 app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
   try {

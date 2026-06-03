@@ -204,13 +204,27 @@ export const ProfileScreen = ({ navigation }: any) => {
           
           <TouchableOpacity 
             style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("Shop")}
+            onPress={() => navigation.navigate("Statistics")}
           >
             <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: Colors.accent + '15' }]}><ShoppingBag size={20} color={Colors.accent} /></View>
+              <View style={[styles.menuIcon, { backgroundColor: '#007AFF15' }]}><BarChart2 size={20} color="#007AFF" /></View>
               <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Nest Marketplace</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Buy coins and subscriptions</Text>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reading Insights</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Your streaks and statistics</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={Colors.mutedTeal} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+            onPress={() => navigation.navigate("Leaderboard")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: '#FFD70015' }]}><Trophy size={20} color="#FFD700" /></View>
+              <View>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Global Leaderboard</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Rank against all readers</Text>
               </View>
             </View>
             <ChevronRight size={18} color={Colors.mutedTeal} />

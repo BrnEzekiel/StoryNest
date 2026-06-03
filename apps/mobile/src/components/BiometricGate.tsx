@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ImageBackground } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors } from "../theme/colors";
+import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ShieldCheck, Lock } from "lucide-react-native";
+import { CheckCircle2 } from "lucide-react-native";
 import { Impact } from "../utils/haptics";
+import { LinearGradient } from "expo-linear-gradient";
 
 export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isLocked, setIsLocked] = useState(false);
     const [checking, setChecking] = useState(true);
+    const [unlocked, setUnlocked] = useState(false);
 
     useEffect(() => {
         checkLock();
@@ -19,7 +21,8 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
         const enabled = await AsyncStorage.getItem("biometricEnabled");
         if (enabled === "true") {
             setIsLocked(true);
-            authenticate();
+            // Don't auto-authenticate immediately on mount to ensure UI is ready
+            setTimeout(authenticate, 500);
         } else {
             setIsLocked(false);
         }
@@ -29,16 +32,20 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
     const authenticate = async () => {
         try {
             const result = await LocalAuthentication.authenticateAsync({
-                promptMessage: "Unlock StoryNest",
-                fallbackLabel: "Use Passcode"
+                promptMessage: "Access StoryNest",
+                fallbackLabel: "Use Device Passcode"
             });
 
             if (result.success) {
-                Impact.light();
-                setIsLocked(false);
+                Impact.success();
+                setUnlocked(true);
+                // Give the user a moment to see the "Unlocked" status
+                setTimeout(() => {
+                    setIsLocked(false);
+                }, 1000);
             }
         } catch (e) {
-            console.log("Auth error", e);
+            console.log("[Biometric] Auth error", e);
         }
     };
 
@@ -46,16 +53,50 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (isLocked) {
         return (
-            <View style={styles.container}>
-                <ShieldCheck size={80} color={Colors.accent} strokeWidth={1} />
-                <Text style={styles.title}>STORYNEST IS LOCKED</Text>
-                <Text style={styles.subtitle}>Confirm your identity to resume your journey.</Text>
+            <ImageBackground 
+                source={require("../../assets/auth-bg.jpg")}
+                style={styles.container}
+                resizeMode="cover"
+            >
+                <LinearGradient
+                    colors={["rgba(0, 30, 28, 0.9)", "rgba(0, 30, 28, 0.98)"]}
+                    style={StyleSheet.absoluteFill}
+                />
                 
-                <TouchableOpacity style={styles.btn} onPress={authenticate}>
-                    <Lock size={20} color={Colors.primary} />
-                    <Text style={styles.btnText}>UNLOCK NOW</Text>
-                </TouchableOpacity>
-            </View>
+                <View style={styles.content}>
+                    <Image 
+                        source={require("../../assets/logo.png")} 
+                        style={styles.logo}
+                        resizeMode="contain"
+                    />
+                    
+                    <View style={styles.textSection}>
+                        <Text style={styles.title}>SECURITY GATE</Text>
+                        <Text style={styles.subtitle}>
+                            {unlocked ? "Access Granted" : "Your session is protected."}
+                        </Text>
+                    </View>
+
+                    {unlocked ? (
+                        <View style={styles.successBox}>
+                            <CheckCircle2 size={40} color={Colors.accent} />
+                            <Text style={styles.successText}>UNLOCKED</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity 
+                            style={[styles.btn, Shadows.m]} 
+                            onPress={authenticate}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.btnText}>RE-AUTHENTICATE</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>STORYNEST SECURE v3.0</Text>
+                </View>
+            </ImageBackground>
         );
     }
 
@@ -65,40 +106,73 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.primary,
+        justifyContent: "center",
+        alignItems: "center"
+    },
+    content: {
+        flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        padding: 40
+        padding: 40,
+        width: "100%"
+    },
+    logo: {
+        width: 80,
+        height: 80,
+        marginBottom: 32,
+        opacity: 0.9
+    },
+    textSection: {
+        alignItems: "center",
+        marginBottom: 60
     },
     title: {
         fontFamily: Fonts.heading,
-        fontSize: 20,
+        fontSize: 16,
         color: Colors.accent,
-        marginTop: 40,
-        letterSpacing: 2
+        letterSpacing: 4,
+        opacity: 0.9
     },
     subtitle: {
         fontFamily: Fonts.body,
         fontSize: 14,
         color: Colors.paleGreen,
-        textAlign: "center",
         marginTop: 12,
-        lineHeight: 20,
-        opacity: 0.8
+        opacity: 0.7
     },
     btn: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 60,
-        paddingVertical: 16,
-        paddingHorizontal: 32,
+        paddingVertical: 18,
+        paddingHorizontal: 40,
         backgroundColor: Colors.accent,
-        borderRadius: 12
+        borderRadius: 30,
+        width: "100%"
     },
     btnText: {
         fontFamily: Fonts.heading,
-        fontSize: 14,
+        fontSize: 12,
         color: Colors.primary,
-        marginLeft: 12
+        textAlign: "center",
+        letterSpacing: 2
+    },
+    successBox: {
+        alignItems: "center"
+    },
+    successText: {
+        fontFamily: Fonts.heading,
+        fontSize: 12,
+        color: Colors.accent,
+        marginTop: 12,
+        letterSpacing: 3
+    },
+    footer: {
+        position: "absolute",
+        bottom: 40,
+        opacity: 0.3
+    },
+    footerText: {
+        fontFamily: Fonts.body,
+        fontSize: 10,
+        color: Colors.white,
+        letterSpacing: 1
     }
 });

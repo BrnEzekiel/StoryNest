@@ -27,16 +27,11 @@ import { AdminScreen } from "../screens/AdminScreen";
 import { StoryReaderScreen } from "../screens/StoryReaderScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { EditProfileScreen } from "../screens/EditProfileScreen";
-import { AchievementsScreen } from "../screens/AchievementsScreen";
-import { StatisticsScreen } from "../screens/StatisticsScreen";
-import { ShopScreen } from "../screens/ShopScreen";
-import { LeaderboardScreen } from "../screens/LeaderboardScreen";
 import { UserProfileScreen } from "../screens/UserProfileScreen";
 import { CreativeSuiteScreen } from "../screens/CreativeSuiteScreen";
 import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
-import { PlaylistsScreen } from "../screens/PlaylistsScreen";
 
 const { width } = Dimensions.get("window");
 const Tab = createMaterialTopTabNavigator();
@@ -142,16 +137,11 @@ export const MainNavigator = () => {
           <Stack.Screen name="Admin" component={AdminScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="Achievements" component={AchievementsScreen} />
-          <Stack.Screen name="Statistics" component={StatisticsScreen} />
-          <Stack.Screen name="Shop" component={ShopScreen} />
-          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
           <Stack.Screen name="UserProfile" component={UserProfileScreen} />
           <Stack.Screen name="CreativeSuite" component={CreativeSuiteScreen} />
           <Stack.Screen name="ManageChapters" component={ManageChaptersScreen} />
           <Stack.Screen name="Messages" component={MessagesScreen} />
           <Stack.Screen name="AuthorAnalytics" component={AuthorAnalyticsScreen} />
-          <Stack.Screen name="Playlists" component={PlaylistsScreen} />
         </>
       )}
     </Stack.Navigator>

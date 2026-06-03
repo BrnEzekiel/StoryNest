@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground, Image } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, X, TrendingUp, Sparkles, Filter, Shuffle } from "lucide-react-native";

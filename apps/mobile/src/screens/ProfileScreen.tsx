@@ -47,7 +47,6 @@ export const ProfileScreen = ({ navigation }: any) => {
                 </View>
                 <View style={styles.avatarWrapper}>
                     <View style={styles.avatarBorder}><Image source={{ uri: user?.avatarUrl || "https://via.placeholder.com/100" }} style={styles.avatar} /></View>
-                    <View style={styles.xpBadge}><Text style={[styles.xpText, { fontFamily: fonts.heading }]}>{user?.xp || 0} XP</Text></View>
                 </View>
                 <Text style={[styles.username, { fontFamily: fonts.heading, color: Colors.white }]}>{user?.username}</Text>
                 <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
@@ -56,7 +55,6 @@ export const ProfileScreen = ({ navigation }: any) => {
 
         <View style={styles.menuGrid}>
             <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
-            <MenuOption icon={Trophy} title="Achievements" subtitle="Earned rewards" onPress={() => navigation.navigate("Achievements")} color="#FF9500" />
             <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
             {user?.role === 'ADMIN' && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
         </View>

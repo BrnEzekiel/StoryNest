@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions, Modal, FlatList, Image } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle, Reply, Lock, Zap, Highlighter, Book, Search, Globe, ChevronLeft, ChevronRight, List, Star, Coins, BarChart2, FolderPlus } from "lucide-react-native";
+import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle, Reply, Lock, Highlighter, Book, Search, Globe, ChevronLeft, ChevronRight, List, Star, BarChart2 } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -37,24 +37,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   
-  // Feature 67: Playlists
-  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
-  const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
-
-  // Feature 59: Polls
-  const [votingId, setVotingId] = useState<string | null>(null);
-
-  // Feature 60: Reviews
   const [showReviews, setShowReviews] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState("");
   const [reviewsLoading, setReviewsLoading] = useState(false);
-
-  // Feature 35: Tip Jar
-  const [showTipModal, setShowTipModal] = useState(false);
-  const [tipAmount, setTipAmount] = useState(10);
-  const [tipping, setTipping] = useState(false);
 
   // Feature 14: Highlighting
   const [highlights, setHighlights] = useState<any[]>([]);
@@ -75,11 +62,9 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [translating, setTranslating] = useState(false);
   const [currentLang, setCurrentLang] = useState("English");
 
-  // Feature 24-25: TOC / Warnings / Purchase
+  // Feature 24-25: TOC / Warnings
   const [showTOC, setShowTOC] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
-  const [showPurchase, setShowPurchase] = useState(false);
-  const [purchasing, setPurchasing] = useState(false);
 
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -125,9 +110,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setLikeCount(res.data._count?.likes || 0);
       setIsLiked(res.data.isLiked);
       
-      if (!res.data.isUnlocked) {
-          setShowPurchase(true);
-      } else if (res.data.contentWarnings || res.data.isAdult) {
+      if (res.data.contentWarnings || res.data.isAdult) {
           setShowWarning(true);
       }
 
@@ -137,7 +120,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
       setIsBookmarked(!!bookmark);
 
-      if (res.data.isUnlocked) await apiClient.post(`/stories/${storyId}/read`);
+      await apiClient.post(`/stories/${storyId}/read`);
     } catch (error) { console.log(error); } 
     finally { setLoading(false); }
   };
@@ -153,32 +136,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setShowTOC(false);
       } catch (e) { console.log(e); }
       finally { setLoading(false); }
-  };
-
-  const handlePurchase = async () => {
-    if ((user?.coins || 0) < (story?.price || 0)) {
-        Alert.alert("Insufficient Coins", "Visit the shop to top up.");
-        return;
-    }
-    setPurchasing(true);
-    try {
-        await apiClient.post(`/stories/${storyId}/purchase`);
-        setShowPurchase(false);
-        fetchStory(); 
-    } catch (e) { Alert.alert("Error", "Unlock failed."); }
-    finally { setPurchasing(false); }
-  };
-
-  const handleTip = async () => {
-      if ((user?.coins || 0) < tipAmount) { Alert.alert("Not enough coins", "Top up in the shop."); return; }
-      setTipping(true);
-      try {
-          await apiClient.post(`/users/${story.ownerId}/tip`, { amount: tipAmount });
-          Alert.alert("Success!", `You tipped ${tipAmount} coins to ${story.authorName}.`);
-          setShowTipModal(false);
-          refreshUser();
-      } catch (e) { Alert.alert("Error", "Tip failed."); }
-      finally { setTipping(false); }
   };
 
   const fetchReviews = async () => {
@@ -248,37 +205,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsBookmarked(wasBookmarked); }
   };
 
-  const handleAddToPlaylist = async (playlistId: string) => {
-      try {
-          await apiClient.post(`/playlists/${playlistId}/stories`, { storyId });
-          Alert.alert("Success", "Added to your playlist!");
-          setShowPlaylistPicker(false);
-      } catch (e) { Alert.alert("Already in playlist"); }
-  };
-
   if (loading && !currentChapter) return <View style={[styles.container, { backgroundColor: theme.white, justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primary} /></View>;
 
   const paragraphs = currentChapter?.body ? currentChapter.body.split('\n\n') : [];
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
-
-  const PollCard = ({ poll }: { poll: any }) => {
-      const totalVotes = poll.options.reduce((acc: number, o: any) => acc + o._count.votes, 0);
-      return (
-          <View style={[styles.pollCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen }]}>
-              <Text style={[styles.pollQuestion, { color: theme.black, fontFamily: fonts.heading }]}>{poll.question}</Text>
-              {poll.options.map((opt: any) => {
-                  const percent = totalVotes > 0 ? (opt._count.votes / totalVotes) * 100 : 0;
-                  return (
-                      <TouchableOpacity key={opt.id} style={[styles.pollOption, { borderColor: theme.primary + '20' }]} onPress={() => apiClient.post(`/polls/${poll.id}/vote`, { optionId: opt.id }).then(fetchStory).catch(() => Alert.alert("Voted already"))}>
-                          <View style={[styles.pollProgress, { width: `${percent}%`, backgroundColor: theme.primary + '20' }]} />
-                          <Text style={[styles.pollOptionText, { color: theme.black, fontFamily: fonts.body }]}>{opt.text}</Text>
-                          <Text style={[styles.pollPercent, { fontFamily: fonts.heading }]}>{Math.round(percent)}%</Text>
-                      </TouchableOpacity>
-                  );
-              })}
-          </View>
-      );
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
@@ -287,8 +217,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
-            <TouchableOpacity onPress={() => { apiClient.get("/playlists/me").then(res => { setUserPlaylists(res.data); setShowPlaylistPicker(true); }); }} style={styles.iconBtn}><FolderPlus size={20} color={theme.black} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowTipModal(true)} style={styles.iconBtn}><Coins size={20} color={Colors.accent} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTOC(true)} style={styles.iconBtn}><List size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTranslate(true)} style={styles.iconBtn}><Globe size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowDictionary(true)} style={styles.iconBtn}><Book size={20} color={theme.black} /></TouchableOpacity>
@@ -328,8 +256,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             <Text key={idx} style={[styles.bodyText, { color: theme.black, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
           ))}
         </View>
-
-        {story?.polls?.map((p: any) => <PollCard key={p.id} poll={p} />)}
         
         {chapters.length > 1 && (
             <View style={styles.chapterNav}>
@@ -340,21 +266,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* Modals: Purchase, Warning, Reviews, Tip, TOC, Playlists */}
-      <Modal visible={showPurchase} animationType="slide" transparent>
-          <View style={styles.centeredOverlay}>
-              <View style={[styles.purchaseContent, { backgroundColor: theme.white }]}>
-                  <Lock size={40} color={theme.primary} />
-                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>UNLOCK STORY</Text>
-                  <Text style={[styles.modalDesc, { fontFamily: fonts.body, textAlign: 'center' }]}>This is a premium story. Unlock it for {story?.price || 50} coins.</Text>
-                  <TouchableOpacity style={styles.actionBtnPrimary} onPress={handlePurchase} disabled={purchasing}>
-                      <Text style={styles.actionBtnTextPrimary}>UNLOCK NOW</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}><Text style={{ color: Colors.mutedTeal }}>Maybe Later</Text></TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
-
+      {/* Modals: Warning, Reviews, TOC */}
       <Modal visible={showWarning} animationType="fade" transparent>
           <View style={styles.centeredOverlay}>
               <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
@@ -368,29 +280,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           </View>
       </Modal>
 
-      <Modal visible={showTipModal} animationType="fade" transparent>
-          <View style={styles.centeredOverlay}>
-              <View style={[styles.tipContent, { backgroundColor: theme.white }]}>
-                  <Coins size={48} color={Colors.accent} />
-                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>TIP AUTHOR</Text>
-                  <View style={styles.tipRow}>{[10, 50, 100].map(amt => <TouchableOpacity key={amt} style={[styles.tipAmt, tipAmount === amt && { borderColor: Colors.accent, borderWidth: 2 }]} onPress={() => setTipAmount(amt)}><Text style={styles.tipAmtText}>{amt}</Text></TouchableOpacity>)}</View>
-                  <TouchableOpacity style={styles.actionBtnPrimary} onPress={handleTip} disabled={tipping}><Text style={styles.actionBtnTextPrimary}>SEND TIP</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => setShowTipModal(false)} style={{ marginTop: 20 }}><Text style={{ color: Colors.mutedTeal }}>Cancel</Text></TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
-
       <Modal visible={showTOC} animationType="slide" transparent>
           <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
               <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>CHAPTERS</Text><TouchableOpacity onPress={() => setShowTOC(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
               <ScrollView style={{ padding: 24 }}>{chapters.map((c, i) => (<TouchableOpacity key={c.id} style={[styles.tocItem, currentChapter?.id === c.id && { backgroundColor: theme.primary + '10' }]} onPress={() => loadChapter(c.id)}><Text style={[styles.tocOrder, { color: theme.primary }]}>{i + 1}</Text><Text style={[styles.tocTitle, { color: theme.black }]}>{c.title}</Text></TouchableOpacity>))}</ScrollView>
-          </View>
-      </Modal>
-
-      <Modal visible={showPlaylistPicker} animationType="slide" transparent>
-          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>ADD TO PLAYLIST</Text><TouchableOpacity onPress={() => setShowPlaylistPicker(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
-              <ScrollView style={{ padding: 24 }}>{userPlaylists.map(p => (<TouchableOpacity key={p.id} style={styles.tocItem} onPress={() => handleAddToPlaylist(p.id)}><Text style={styles.tocTitle}>{p.title}</Text><Plus size={18} color={theme.primary} /></TouchableOpacity>))}</ScrollView>
           </View>
       </Modal>
 
@@ -423,12 +316,6 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 11, marginLeft: 6, color: '#8B6508' },
   bodyContainer: { paddingHorizontal: 24, marginBottom: 40 },
   bodyText: { fontSize: 18 },
-  pollCard: { marginHorizontal: 24, padding: 24, borderRadius: 24, marginBottom: 40, ...Shadows.m },
-  pollQuestion: { fontSize: 18, marginBottom: 20 },
-  pollOption: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden' },
-  pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0 },
-  pollOptionText: { fontSize: 14 },
-  pollPercent: { fontSize: 12, opacity: 0.6 },
   chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginBottom: 100 },
   navBtn: { flexDirection: 'row', alignItems: 'center' },
   navBtnText: { fontSize: 14, marginHorizontal: 8 },
@@ -442,12 +329,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, letterSpacing: 1 },
   modalDesc: { color: Colors.mutedTeal, marginBottom: 24, paddingHorizontal: 40 },
   centeredOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.85)' },
-  purchaseContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
   warningContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
-  tipContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
-  tipRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginVertical: 32 },
-  tipAmt: { width: '30%', height: 60, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' },
-  tipAmtText: { fontSize: 18, fontWeight: '700' },
   actionBtnPrimary: { backgroundColor: Colors.primary, width: '100%', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginTop: 24 },
   actionBtnTextPrimary: { color: Colors.accent, fontSize: 14, fontWeight: '700', letterSpacing: 1 },
   tocItem: { flexDirection: 'row', alignItems: 'center', padding: 20, justifyContent: 'space-between' },

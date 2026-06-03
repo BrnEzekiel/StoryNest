@@ -103,7 +103,7 @@ const canEditStory = async (req, res, next) => {
 
 // --- ROUTES ---
 
-app.get("/health", (req, res) => res.json({ status: "ok", version: "3.5.5" }));
+app.get("/health", (req, res) => res.json({ status: "ok", version: "3.6.0" }));
 
 // --- AUTH FLOW ---
 
@@ -245,6 +245,13 @@ app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), asyn
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
+    try {
+        await prisma.story.delete({ where: { id: req.params.id } });
+        res.json({ message: "Deleted" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- CHAPTERS ---
 
 app.get("/chapters/:id", async (req, res) => {
@@ -264,6 +271,20 @@ app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) =
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put("/chapters/:id", authenticate, async (req, res) => {
+    try {
+        const updated = await prisma.chapter.update({ where: { id: req.params.id }, data: req.body });
+        res.json(updated);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/chapters/:id", authenticate, async (req, res) => {
+    try {
+        await prisma.chapter.delete({ where: { id: req.params.id } });
+        res.json({ message: "Deleted" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- MESSAGING & SOCIAL ---
 
 app.get("/messages/conversations", authenticate, async (req, res) => {
@@ -272,7 +293,7 @@ app.get("/messages/conversations", authenticate, async (req, res) => {
         const messages = await prisma.message.findMany({
             where: { OR: [{ senderId: userId }, { receiverId: userId }] },
             orderBy: { createdAt: "desc" },
-            include: { sender: true, receiver: true }
+            include: { sender: { select: { id: true, username: true, avatarUrl: true } }, receiver: { select: { id: true, username: true, avatarUrl: true } } }
         });
         const convs = []; const seen = new Set();
         for (const m of messages) {
@@ -292,6 +313,151 @@ app.post("/messages", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post("/users/:id/follow", authenticate, async (req, res) => {
+    try {
+        await prisma.follows.create({ data: { followerId: req.user.id, followingId: req.params.id } });
+        res.json({ message: "Followed" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/users/:id/profile", async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, username: true, avatarUrl: true, bio: true, xp: true, _count: { select: { followers: true, following: true } } }
+        });
+        res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/stories/:id/like", authenticate, async (req, res) => {
+    try {
+        const existing = await prisma.like.findUnique({ where: { userId_storyId: { userId: req.user.id, storyId: req.params.id } } });
+        if (existing) {
+            await prisma.like.delete({ where: { id: existing.id } });
+            return res.json({ isLiked: false });
+        }
+        await prisma.like.create({ data: { userId: req.user.id, storyId: req.params.id } });
+        await prisma.activity.create({ data: { userId: req.user.id, storyId: req.params.id, type: "LIKE" } });
+        res.json({ isLiked: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/stories/:id/read", authenticate, async (req, res) => {
+    try {
+        await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
+        await prisma.activity.create({ data: { userId: req.user.id, storyId: req.params.id, type: "READ" } });
+        await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
+        res.json({ status: "success" });
+    } catch (e) { res.json({ status: "ok" }); }
+});
+
+app.get("/activity/feed", authenticate, async (req, res) => {
+    try {
+        const following = await prisma.follows.findMany({ where: { followerId: req.user.id }, select: { followingId: true } });
+        const feed = await prisma.activity.findMany({
+            where: { userId: { in: following.map(f => f.followingId) } },
+            include: { user: { select: { username: true, avatarUrl: true } }, story: { select: { title: true } } },
+            take: 30, orderBy: { createdAt: "desc" }
+        });
+        res.json(feed);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- POLLS & REVIEWS ---
+
+app.post("/polls/:id/vote", authenticate, async (req, res) => {
+    const { optionId } = req.body;
+    try {
+        const vote = await prisma.pollVote.create({ data: { userId: req.user.id, pollId: req.params.id, optionId } });
+        res.status(201).json(vote);
+    } catch (e) { res.status(400).json({ error: "Already voted or invalid" }); }
+});
+
+app.post("/stories/:id/reviews", authenticate, async (req, res) => {
+    const { rating, content } = req.body;
+    try {
+        const review = await prisma.review.create({ data: { userId: req.user.id, storyId: req.params.id, rating, content } });
+        res.status(201).json(review);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- PLAYLISTS ---
+
+app.get("/playlists/me", authenticate, async (req, res) => {
+    try {
+        const playlists = await prisma.playlist.findMany({ where: { userId: req.user.id }, include: { stories: { include: { story: true } } } });
+        res.json(playlists);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/playlists", authenticate, async (req, res) => {
+    const { title, description } = req.body;
+    try {
+        const playlist = await prisma.playlist.create({ data: { userId: req.user.id, title, description } });
+        res.status(201).json(playlist);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- ANALYTICS & ADMIN ---
+
+app.get("/admin/my-stories", authenticate, async (req, res) => {
+    try {
+        const stories = await prisma.story.findMany({
+            where: { OR: [{ ownerId: req.user.id }, { coAuthors: { some: { id: req.user.id } } }] },
+            include: { _count: { select: { likes: true, history: true } }, coAuthors: true },
+            orderBy: { updatedAt: "desc" }
+        });
+        res.json(stories);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/admin/analytics", authenticate, async (req, res) => {
+    try {
+        const stories = await prisma.story.findMany({
+            where: { ownerId: req.user.id },
+            include: { _count: { select: { likes: true, comments: true, history: true, reviews: true } } }
+        });
+        res.json(stories.map(s => ({ id: s.id, title: s.title, reads: s._count.history, likes: s._count.likes, comments: s._count.comments, reviews: s._count.reviews })));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
+    try {
+        const [storyCount, totalReads, userCount] = await Promise.all([prisma.story.count(), prisma.history.count(), prisma.user.count()]);
+        res.json({ storyCount, totalReads, userCount });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- AI ASSISTANT ---
+
+app.post("/ai/assist", authenticate, async (req, res) => {
+    const { text, type } = req.body;
+    if (!config.geminiApiKey) return res.status(500).json({ error: "AI Key not configured" });
+    const prompts = {
+        continue: `You are an expert story writer. Continue the following story in about 100-200 words: \n\n${text}`,
+        twist: `You are an expert story writer. Suggest a shocking plot twist for: \n\n${text}`
+    };
+    try {
+        const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`,
+            { contents: [{ parts: [{ text: prompts[type] || prompts.continue }] }] }
+        );
+        res.json({ result: response.data.candidates[0].content.parts[0].text });
+    } catch (e) { res.status(500).json({ error: "AI Assist failed" }); }
+});
+
+app.post("/ai/translate", authenticate, async (req, res) => {
+    const { text, targetLanguage } = req.body;
+    try {
+        const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`,
+            { contents: [{ parts: [{ text: `Translate this into ${targetLanguage}: \n\n${text}` }] }] }
+        );
+        res.json({ result: response.data.candidates[0].content.parts[0].text });
+    } catch (e) { res.status(500).json({ error: "Translation failed" }); }
+});
+
+// --- USER & OTHER ---
+
 app.get("/users/me", authenticate, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { bookmarks: true, achievements: true } });
@@ -306,4 +472,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.5.5 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.6.0 (Ultimate) running on port ${PORT}`));

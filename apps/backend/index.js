@@ -264,12 +264,16 @@ app.get("/stories/:id", async (req, res) => {
 });
 
 app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
-    const { title, genre, authorName, mood, body, summary, coverUrl: bodyCoverUrl } = req.body;
+    console.log("[Stories] POST Body:", req.body);
+    console.log("[Stories] POST File:", req.file ? "File Received" : "No File");
+    
+    const { title, genre, authorName, mood, body, summary, coverUrl: bodyCoverUrl, readingTime } = req.body;
     try {
         const story = await prisma.story.create({
             data: { 
                 title, genre, authorName, mood, summary, 
                 ownerId: req.user.id, 
+                readingTime: readingTime ? parseInt(readingTime) : 5,
                 coverUrl: req.file ? req.file.path : (bodyCoverUrl || null), 
                 isDraft: false,
                 publishedAt: new Date(),
@@ -277,20 +281,37 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
             }
         });
         res.status(201).json(story);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error("[Stories] Create Error:", e.message);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
-    const updateData = { ...req.body };
+    console.log("[Stories] PUT Body:", req.body);
+    const { title, genre, authorName, mood, summary, coverUrl, readingTime } = req.body;
+    
+    const updateData = {};
+    if (title) updateData.title = title;
+    if (genre) updateData.genre = genre;
+    if (authorName) updateData.authorName = authorName;
+    if (mood) updateData.mood = mood;
+    if (summary) updateData.summary = summary;
+    if (readingTime) updateData.readingTime = parseInt(readingTime);
+
     if (req.file) {
         updateData.coverUrl = req.file.path;
-    } else if (req.body.coverUrl) {
-        updateData.coverUrl = req.body.coverUrl;
+    } else if (coverUrl) {
+        updateData.coverUrl = coverUrl;
     }
+    
     try {
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         res.json(story);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error("[Stories] Update Error:", e.message);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 // --- INTERACTION (LIKE, READ) ---

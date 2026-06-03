@@ -167,24 +167,29 @@ export const AdminScreen = ({ navigation }: any) => {
       formData.append("title", title);
       formData.append("genre", genre);
       formData.append("authorName", authorName);
-      formData.append("readingTime", "5");
 
       if (image) {
           if (image.startsWith('http')) {
               formData.append("coverUrl", image);
           } else {
-              const filename = image.split("/").pop();
-              const match = /\.(\w+)$/.exec(filename || "");
-              const type = match ? `image/${match[1]}` : `image`;
-              formData.append("cover", { uri: image, name: filename, type } as any);
+              const filename = image.split("/").pop() || "cover.jpg";
+              const match = /\.(\w+)$/.exec(filename);
+              const type = match ? `image/${match[1]}` : `image/jpeg`;
+              const name = filename.includes(".") ? filename : `${filename}.jpg`;
+              
+              formData.append("cover", { 
+                uri: image,
+                name,
+                type 
+              } as any);
           }
       }
 
       if (isEditing && editingId) {
-        await apiClient.put(`/stories/${editingId}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+        await apiClient.put(`/stories/${editingId}`, formData);
       } else {
         if (body) formData.append("body", body);
-        await apiClient.post("/stories", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        await apiClient.post("/stories", formData);
       }
       
       Alert.alert("Success", `Story ${isEditing ? 'updated' : 'uploaded'} successfully!`);

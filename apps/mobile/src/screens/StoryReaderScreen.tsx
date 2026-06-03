@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions, Modal } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash } from "lucide-react-native";
+import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -12,6 +12,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar";
 import * as Speech from 'expo-speech';
 import { OfflineManager } from "../utils/OfflineManager";
+
+const { height: WINDOW_HEIGHT } = Dimensions.get("window");
 
 const FONT_SIZES = {
   small: 15,
@@ -39,13 +41,29 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
 
+  // Feature 15: Note-taking
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [notesLoading, setNotesLoading] = useState(false);
+
+  // Feature 25: Content Warnings
+  const [showWarning, setShowWarning] = useState(false);
+
+  // Feature 18: Auto-Scroll
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const autoScrollTimer = useRef<any>(null);
+  const scrollY = useRef(0);
+
   // TTS State
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
 
-  // Animations
+  // Animations & Refs
   const likeScale = useRef(new Animated.Value(1)).current;
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const contentHeight = useRef(0);
 
   const fontSize = FONT_SIZES[fontSizeMode];
 
@@ -54,6 +72,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     fetchStory();
     return () => {
         Speech.stop();
+        stopAutoScroll();
     };
   }, [storyId]);
 
@@ -91,24 +110,61 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setIsLiked(storyRes.data.isLiked);
       setIsDownloaded(downloaded);
       
-      const isSaved = bookmarksRes.data.some((b: any) => b.storyId === storyId);
-      setIsBookmarked(isSaved);
+      if (storyRes.data.contentWarnings || storyRes.data.isAdult) {
+          setShowWarning(true);
+      }
+
+      const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
+      setIsBookmarked(!!bookmark);
+
+      if (bookmark && bookmark.progress > 5 && bookmark.progress < 95) {
+          Alert.alert(
+              "Resume Story?",
+              `You were at ${bookmark.progress}% in this story. Would you like to resume?`,
+              [
+                  { text: "Start Over", style: "cancel" },
+                  { text: "Resume", onPress: () => resumeProgress(bookmark.progress) }
+              ]
+          );
+      }
       
       await apiClient.post(`/stories/${storyId}/read`);
       await refreshUser();
     } catch (error) {
-        // Fallback for offline mode if API fails
         const offlineStories = await OfflineManager.getDownloadedStories();
         const found = offlineStories.find(s => s.id === storyId);
         if (found) {
             setStory(found);
             setIsDownloaded(true);
-        } else {
-            console.log("Error fetching story:", error);
         }
     } finally {
       setLoading(false);
     }
+  };
+
+  const resumeProgress = (percent: number) => {
+    setTimeout(() => {
+        const target = (percent / 100) * (contentHeight.current - WINDOW_HEIGHT);
+        scrollViewRef.current?.scrollTo({ y: target, animated: true });
+    }, 500);
+  };
+
+  const toggleAutoScroll = () => {
+    if (isAutoScrolling) stopAutoScroll();
+    else startAutoScroll();
+  };
+
+  const startAutoScroll = () => {
+    setIsAutoScrolling(true);
+    autoScrollTimer.current = setInterval(() => {
+        scrollY.current += 1;
+        scrollViewRef.current?.scrollTo({ y: scrollY.current, animated: false });
+    }, 50);
+  };
+
+  const stopAutoScroll = () => {
+    setIsAutoScrolling(false);
+    if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
   };
 
   const fetchComments = async () => {
@@ -120,9 +176,19 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     finally { setCommentsLoading(false); }
   };
 
+  const fetchNotes = async () => {
+    setNotesLoading(true);
+    try {
+        const res = await apiClient.get(`/stories/${storyId}/notes`);
+        setNotes(res.data);
+    } catch (e) { console.log(e); }
+    finally { setNotesLoading(false); }
+  };
+
   useEffect(() => {
     if (showComments) fetchComments();
-  }, [showComments]);
+    if (showNotes) fetchNotes();
+  }, [showComments, showNotes]);
 
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
@@ -132,6 +198,22 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setNewComment("");
       Keyboard.dismiss();
     } catch (error) { console.log(error); }
+  };
+
+  const handleSaveNote = async () => {
+    if (!newNote.trim()) return;
+    try {
+        const res = await apiClient.post(`/stories/${storyId}/notes`, { content: newNote });
+        setNotes([res.data, ...notes]);
+        setNewNote("");
+    } catch (e) { console.log(e); }
+  };
+
+  const deleteNote = async (id: string) => {
+    try {
+        await apiClient.delete(`/notes/${id}`);
+        setNotes(notes.filter(n => n.id !== id));
+    } catch (e) { console.log(e); }
   };
 
   const handleLike = async () => {
@@ -159,7 +241,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const handleBookmark = async () => {
     const wasBookmarked = isBookmarked;
     setIsBookmarked(!wasBookmarked);
-    
     try {
       const progress = wasBookmarked ? -1 : Math.round(scrollProgress * 100);
       await apiClient.post(`/stories/${storyId}/bookmark`, { progress });
@@ -181,15 +262,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             Alert.alert("Downloaded!", "You can now read this story without internet.");
         }
     }
-  };
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `Reading "${story.title}" on StoryNest! Check it out.`,
-        url: `https://storynest.app/read/${story.id}`,
-      });
-    } catch (error) { console.log(error); }
   };
 
   const toggleTheme = () => {
@@ -246,6 +318,9 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
+            <TouchableOpacity onPress={toggleAutoScroll} style={styles.iconBtn}>
+                <MousePointer2 size={20} color={isAutoScrolling ? Colors.accent : theme.black} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleDownload} style={styles.iconBtn}>
                 {isDownloaded ? <Trash size={20} color={theme.primary} /> : <Download size={20} color={theme.black} />}
             </TouchableOpacity>
@@ -253,7 +328,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
                 {isSpeaking ? <Square size={20} color={Colors.error} /> : <Volume2 size={20} color={theme.black} />}
             </TouchableOpacity>
             <TouchableOpacity onPress={toggleFontSize} style={styles.iconBtn}><Type size={20} color={theme.black} /></TouchableOpacity>
-            <TouchableOpacity onPress={handleShare} style={styles.iconBtn}><Share2 size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={handleBookmark} style={styles.iconBtn}>
               <Bookmark size={20} color={isBookmarked ? Colors.accent : theme.black} fill={isBookmarked ? Colors.accent : "none"} />
             </TouchableOpacity>
@@ -274,14 +348,18 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       </View>
 
       <ScrollView 
+        ref={scrollViewRef}
         style={styles.content} 
         showsVerticalScrollIndicator={false} 
         onScroll={(e) => {
           const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+          contentHeight.current = contentSize.height;
+          scrollY.current = contentOffset.y;
           const totalHeight = contentSize.height - layoutMeasurement.height;
           setScrollProgress(totalHeight > 0 ? contentOffset.y / totalHeight : 0);
         }} 
         scrollEventThrottle={16}
+        onScrollBeginDrag={stopAutoScroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={styles.header}>
@@ -319,6 +397,72 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           <View style={[styles.endDot, { backgroundColor: theme.primary + '40' }]} />
         </View>
       </ScrollView>
+
+      {/* Feature 25: Content Warning Modal */}
+      <Modal visible={showWarning} animationType="fade" transparent>
+          <View style={styles.warningOverlay}>
+              <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
+                  <AlertTriangle size={48} color={Colors.error} style={{ marginBottom: 20 }} />
+                  <Text style={[styles.warningTitle, { color: theme.black, fontFamily: fonts.heading }]}>CONTENT ADVISORY</Text>
+                  <Text style={[styles.warningText, { color: theme.black, fontFamily: fonts.body }]}>
+                      This story contains themes that some readers may find sensitive:{"\n\n"}
+                      <Text style={{ fontWeight: 'bold', color: Colors.error }}>
+                          {story?.contentWarnings || "General adult themes"}
+                      </Text>
+                  </Text>
+                  <TouchableOpacity 
+                    style={[styles.warningBtn, { backgroundColor: theme.primary }]} 
+                    onPress={() => setShowWarning(false)}
+                  >
+                      <Text style={[styles.warningBtnText, { fontFamily: fonts.heading }]}>I UNDERSTAND</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+                      <Text style={[styles.backLink, { fontFamily: fonts.body }]}>Go Back</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
+      {/* Feature 15: Notes Overlay */}
+      <Modal visible={showNotes} animationType="slide" transparent>
+        <View style={[styles.notesModal, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
+            <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <StickyNote size={20} color={theme.primary} style={{ marginRight: 10 }} />
+                    <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>READING NOTES</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowNotes(false)}><X size={24} color={theme.black} /></TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.notesList}>
+                <View style={styles.addNoteSection}>
+                    <TextInput 
+                        style={[styles.noteInput, { color: theme.black, fontFamily: fonts.body, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} 
+                        placeholder="Write a thought..." 
+                        placeholderTextColor={Colors.mutedTeal}
+                        value={newNote}
+                        onChangeText={setNewNote}
+                        multiline
+                    />
+                    <TouchableOpacity style={[styles.addNoteBtn, { backgroundColor: theme.primary }]} onPress={handleSaveNote}>
+                        <Plus size={20} color={theme.white} />
+                    </TouchableOpacity>
+                </View>
+
+                {notesLoading ? <ActivityIndicator color={theme.primary} /> : (
+                    notes.map(n => (
+                        <View key={n.id} style={[styles.noteItem, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
+                            <Text style={[styles.noteText, { color: theme.black, fontFamily: fonts.body }]}>{n.content}</Text>
+                            <View style={styles.noteFooter}>
+                                <Text style={styles.noteDate}>{new Date(n.createdAt).toLocaleDateString()}</Text>
+                                <TouchableOpacity onPress={() => deleteNote(n.id)}><Trash size={16} color={Colors.error} /></TouchableOpacity>
+                            </View>
+                        </View>
+                    ))
+                )}
+            </ScrollView>
+        </View>
+      </Modal>
 
       {showComments && (
         <View style={[styles.commentsOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
@@ -372,6 +516,9 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             <MessageSquare size={22} color={theme.black} />
             <Text style={[styles.actionCount, { color: theme.black, fontFamily: fonts.body }]}>{story?._count?.comments || 0}</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowNotes(true)} style={styles.actionBtn}>
+            <StickyNote size={22} color={theme.black} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={toggleTheme} style={styles.actionBtn}>
             {isDarkMode ? <Sun size={22} color={theme.black} /> : <Moon size={22} color={theme.black} />}
           </TouchableOpacity>
@@ -386,7 +533,7 @@ const styles = StyleSheet.create({
   topBar: { borderBottomWidth: 1 },
   topBarContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
   topBarIcons: { flexDirection: "row", alignItems: "center" },
-  iconBtn: { marginLeft: 24 },
+  iconBtn: { marginLeft: 20 },
   progressContainer: { height: 2, backgroundColor: 'transparent', width: "100%" },
   progressBar: { height: "100%" },
   content: { flex: 1 },
@@ -417,6 +564,24 @@ const styles = StyleSheet.create({
   commentInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, marginBottom: 20, minHeight: 56, maxHeight: 120 },
   commentInput: { flex: 1, fontSize: 16, paddingVertical: 12 },
   sendBtn: { marginLeft: 12, padding: 4 },
+  notesModal: { flex: 1, paddingHorizontal: 24 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 18, letterSpacing: 1 },
+  notesList: { flex: 1 },
+  addNoteSection: { flexDirection: 'row', marginBottom: 24, alignItems: 'flex-end' },
+  noteInput: { flex: 1, borderRadius: 12, padding: 12, fontSize: 14, minHeight: 50, maxHeight: 100 },
+  addNoteBtn: { width: 50, height: 50, borderRadius: 12, marginLeft: 12, justifyContent: 'center', alignItems: 'center' },
+  noteItem: { padding: 16, borderRadius: 16, marginBottom: 16 },
+  noteText: { fontSize: 14, lineHeight: 22 },
+  noteFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  noteDate: { fontSize: 10, color: Colors.mutedTeal },
+  warningOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 40 },
+  warningContent: { width: '100%', borderRadius: 32, padding: 32, alignItems: 'center' },
+  warningTitle: { fontSize: 20, letterSpacing: 2, marginBottom: 16 },
+  warningText: { fontSize: 15, lineHeight: 24, textAlign: 'center', marginBottom: 40 },
+  warningBtn: { paddingVertical: 18, paddingHorizontal: 40, borderRadius: 30, width: '100%', alignItems: 'center' },
+  warningBtnText: { color: Colors.white, fontSize: 14, letterSpacing: 1 },
+  backLink: { fontSize: 14, color: Colors.mutedTeal },
   skeletonTitle: { height: 40, width: '80%', borderRadius: 8, marginBottom: 20 },
   skeletonMeta: { height: 20, width: '40%', borderRadius: 4, marginBottom: 40 },
   skeletonLine: { height: 16, width: '100%', borderRadius: 4, marginBottom: 12 },

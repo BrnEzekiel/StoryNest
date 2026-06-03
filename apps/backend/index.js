@@ -275,6 +275,33 @@ app.post("/auth/logout", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete("/auth/account", authenticate, async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        
+        // 1. Delete from Firebase
+        if (user.firebaseUid) {
+            await admin.auth().deleteUser(user.firebaseUid);
+        }
+
+        // 2. Delete from DB (Prisma will handle relations if set to CASCADE, but we did it manually before)
+        // For safety, we'll use a transaction
+        await prisma.$transaction([
+            prisma.achievement.deleteMany({ where: { userId: user.id } }),
+            prisma.purchase.deleteMany({ where: { userId: user.id } }),
+            prisma.bookmark.deleteMany({ where: { userId: user.id } }),
+            prisma.history.deleteMany({ where: { userId: user.id } }),
+            prisma.like.deleteMany({ where: { userId: user.id } }),
+            prisma.comment.deleteMany({ where: { userId: user.id } }),
+            prisma.note.deleteMany({ where: { userId: user.id } }),
+            prisma.user.delete({ where: { id: user.id } })
+        ]);
+
+        sendSlackNotification(`🗑️ **Account Deleted**: ${user.email} has left the nest permanently.`);
+        res.json({ message: "Account deleted successfully" });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // 4. Forgot Password OTP
 app.post("/auth/password/forgot", async (req, res) => {
     let { email } = req.body;
@@ -414,6 +441,36 @@ app.post("/auth/refresh", async (req, res) => {
 
 // --- STORIES ---
 
+app.get("/stories/recommendations", authenticate, async (req, res) => {
+    try {
+        // 1. Get user's read history to find favorite genres
+        const history = await prisma.history.findMany({
+            where: { userId: req.user.id },
+            include: { story: { select: { genre: true } } },
+            take: 20,
+            orderBy: { createdAt: "desc" }
+        });
+
+        const genres = history.map(h => h.story.genre);
+        const uniqueGenres = [...new Set(genres)];
+
+        // 2. Find stories in those genres not already in history
+        const readIds = history.map(h => h.storyId);
+        
+        const recommendations = await prisma.story.findMany({
+            where: {
+                genre: { in: uniqueGenres.length > 0 ? uniqueGenres : ["Fiction", "Faith"] },
+                id: { notIn: readIds },
+                isDraft: false
+            },
+            take: 6,
+            include: { _count: { select: { likes: true } } }
+        });
+
+        res.json(recommendations);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/stories", async (req, res) => {
   const { genre, q, limit } = req.query;
   const cacheKey = `stories_${genre || "all"}_${q || ""}_${limit || 50}`;
@@ -450,10 +507,21 @@ app.get("/stories/:id", async (req, res) => {
 });
 
 app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
-  const { title, genre, body, authorName, readingTime } = req.body;
+  const { title, genre, body, authorName, readingTime, contentWarnings, isAdult } = req.body;
   const coverUrl = req.file ? req.file.path : null;
   try {
-    const story = await prisma.story.create({ data: { title, genre, body, authorName, readingTime: parseInt(readingTime), coverUrl } });
+    const story = await prisma.story.create({ 
+        data: { 
+            title, 
+            genre, 
+            body, 
+            authorName, 
+            readingTime: parseInt(readingTime), 
+            coverUrl,
+            contentWarnings,
+            isAdult: isAdult === "true" || isAdult === true
+        } 
+    });
     cache.flushAll();
     
     // Notify subscribed users via Gmail API
@@ -715,10 +783,72 @@ app.post("/stories/:id/like", authenticate, async (req, res) => {
         await prisma.like.create({ data: { userId: req.user.id, storyId: req.params.id } });
         const count = await prisma.like.count({ where: { storyId: req.params.id } });
         
+        await prisma.user.update({ where: { id: req.user.id }, data: { lastLikeDate: new Date() } });
+        
         sendSlackNotification(`❤️ **${user?.username}** liked "${story?.title}"`);
         
         res.json({ isLiked: true, likes: count });
     } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- NOTES ---
+
+app.get("/stories/:id/notes", authenticate, async (req, res) => {
+    try {
+        const notes = await prisma.note.findMany({
+            where: { storyId: req.params.id, userId: req.user.id },
+            orderBy: { createdAt: "desc" }
+        });
+        res.json(notes);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/stories/:id/notes", authenticate, async (req, res) => {
+    const { content } = req.body;
+    try {
+        const note = await prisma.note.create({
+            data: { content, storyId: req.params.id, userId: req.user.id }
+        });
+        res.status(201).json(note);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/notes/:id", authenticate, async (req, res) => {
+    try {
+        await prisma.note.delete({ where: { id: req.params.id, userId: req.user.id } });
+        res.json({ message: "Deleted" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- COMMENTS ---
+
+app.get("/stories/:id/comments", async (req, res) => {
+    try {
+      const comments = await prisma.comment.findMany({
+        where: { storyId: req.params.id },
+        include: { user: { select: { username: true, avatarUrl: true } } },
+        orderBy: { createdAt: "desc" }
+      });
+      res.json(comments);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post("/stories/:id/comments", authenticate, async (req, res) => {
+    const { content } = req.body;
+    try {
+      const comment = await prisma.comment.create({
+        data: {
+          content,
+          storyId: req.params.id,
+          userId: req.user.id
+        },
+        include: { user: { select: { username: true, avatarUrl: true } } }
+      });
+      
+      await prisma.user.update({ where: { id: req.user.id }, data: { lastCommentDate: new Date() } });
+      
+      res.status(201).json(comment);
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // --- ADMIN STATS ---

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, X, TrendingUp, Sparkles, Filter } from "lucide-react-native";
+import { Search, X, TrendingUp, Sparkles, Filter, Shuffle } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
@@ -14,7 +14,6 @@ import { HeaderWave } from "../components/HeaderWave";
 
 const { width } = Dimensions.get("window");
 
-// Clean genre list without icons
 const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"];
 
 export const ExploreScreen = ({ navigation }: any) => {
@@ -52,6 +51,13 @@ export const ExploreScreen = ({ navigation }: any) => {
 
   const handleGenrePress = (name: string) => {
     navigation.navigate("Home", { genre: name });
+  };
+
+  const handleSurpriseMe = () => {
+    if (stories.length === 0) return;
+    const randomIdx = Math.floor(Math.random() * stories.length);
+    const story = stories[randomIdx];
+    navigation.navigate("Reader", { storyId: story.id });
   };
 
   const onSearchFocus = () => {
@@ -127,6 +133,13 @@ export const ExploreScreen = ({ navigation }: any) => {
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
+        <View style={styles.actionHeader}>
+            <TouchableOpacity style={[styles.surpriseBtn, { backgroundColor: theme.primary }]} onPress={handleSurpriseMe}>
+                <Shuffle size={18} color={theme.white} style={{ marginRight: 10 }} />
+                <Text style={[styles.surpriseText, { fontFamily: fonts.heading }]}>SURPRISE ME</Text>
+            </TouchableOpacity>
+        </View>
+
         {!searchQuery && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -208,6 +221,9 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, color: Colors.accent, height: "100%" },
   searchUnderline: { height: 2, alignSelf: 'center', marginTop: -1.5 },
   body: { flex: 1 },
+  actionHeader: { paddingHorizontal: 24, marginTop: 32 },
+  surpriseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, ...Shadows.s },
+  surpriseText: { color: Colors.white, fontSize: 13, letterSpacing: 1 },
   section: { marginTop: 32 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 20 },
   titleRow: { flexDirection: 'row', alignItems: 'center' },

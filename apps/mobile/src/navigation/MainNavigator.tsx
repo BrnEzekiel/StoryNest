@@ -29,14 +29,32 @@ import { StoryReaderScreen } from "../screens/StoryReaderScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
 import { EditProfileScreen } from "../screens/EditProfileScreen";
 import { AchievementsScreen } from "../screens/AchievementsScreen";
+import { StatisticsScreen } from "../screens/StatisticsScreen";
 
 const { width } = Dimensions.get("window");
 const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const TabNavigator = () => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, tabOrder } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const renderTabIcon = (name: string, color: string) => {
+    const size = 22;
+    if (name === "Home") return <Home color={color} size={size} />;
+    if (name === "Explore") return <Compass color={color} size={size} />;
+    if (name === "Saved") return <Bookmark color={color} size={size} />;
+    if (name === "Profile") return <User color={color} size={size} />;
+    return null;
+  };
+
+  const getScreenComponent = (name: string) => {
+    if (name === "Home") return HomeScreen;
+    if (name === "Explore") return ExploreScreen;
+    if (name === "Saved") return BookmarksScreen;
+    if (name === "Profile") return ProfileScreen;
+    return HomeScreen;
+  };
 
   return (
     <Tab.Navigator
@@ -47,13 +65,7 @@ const TabNavigator = () => {
         },
       }}
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color }: any) => {
-          const size = 22;
-          if (route.name === "Home") return <Home color={color} size={size} />;
-          if (route.name === "Explore") return <Compass color={color} size={size} />;
-          if (route.name === "Saved") return <Bookmark color={color} size={size} />;
-          if (route.name === "Profile") return <User color={color} size={size} />;
-        },
+        tabBarIcon: ({ color }: any) => renderTabIcon(route.name, color),
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.mutedTeal,
         tabBarPressColor: 'transparent',
@@ -82,10 +94,9 @@ const TabNavigator = () => {
         swipeEnabled: true,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen name="Saved" component={BookmarksScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      {tabOrder.map(name => (
+          <Tab.Screen key={name} name={name} component={getScreenComponent(name)} />
+      ))}
     </Tab.Navigator>
   );
 };
@@ -136,6 +147,7 @@ export const MainNavigator = () => {
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           <Stack.Screen name="Achievements" component={AchievementsScreen} />
+          <Stack.Screen name="Statistics" component={StatisticsScreen} />
         </>
       )}
     </Stack.Navigator>

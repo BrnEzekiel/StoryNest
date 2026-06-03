@@ -8,7 +8,7 @@ import { Fonts } from "../theme/fonts";
 import {
   ArrowLeft, Bell, Moon, Shield, Info, LogOut,
   ChevronRight, Globe, Lock, Sparkles, RefreshCw,
-  CheckCircle, AlertCircle, Palette, Fingerprint, Type
+  CheckCircle, AlertCircle, Palette, Fingerprint, Type, Layout, Trash2
 } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, ThemeMode } from "../context/ThemeContext";
@@ -27,6 +27,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const { 
     themeMode, setThemeMode, 
     fontPreference, setFontPreference,
+    tabOrder, setTabOrder,
     isDarkMode, recsEnabled, setRecsEnabled, theme 
   } = useTheme();
 
@@ -35,6 +36,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [biometricEnabled, setBiometricEnabled] = React.useState(false);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   
   const spinAnim = React.useRef(new Animated.Value(0)).current;
   const spinLoop = React.useRef<Animated.CompositeAnimation | null>(null);
@@ -101,6 +103,20 @@ export const SettingsScreen = ({ navigation }: any) => {
     );
   };
 
+  const handleNavPress = () => {
+    Alert.alert(
+      "Navigation Layout",
+      "Customize your bottom bar tabs:",
+      [
+        { text: "Classic (Home First)", onPress: () => setTabOrder(["Home", "Explore", "Saved", "Profile"]) },
+        { text: "Discovery (Explore First)", onPress: () => setTabOrder(["Explore", "Home", "Saved", "Profile"]) },
+        { text: "Minimal (No Explore)", onPress: () => setTabOrder(["Home", "Saved", "Profile"]) },
+        { text: "Restore Default", onPress: () => setTabOrder(["Home", "Explore", "Saved", "Profile"]) },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
   const handleToggleNotifications = async (value: boolean) => {
     setNotifications(value);
     setUpdatingNotifs(true);
@@ -113,6 +129,29 @@ export const SettingsScreen = ({ navigation }: any) => {
     } finally {
         setUpdatingNotifs(false);
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+        "Delete Account 🗑️",
+        "This is PERMANENT. All your library, streaks, and XP will be gone forever. Are you absolutely sure?",
+        [
+            { text: "Cancel", style: "cancel" },
+            { 
+                text: "DELETE EVERYTHING", 
+                style: "destructive", 
+                onPress: async () => {
+                    setDeleting(true);
+                    try {
+                        await apiClient.delete("/auth/account");
+                        logout();
+                    } catch (e) {
+                        Alert.alert("Error", "Could not delete account. Try again later.");
+                    } finally { setDeleting(false); }
+                } 
+            }
+        ]
+    );
   };
 
   const startSpin = () => {
@@ -194,7 +233,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const SettingItem = ({
-    icon, title, value, onPress, isSwitch, switchValue, onValueChange, loading
+    icon, title, value, onPress, isSwitch, switchValue, onValueChange, loading, destructive
   }: any) => (
     <TouchableOpacity
       style={[styles.item, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}
@@ -203,10 +242,10 @@ export const SettingsScreen = ({ navigation }: any) => {
       disabled={(isSwitch && !onPress) || loading}
     >
       <View style={styles.itemLeft}>
-        <View style={[styles.iconContainer, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
+        <View style={[styles.iconContainer, { backgroundColor: destructive ? 'rgba(255,107,107,0.1)' : (isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen) }]}>
           {icon}
         </View>
-        <Text style={[styles.itemTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{title}</Text>
+        <Text style={[styles.itemTitle, { color: destructive ? "#FF6B6B" : (isDarkMode ? Colors.accent : Colors.primary) }]}>{title}</Text>
       </View>
       <View style={styles.itemRight}>
         {loading ? <ActivityIndicator size="small" color={Colors.primary} /> : (
@@ -220,7 +259,7 @@ export const SettingsScreen = ({ navigation }: any) => {
             ) : (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
                 {value && <Text style={styles.itemValue}>{value}</Text>}
-                <ChevronRight size={18} color={Colors.mutedTeal} />
+                <ChevronRight size={18} color={destructive ? "#FF6B6B" : Colors.mutedTeal} />
             </View>
             )
         )}
@@ -255,6 +294,12 @@ export const SettingsScreen = ({ navigation }: any) => {
           onPress={handleFontPress}
         />
         <SettingItem
+          icon={<Layout size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="Bottom Bar Layout"
+          value={tabOrder[0] === "Explore" ? "Discovery" : tabOrder.length < 4 ? "Minimal" : "Classic"}
+          onPress={handleNavPress}
+        />
+        <SettingItem
           icon={<Bell size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Email Notifications"
           isSwitch switchValue={notifications} onValueChange={handleToggleNotifications}
@@ -269,12 +314,6 @@ export const SettingsScreen = ({ navigation }: any) => {
           icon={<Sparkles size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Recommended Stories"
           isSwitch switchValue={recsEnabled} onValueChange={setRecsEnabled}
-        />
-        <SettingItem
-          icon={<Globe size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
-          title="Language"
-          value="English"
-          onPress={() => Alert.alert("Language", "Multi-language support coming in next update!")}
         />
 
         {/* ── Account & Security ── */}
@@ -293,6 +332,13 @@ export const SettingsScreen = ({ navigation }: any) => {
           icon={<Info size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Terms of Service"
           onPress={() => navigation.navigate("Legal", { type: 'tos' })}
+        />
+        <SettingItem
+          icon={<Trash2 size={20} color="#FF6B6B" />}
+          title="Delete Account"
+          destructive
+          onPress={handleDeleteAccount}
+          loading={deleting}
         />
 
         {/* ── App Updates ── */}

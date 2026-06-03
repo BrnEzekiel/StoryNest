@@ -231,6 +231,20 @@ export const ProfileScreen = ({ navigation }: any) => {
             <ChevronRight size={18} color={Colors.mutedTeal} />
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+            onPress={() => navigation.navigate("Statistics")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: '#007AFF15' }]}><BarChart2 size={20} color="#007AFF" /></View>
+              <View>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reading Insights</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Your streaks and statistics</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={Colors.mutedTeal} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.menuItem, { borderLeftColor: Colors.error, borderLeftWidth: 4 }]} onPress={handleLogout}>
             <View style={styles.menuLeft}>
               <View style={[styles.menuIcon, { backgroundColor: Colors.error + '10' }]}><LogOut size={20} color={Colors.error} /></View>

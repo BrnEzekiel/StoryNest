@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, Bell, X, ChevronRight } from "lucide-react-native";
+import { Search, Bell, X, ChevronRight, CheckCircle2, Circle, Heart, MessageSquare, BookOpen, Sparkles } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { Button } from "../components/Button";
@@ -18,10 +18,12 @@ const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
 export const HomeScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { theme, fonts, isDarkMode, recsEnabled } = useTheme();
+  const { theme, fonts, isDarkMode } = useTheme();
   
   const [stories, setStories] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recsLoading, setRecsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeGenre, setActiveGenre] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,11 +54,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
         resetHome();
         navigation.setParams({ reset: undefined });
       }
-      if (route.params?.genre) {
-        setActiveGenre(route.params.genre);
-        navigation.setParams({ genre: undefined });
-      }
-    }, [route.params?.reset, route.params?.genre])
+    }, [route.params?.reset])
   );
 
   const fetchData = async (genre = activeGenre, q = searchQuery) => {
@@ -74,13 +72,24 @@ export const HomeScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const fetchRecommendations = async () => {
+    try {
+      setRecsLoading(true);
+      const res = await apiClient.get("/stories/recommendations");
+      setRecommendations(res.data);
+    } catch (e) { console.log(e); }
+    finally { setRecsLoading(false); }
+  };
+
   useEffect(() => {
     fetchData(activeGenre, searchQuery);
+    fetchRecommendations();
   }, [activeGenre]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchData(activeGenre, searchQuery);
+    fetchRecommendations();
   };
 
   const handleSearch = () => {
@@ -96,6 +105,17 @@ export const HomeScreen = ({ navigation, route }: any) => {
       Animated.timing(searchFocusAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start();
     }
   };
+
+  const today = new Date().toDateString();
+  const likedToday = user?.lastLikeDate && new Date(user.lastLikeDate).toDateString() === today;
+  const commentedToday = user?.lastCommentDate && new Date(user.lastCommentDate).toDateString() === today;
+  const goalMet = user?.todayReadTime >= user?.dailyGoalMinutes;
+
+  const quests = [
+    { id: '1', title: 'The Explorer', desc: 'Like a story today', done: likedToday, icon: Heart, color: '#FF2D55' },
+    { id: '2', title: 'The Critic', desc: 'Post a comment today', done: commentedToday, icon: MessageSquare, color: '#5856D6' },
+    { id: '3', title: 'The Scholar', desc: 'Reach your daily goal', done: goalMet, icon: BookOpen, color: '#34C759' },
+  ];
 
   const featuredStory = stories.length > 0 ? stories[0] : null;
   const newReleases = [...stories].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
@@ -119,6 +139,54 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <Text style={[styles.goalPercent, { fontFamily: fonts.heading, color: Colors.accent }]}>{progressPercent}%</Text>
         </View>
       </View>
+
+      {!searchQuery && (
+          <View style={styles.questsSection}>
+              <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary, marginBottom: 16 }]}>DAILY QUESTS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
+                  {quests.map(quest => (
+                      <View key={quest.id} style={[styles.questCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
+                          <View style={[styles.questIconBox, { backgroundColor: quest.color + '15' }]}>
+                              <quest.icon size={18} color={quest.color} />
+                          </View>
+                          <Text style={[styles.questTitle, { fontFamily: fonts.heading, color: theme.black }]}>{quest.title}</Text>
+                          <Text style={[styles.questDesc, { fontFamily: fonts.body }]}>{quest.desc}</Text>
+                          <View style={styles.questStatus}>
+                              {quest.done ? (
+                                  <CheckCircle2 size={16} color="#34C759" />
+                              ) : (
+                                  <Circle size={16} color={Colors.mutedTeal} />
+                              )}
+                          </View>
+                      </View>
+                  ))}
+              </ScrollView>
+          </View>
+      )}
+
+      {/* Feature 61: AI Recommendations */}
+      {!searchQuery && recommendations.length > 0 && (
+          <View style={styles.recsSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary }]}>RECOMMENDED FOR YOU</Text>
+                <Sparkles size={16} color={Colors.accent} />
+              </View>
+              <FlatList 
+                data={recommendations}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={item => item.id + '_rec'}
+                renderItem={({ item, index }) => (
+                    <StoryCard 
+                        story={item}
+                        variant="compact"
+                        index={index}
+                        onPress={() => navigation.navigate("Reader", { storyId: item.id })}
+                    />
+                )}
+              />
+          </View>
+      )}
 
       {!searchQuery && featuredStory && (
         <StoryCard 
@@ -154,7 +222,6 @@ export const HomeScreen = ({ navigation, route }: any) => {
         </ScrollView>
       )}
 
-      {/* New Releases Infinite Carousel */}
       {!searchQuery && newReleases.length > 0 && (
         <View style={styles.carouselSection}>
           <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, fontFamily: fonts.heading }]}>NEW RELEASES</Text>
@@ -174,20 +241,6 @@ export const HomeScreen = ({ navigation, route }: any) => {
               />
             )}
           />
-        </View>
-      )}
-
-      {recsEnabled && !searchQuery && (
-        <View style={{ marginBottom: Spacing.xl }}>
-            <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, fontFamily: fonts.heading }]}>RECOMMENDED FOR YOU</Text>
-            {stories.slice(0, 3).map((s, idx) => (
-              <StoryCard 
-                key={s.id + '_rec'} 
-                story={s} 
-                index={idx}
-                onPress={() => navigation.navigate("Reader", { storyId: s.id })} 
-              />
-            ))}
         </View>
       )}
 
@@ -215,13 +268,14 @@ export const HomeScreen = ({ navigation, route }: any) => {
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
               ) : (
-                <Text style={[styles.avatarText, { fontFamily: fonts.heading }]}>{user?.username?.substring(0, 2).toUpperCase() || "SN"}</Text>
+                <View style={styles.avatarPlaceholder}>
+                    <Text style={[styles.avatarText, { fontFamily: fonts.heading }]}>{user?.username?.substring(0, 2).toUpperCase() || "SN"}</Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Minimalist Underline Search Bar */}
         <View style={styles.searchWrapper}>
           <View style={styles.searchUnderlineRow}>
             <Search size={18} color={Colors.mutedTeal} style={styles.searchIcon} />
@@ -300,6 +354,7 @@ const styles = StyleSheet.create({
   headerIcons: { flexDirection: "row", alignItems: "center" },
   iconCircle: { width: 40, height: 40, borderRadius: Radii.round, backgroundColor: "rgba(255, 255, 255, 0.05)", alignItems: "center", justifyContent: "center", marginRight: 12 },
   avatarCircle: { width: 40, height: 40, borderRadius: Radii.round, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center", overflow: 'hidden', ...Shadows.s },
+  avatarPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   avatar: { width: "100%", height: "100%" },
   avatarText: { fontSize: 14, color: Colors.primary },
   searchWrapper: { marginHorizontal: Spacing.l, marginTop: 24 },
@@ -328,4 +383,11 @@ const styles = StyleSheet.create({
   goalBarBg: { width: '100%', height: 6, borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
   goalBarFill: { height: '100%', borderRadius: 3 },
   goalPercent: { fontSize: 12, fontWeight: '700' },
+  questsSection: { marginBottom: 32 },
+  questCard: { width: 150, padding: 16, borderRadius: 20, marginRight: 16 },
+  questIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  questTitle: { fontSize: 13, marginBottom: 4 },
+  questDesc: { fontSize: 10, color: Colors.mutedTeal, lineHeight: 14, height: 28 },
+  questStatus: { marginTop: 12, alignItems: 'flex-end' },
+  recsSection: { marginBottom: 32 },
 });

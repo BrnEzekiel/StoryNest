@@ -69,20 +69,34 @@ export const AdminScreen = ({ navigation }: any) => {
   }, []);
 
   const fetchPexelsUrl = async (query: string, storyGenre: string) => {
+    if (!PEXELS_API_KEY) {
+        console.error("[Pexels] API Key is missing!");
+        return null;
+    }
     try {
-        const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " cinematic book cover")}&per_page=1&orientation=portrait`, {
+        // Randomize results by picking a random page or index
+        const randomPage = Math.floor(Math.random() * 5) + 1;
+        const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " cinematic story")}&per_page=5&page=${randomPage}&orientation=portrait`, {
             headers: { Authorization: PEXELS_API_KEY }
         });
-        if (res.data.photos?.length > 0) return res.data.photos[0].src.large2x;
         
-        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " aesthetic backdrop")}&per_page=1&orientation=portrait`, {
+        if (res.data.photos?.length > 0) {
+            const randomIndex = Math.floor(Math.random() * res.data.photos.length);
+            return res.data.photos[randomIndex].src.large2x;
+        }
+        
+        // Fallback search with genre
+        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " atmosphere")}&per_page=5&orientation=portrait`, {
             headers: { Authorization: PEXELS_API_KEY }
         });
-        if (fallback.data.photos?.length > 0) return fallback.data.photos[0].src.large2x;
+        if (fallback.data.photos?.length > 0) {
+            const randomIndex = Math.floor(Math.random() * fallback.data.photos.length);
+            return fallback.data.photos[randomIndex].src.large2x;
+        }
         
         return null;
     } catch (e) {
-        console.log("[Pexels] Error:", e);
+        console.log("[Pexels] Fetch failed:", e.message);
         return null;
     }
   };
@@ -94,11 +108,17 @@ export const AdminScreen = ({ navigation }: any) => {
     }
     setSubmitLoading(true);
     try {
-      // SILENTLY FETCH COVER FROM PEXELS
+      // SILENTLY FETCH UNIQUE COVER FROM PEXELS
       const coverUrl = await fetchPexelsUrl(title, genre);
+      console.log("[Admin] Fetched Cover URL:", coverUrl);
       
-      const payload: any = { title, genre, authorName, summary: "" };
-      if (coverUrl) payload.coverUrl = coverUrl;
+      const payload: any = { 
+        title, 
+        genre, 
+        authorName, 
+        summary: "",
+        coverUrl: coverUrl // Ensure this is named correctly for backend
+      };
       if (body) payload.body = body;
 
       if (isEditing && editingId) {
@@ -113,6 +133,7 @@ export const AdminScreen = ({ navigation }: any) => {
       resetForm();
       fetchAdminData();
     } catch (error: any) {
+      console.error("[Admin] Save Error:", error.response?.data || error.message);
       Alert.alert("Error", "Action failed. Check your connection.");
     } finally { setSubmitLoading(false); }
   };

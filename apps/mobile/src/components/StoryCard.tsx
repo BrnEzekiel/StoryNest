@@ -23,8 +23,6 @@ interface StoryCardProps {
   index?: number; 
 }
 
-const FALLBACK_IMAGE = "https://images.pexels.com/photos/1111368/pexels-photo-1111368.jpeg?auto=compress&cs=tinysrgb&w=800"; // Subtle dark forest/neutral
-
 export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }: StoryCardProps) => {
   const { theme, fonts, isDarkMode } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -38,12 +36,12 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
   }, []);
 
   const renderContent = () => {
-    const coverSource = story.coverUrl ? { uri: story.coverUrl } : { uri: FALLBACK_IMAGE };
+    const coverSource = story.coverUrl ? { uri: story.coverUrl } : null;
 
     if (variant === "featured") {
       return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.featuredContainer, { backgroundColor: theme.primary }, Shadows.m, style]}>
-          <Image source={coverSource} style={styles.featuredCover} resizeMode="cover" />
+          {coverSource && <Image source={coverSource} style={styles.featuredCover} resizeMode="cover" />}
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFill} />
           <View style={styles.featuredInfo}>
             <View style={styles.featuredTopRow}>
@@ -61,7 +59,10 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
     if (variant === "compact") {
       return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.compactContainer, style]}>
-          <Image source={coverSource} style={styles.compactCover} resizeMode="cover" />
+          <View style={[styles.compactCover, { backgroundColor: theme.primary + '20' }]}>
+            {coverSource && <Image source={coverSource} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+            {!coverSource && <Text style={{ color: theme.primary, fontSize: 8, textAlign: 'center', padding: 10, fontFamily: fonts.heading }}>{story.title}</Text>}
+          </View>
           <Text style={[styles.compactTitle, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={1}>{story.title}</Text>
         </TouchableOpacity>
       );
@@ -69,7 +70,15 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
 
     return (
       <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.container, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white }, Shadows.s, style]}>
-        <Image source={coverSource} style={styles.cover} resizeMode="cover" />
+        <View style={styles.cover}>
+            {coverSource ? (
+                <Image source={coverSource} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primary + '10', justifyContent: 'center', alignItems: 'center' }]}>
+                    <Text style={{ fontSize: 8, color: theme.primary, opacity: 0.5, fontFamily: fonts.heading }}>{story.title.substring(0, 2)}</Text>
+                </View>
+            )}
+        </View>
         <View style={styles.info}>
           <Text style={[styles.genre, { fontFamily: fonts.body, color: theme.primary }]}>{story.genre}</Text>
           <Text style={[styles.title, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={2}>{story.title}</Text>

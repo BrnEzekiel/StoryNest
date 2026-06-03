@@ -657,13 +657,3 @@ app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
 
 const PORT = config.port;
 app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.3 (Gmail API) running on port ${PORT}`));
-),
-      prisma.user.count({ where: { NOT: { email: SUPER_ADMIN_EMAIL } } })
-    ]);
-    res.json({ storyCount, totalReads, userCount });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.3 (Gmail API) running on port ${PORT}`));
-ORT}`));

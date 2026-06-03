@@ -197,11 +197,14 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style={isDarkMode ? "light" : "dark"} animated={true} />
       <View style={[styles.topBar, { backgroundColor: theme.white, paddingTop: insets.top }]}>
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
+            <TouchableOpacity onPress={() => setThemeMode(isDarkMode ? "light" : "dark")} style={styles.iconBtn}>
+                {isDarkMode ? <Sun size={20} color={theme.black} /> : <Moon size={20} color={theme.black} />}
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTOC(true)} style={styles.iconBtn}><List size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTranslate(true)} style={styles.iconBtn}><Globe size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowDictionary(true)} style={styles.iconBtn}><Book size={20} color={theme.black} /></TouchableOpacity>
@@ -279,7 +282,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         <View style={styles.bottomBarContent}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}><Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} /><Text style={styles.actionCount}>{likeCount}</Text></TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}><StickyNote size={22} color={theme.black} /></TouchableOpacity>
         </View>
       </View>
     </View>

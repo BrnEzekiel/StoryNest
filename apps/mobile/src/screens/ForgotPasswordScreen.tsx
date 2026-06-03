@@ -67,7 +67,7 @@ export const ForgotPasswordScreen = ({ navigation }: any) => {
                     title={loading ? "FINDING ACCOUNT..." : "Send Reset Code"} 
                     onPress={handleRequest} 
                     disabled={loading}
-                    style={{ marginTop: 24, backgroundColor: theme.primary }}
+                    style={{ marginTop: 24 }}
                 />
 
                 <TouchableOpacity style={styles.footer} onPress={() => navigation.goBack()}>

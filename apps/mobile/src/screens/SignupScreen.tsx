@@ -132,7 +132,7 @@ export const SignupScreen = ({ navigation }: any) => {
         icon="lock"
       />
       {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
-      <Button title="Continue" onPress={handleNext} style={[styles.signupBtn, { backgroundColor: appTheme.primary }]} />
+      <Button title="Continue" onPress={handleNext} style={styles.signupBtn} />
 
       <View style={styles.socialSection}>
         <Text style={[styles.socialText, { fontFamily: fonts.heading }]}>OR JOIN WITH</Text>
@@ -209,7 +209,7 @@ export const SignupScreen = ({ navigation }: any) => {
 
       {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
 
-      <Button title={loading ? "PREPARING..." : "Verify Email"} onPress={handleNext} disabled={loading} style={[styles.signupBtn, { backgroundColor: appTheme.primary }]} />
+      <Button title={loading ? "PREPARING..." : "Verify Email"} onPress={handleNext} disabled={loading} style={styles.signupBtn} />
       
       <TouchableOpacity onPress={() => setStep(1)} style={styles.backLink}>
         <Text style={[styles.backLinkText, { fontFamily: fonts.body }]}>Back to details</Text>

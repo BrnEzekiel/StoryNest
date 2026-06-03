@@ -310,7 +310,7 @@ export const AdminScreen = ({ navigation }: any) => {
 
             {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginVertical: 20 }} /> : (
                 <View style={{ marginBottom: 40 }}>
-                <Button title={isEditing ? "UPDATE METADATA" : "PUBLISH STORY"} onPress={handleSave} type="primary" style={{ backgroundColor: theme.primary }} />
+                <Button title={isEditing ? "UPDATE METADATA" : "PUBLISH STORY"} onPress={handleSave} type="primary" />
                 <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
                 </View>
             )}
@@ -363,7 +363,7 @@ export const AdminScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.actionSection}>
-          <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="secondary" style={{ marginBottom: 24 }} />
+          <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="primary" style={{ marginBottom: 24 }} />
           <Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>MY STORIES</Text>
           <View style={{ paddingBottom: insets.bottom + 40 }}>
             {loading && !refreshing ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (

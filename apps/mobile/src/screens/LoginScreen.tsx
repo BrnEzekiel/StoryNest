@@ -183,7 +183,7 @@ export const LoginScreen = ({ navigation }: any) => {
 
               {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
 
-              <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={[styles.loginBtn, { backgroundColor: appTheme.primary }]} />
+              <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
 
               <View style={styles.socialSection}>
                 <Text style={[styles.socialText, { fontFamily: fonts.heading }]}>OR JOIN WITH</Text>

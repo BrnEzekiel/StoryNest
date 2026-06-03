@@ -89,24 +89,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   primary: {
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
   },
   primaryText: {
-    color: Colors.primary,
+    color: Colors.accent,
   },
   ghost: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: Colors.accent,
+    borderColor: Colors.primary,
   },
   ghostText: {
-    color: Colors.accent,
+    color: Colors.primary,
   },
   secondary: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.accent,
   },
   secondaryText: {
-    color: Colors.accent,
+    color: Colors.primary,
   },
   text: {
     fontFamily: Fonts.heading || fontStack,

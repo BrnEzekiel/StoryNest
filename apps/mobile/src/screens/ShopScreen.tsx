@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   itemPriceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   itemPriceText: { fontSize: 12, marginLeft: 4 },
   itemBuyBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8 },
-  itemBuyText: { color: Colors.white, fontSize: 10 },
+  itemBuyText: { color: Colors.accent, fontSize: 10 },
   footer: { alignItems: 'center', marginTop: 10 },
   footerText: { fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 }
 });

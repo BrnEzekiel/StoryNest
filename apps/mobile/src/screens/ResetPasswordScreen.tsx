@@ -86,7 +86,7 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
                     title={loading ? "UPDATING..." : "Reset Password"} 
                     onPress={handleReset} 
                     disabled={loading}
-                    style={{ marginTop: 24, backgroundColor: theme.primary }}
+                    style={{ marginTop: 24 }}
                 />
             </ScrollView>
         </SafeAreaView>

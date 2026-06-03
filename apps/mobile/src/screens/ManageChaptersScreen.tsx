@@ -143,7 +143,7 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
                       
                       {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginTop: 20 }} /> : (
                           <View style={{ marginTop: 20 }}>
-                              <Button title="SAVE CHAPTER" onPress={handleSave} type="primary" style={{ backgroundColor: theme.primary }} />
+                              <Button title="SAVE CHAPTER" onPress={handleSave} type="primary" />
                               <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
                           </View>
                       )}

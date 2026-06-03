@@ -18,6 +18,7 @@ const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
 
 const FONT_SIZES = { small: 15, medium: 18, large: 22 };
 const HIGHLIGHT_COLORS = [{ name: 'yellow', hex: '#FFEB3B' }, { name: 'green', hex: '#8BC34A' }, { name: 'blue', hex: '#03A9F4' }, { name: 'pink', hex: '#E91E63' }];
+const LANGUAGES = [{ name: 'Spanish', code: 'es' }, { name: 'French', code: 'fr' }, { name: 'German', code: 'de' }, { name: 'Chinese', code: 'zh' }, { name: 'Arabic', code: 'ar' }, { name: 'Original', code: 'en' }];
 
 export const StoryReaderScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -41,7 +42,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
 
   // Feature 59: Polls
-  const [showPolls, setShowPolls] = useState(false);
   const [votingId, setVotingId] = useState<string | null>(null);
 
   // Feature 60: Reviews
@@ -49,29 +49,72 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewContent, setReviewContent] = useState("");
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   // Feature 35: Tip Jar
   const [showTipModal, setShowTipModal] = useState(false);
   const [tipAmount, setTipAmount] = useState(10);
+  const [tipping, setTipping] = useState(false);
 
-  // Other features
+  // Feature 14: Highlighting
+  const [highlights, setHighlights] = useState<any[]>([]);
+  const [selectedParaIndex, setSelectedParaIndex] = useState<number | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-  const [showDictionary, setShowDictionary] = useState(false);
-  const [showTranslate, setShowTranslate] = useState(false);
-  const [showTOC, setShowTOC] = useState(false);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  // Feature 15: Note-taking
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+
+  // Feature 16-17: Dictionary/Translate
+  const [showDictionary, setShowDictionary] = useState(false);
+  const [lookupWord, setLookupWord] = useState("");
+  const [definition, setDefinition] = useState<any>(null);
+  const [dictLoading, setDictLoading] = useState(false);
+  const [showTranslate, setShowTranslate] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [currentLang, setCurrentLang] = useState("English");
+
+  // Feature 24-25: TOC / Warnings / Purchase
+  const [showTOC, setShowTOC] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [showPurchase, setShowPurchase] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const likeScale = useRef(new Animated.Value(1)).current;
   const progressBarWidth = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const contentHeight = useRef(0);
+  const scrollY = useRef(0);
+  const autoScrollTimer = useRef<any>(null);
+
   const fontSize = FONT_SIZES[fontSizeMode];
 
   useEffect(() => {
+    loadSavedSettings();
     fetchStory();
+    return () => { 
+        Speech.stop(); 
+        if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); 
+    };
   }, [storyId]);
 
   useEffect(() => {
     Animated.timing(progressBarWidth, { toValue: scrollProgress, duration: 300, useNativeDriver: false }).start();
   }, [scrollProgress]);
+
+  const loadSavedSettings = async () => {
+    const savedFont = await AsyncStorage.getItem("readerFontSize");
+    if (savedFont) setFontSizeMode(savedFont as any);
+  };
+
+  const saveFontSize = async (newSize: string) => {
+    setFontSizeMode(newSize as any);
+    await AsyncStorage.setItem("readerFontSize", newSize);
+  };
 
   const fetchStory = async () => {
     try {
@@ -81,7 +124,20 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setChapters(res.data.chapters || []);
       setLikeCount(res.data._count?.likes || 0);
       setIsLiked(res.data.isLiked);
+      
+      if (!res.data.isUnlocked) {
+          setShowPurchase(true);
+      } else if (res.data.contentWarnings || res.data.isAdult) {
+          setShowWarning(true);
+      }
+
       if (res.data.chapters?.length > 0) await loadChapter(res.data.chapters[0].id);
+      
+      const bookmarksRes = await apiClient.get("/users/me/bookmarks");
+      const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
+      setIsBookmarked(!!bookmark);
+
+      if (res.data.isUnlocked) await apiClient.post(`/stories/${storyId}/read`);
     } catch (error) { console.log(error); } 
     finally { setLoading(false); }
   };
@@ -93,17 +149,103 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setCurrentChapter(res.data);
           setOriginalBody(res.data.body);
           scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+          setScrollProgress(0);
           setShowTOC(false);
       } catch (e) { console.log(e); }
       finally { setLoading(false); }
   };
 
-  const fetchPlaylists = async () => {
+  const handlePurchase = async () => {
+    if ((user?.coins || 0) < (story?.price || 0)) {
+        Alert.alert("Insufficient Coins", "Visit the shop to top up.");
+        return;
+    }
+    setPurchasing(true);
+    try {
+        await apiClient.post(`/stories/${storyId}/purchase`);
+        setShowPurchase(false);
+        fetchStory(); 
+    } catch (e) { Alert.alert("Error", "Unlock failed."); }
+    finally { setPurchasing(false); }
+  };
+
+  const handleTip = async () => {
+      if ((user?.coins || 0) < tipAmount) { Alert.alert("Not enough coins", "Top up in the shop."); return; }
+      setTipping(true);
       try {
-          const res = await apiClient.get("/playlists/me");
-          setUserPlaylists(res.data);
-          setShowPlaylistPicker(true);
+          await apiClient.post(`/users/${story.ownerId}/tip`, { amount: tipAmount });
+          Alert.alert("Success!", `You tipped ${tipAmount} coins to ${story.authorName}.`);
+          setShowTipModal(false);
+          refreshUser();
+      } catch (e) { Alert.alert("Error", "Tip failed."); }
+      finally { setTipping(false); }
+  };
+
+  const fetchReviews = async () => {
+      setReviewsLoading(true);
+      try {
+          const res = await apiClient.get(`/stories/${storyId}/reviews`);
+          setReviews(res.data);
       } catch (e) { console.log(e); }
+      finally { setReviewsLoading(false); }
+  };
+
+  const handlePostReview = async () => {
+      if (!reviewContent.trim()) return;
+      try {
+          await apiClient.post(`/stories/${storyId}/reviews`, { rating: reviewRating, content: reviewContent });
+          setReviewContent("");
+          fetchReviews();
+      } catch (e) { console.log(e); }
+  };
+
+  const handleLookup = async () => {
+      if (!lookupWord.trim()) return;
+      setDictLoading(true);
+      try {
+          const res = await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${lookupWord.trim()}`);
+          setDefinition(res.data[0]);
+      } catch (e) { Alert.alert("Not found", "Definition not found."); }
+      finally { setDictLoading(false); }
+  };
+
+  const handleTranslate = async (lang: string) => {
+      if (lang === "Original") { setCurrentChapter({ ...currentChapter, body: originalBody }); setCurrentLang("English"); setShowTranslate(false); return; }
+      setTranslating(true); setShowTranslate(false);
+      try {
+          const res = await apiClient.post("/ai/translate", { text: originalBody, targetLanguage: lang });
+          setCurrentChapter({ ...currentChapter, body: res.data.result });
+          setCurrentLang(lang);
+      } catch (e) { Alert.alert("Error", "Translation failed."); }
+      finally { setTranslating(false); }
+  };
+
+  const toggleAutoScroll = () => {
+      if (isAutoScrolling) { setIsAutoScrolling(false); if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); }
+      else {
+          setIsAutoScrolling(true);
+          autoScrollTimer.current = setInterval(() => { scrollY.current += 1; scrollViewRef.current?.scrollTo({ y: scrollY.current, animated: false }); }, 50);
+      }
+  };
+
+  const handleLike = async () => {
+    const wasLiked = isLiked;
+    setIsLiked(!wasLiked);
+    setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
+    try {
+      const res = await apiClient.post(`/stories/${storyId}/like`);
+      setIsLiked(res.data.isLiked);
+      setLikeCount(res.data.likes);
+    } catch (error) { setIsLiked(wasLiked); }
+  };
+
+  const handleBookmark = async () => {
+    const wasBookmarked = isBookmarked;
+    setIsBookmarked(!wasBookmarked);
+    try {
+      const progress = wasBookmarked ? -1 : Math.round(scrollProgress * 100);
+      await apiClient.post(`/stories/${storyId}/bookmark`, { progress });
+    } catch (error) { setIsBookmarked(wasBookmarked); }
   };
 
   const handleAddToPlaylist = async (playlistId: string) => {
@@ -114,8 +256,29 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       } catch (e) { Alert.alert("Already in playlist"); }
   };
 
+  if (loading && !currentChapter) return <View style={[styles.container, { backgroundColor: theme.white, justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primary} /></View>;
+
   const paragraphs = currentChapter?.body ? currentChapter.body.split('\n\n') : [];
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
+
+  const PollCard = ({ poll }: { poll: any }) => {
+      const totalVotes = poll.options.reduce((acc: number, o: any) => acc + o._count.votes, 0);
+      return (
+          <View style={[styles.pollCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen }]}>
+              <Text style={[styles.pollQuestion, { color: theme.black, fontFamily: fonts.heading }]}>{poll.question}</Text>
+              {poll.options.map((opt: any) => {
+                  const percent = totalVotes > 0 ? (opt._count.votes / totalVotes) * 100 : 0;
+                  return (
+                      <TouchableOpacity key={opt.id} style={[styles.pollOption, { borderColor: theme.primary + '20' }]} onPress={() => apiClient.post(`/polls/${poll.id}/vote`, { optionId: opt.id }).then(fetchStory).catch(() => Alert.alert("Voted already"))}>
+                          <View style={[styles.pollProgress, { width: `${percent}%`, backgroundColor: theme.primary + '20' }]} />
+                          <Text style={[styles.pollOptionText, { color: theme.black, fontFamily: fonts.body }]}>{opt.text}</Text>
+                          <Text style={[styles.pollPercent, { fontFamily: fonts.heading }]}>{Math.round(percent)}%</Text>
+                      </TouchableOpacity>
+                  );
+              })}
+          </View>
+      );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
@@ -124,7 +287,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
-            <TouchableOpacity onPress={fetchPlaylists} style={styles.iconBtn}><FolderPlus size={20} color={theme.black} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => { apiClient.get("/playlists/me").then(res => { setUserPlaylists(res.data); setShowPlaylistPicker(true); }); }} style={styles.iconBtn}><FolderPlus size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTipModal(true)} style={styles.iconBtn}><Coins size={20} color={Colors.accent} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTOC(true)} style={styles.iconBtn}><List size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={() => setShowTranslate(true)} style={styles.iconBtn}><Globe size={20} color={theme.black} /></TouchableOpacity>
@@ -142,8 +305,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
           const totalHeight = contentSize.height - layoutMeasurement.height;
           setScrollProgress(totalHeight > 0 ? contentOffset.y / totalHeight : 0);
+          scrollY.current = contentOffset.y;
         }} 
         scrollEventThrottle={16}
+        onScrollBeginDrag={() => { setIsAutoScrolling(false); if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={styles.header}>
@@ -151,7 +316,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           <Text style={[styles.title, { color: theme.black, fontFamily: fonts.heading }]}>{story?.title}</Text>
           <View style={styles.chapterHeader}>
               <Text style={[styles.chapterLabel, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>{currentChapter?.title.toUpperCase()}</Text>
-              <TouchableOpacity onPress={() => setShowReviews(true)} style={styles.ratingBox}><Star size={14} color="#FFD700" fill="#FFD700" /><Text style={[styles.ratingText, { fontFamily: fonts.heading }]}>{story?._count?.reviews || 0} reviews</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowReviews(true); fetchReviews(); }} style={styles.ratingBox}>
+                  <Star size={14} color="#FFD700" fill="#FFD700" />
+                  <Text style={[styles.ratingText, { fontFamily: fonts.heading }]}>{story?._count?.reviews || 0} reviews</Text>
+              </TouchableOpacity>
           </View>
         </View>
         
@@ -160,6 +328,8 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             <Text key={idx} style={[styles.bodyText, { color: theme.black, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
           ))}
         </View>
+
+        {story?.polls?.map((p: any) => <PollCard key={p.id} poll={p} />)}
         
         {chapters.length > 1 && (
             <View style={styles.chapterNav}>
@@ -170,30 +340,42 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* Playlist Picker Modal */}
-      <Modal visible={showPlaylistPicker} animationType="slide" transparent>
-          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>ADD TO PLAYLIST</Text><TouchableOpacity onPress={() => setShowPlaylistPicker(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
-              <ScrollView style={{ padding: 24 }}>
-                  {userPlaylists.map(p => (
-                      <TouchableOpacity key={p.id} style={[styles.tocItem, { borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' }]} onPress={() => handleAddToPlaylist(p.id)}>
-                          <Text style={[styles.tocTitle, { color: theme.black, fontFamily: fonts.body }]}>{p.title}</Text>
-                          <Plus size={18} color={theme.primary} />
-                      </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity style={styles.createFirstBtn} onPress={() => { setShowPlaylistPicker(false); navigation.navigate("Playlists"); }}><Text style={[styles.createFirstText, { color: theme.primary, fontFamily: fonts.heading }]}>Create New Playlist</Text></TouchableOpacity>
-              </ScrollView>
+      {/* Modals: Purchase, Warning, Reviews, Tip, TOC, Playlists */}
+      <Modal visible={showPurchase} animationType="slide" transparent>
+          <View style={styles.centeredOverlay}>
+              <View style={[styles.purchaseContent, { backgroundColor: theme.white }]}>
+                  <Lock size={40} color={theme.primary} />
+                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>UNLOCK STORY</Text>
+                  <Text style={[styles.modalDesc, { fontFamily: fonts.body, textAlign: 'center' }]}>This is a premium story. Unlock it for {story?.price || 50} coins.</Text>
+                  <TouchableOpacity style={styles.actionBtnPrimary} onPress={handlePurchase} disabled={purchasing}>
+                      <Text style={styles.actionBtnTextPrimary}>UNLOCK NOW</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}><Text style={{ color: Colors.mutedTeal }}>Maybe Later</Text></TouchableOpacity>
+              </View>
           </View>
       </Modal>
 
-      {/* Tip Modal, TOC Modal - Omitted for brevity */}
+      <Modal visible={showWarning} animationType="fade" transparent>
+          <View style={styles.centeredOverlay}>
+              <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
+                  <AlertTriangle size={48} color={Colors.error} />
+                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>ADVISORY</Text>
+                  <Text style={[styles.modalDesc, { fontFamily: fonts.body, textAlign: 'center' }]}>{story?.contentWarnings || "General adult themes."}</Text>
+                  <TouchableOpacity style={styles.actionBtnPrimary} onPress={() => setShowWarning(false)}>
+                      <Text style={styles.actionBtnTextPrimary}>I UNDERSTAND</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
       <Modal visible={showTipModal} animationType="fade" transparent>
           <View style={styles.centeredOverlay}>
               <View style={[styles.tipContent, { backgroundColor: theme.white }]}>
-                  <Coins size={48} color={Colors.accent} style={{ marginBottom: 20 }} />
-                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>SUPPORT AUTHOR</Text>
-                  <View style={styles.tipRow}>{[10, 50, 100].map(amt => <TouchableOpacity key={amt} style={styles.tipAmt} onPress={() => { setShowTipModal(false); Alert.alert("Success", `Tipped ${amt} coins!`); }}><Text style={styles.tipAmtText}>{amt}</Text></TouchableOpacity>)}</View>
-                  <TouchableOpacity onPress={() => setShowTipModal(false)}><Text style={{ color: Colors.mutedTeal, marginTop: 20 }}>Cancel</Text></TouchableOpacity>
+                  <Coins size={48} color={Colors.accent} />
+                  <Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading, marginTop: 20 }]}>TIP AUTHOR</Text>
+                  <View style={styles.tipRow}>{[10, 50, 100].map(amt => <TouchableOpacity key={amt} style={[styles.tipAmt, tipAmount === amt && { borderColor: Colors.accent, borderWidth: 2 }]} onPress={() => setTipAmount(amt)}><Text style={styles.tipAmtText}>{amt}</Text></TouchableOpacity>)}</View>
+                  <TouchableOpacity style={styles.actionBtnPrimary} onPress={handleTip} disabled={tipping}><Text style={styles.actionBtnTextPrimary}>SEND TIP</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowTipModal(false)} style={{ marginTop: 20 }}><Text style={{ color: Colors.mutedTeal }}>Cancel</Text></TouchableOpacity>
               </View>
           </View>
       </Modal>
@@ -205,10 +387,17 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           </View>
       </Modal>
 
+      <Modal visible={showPlaylistPicker} animationType="slide" transparent>
+          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
+              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>ADD TO PLAYLIST</Text><TouchableOpacity onPress={() => setShowPlaylistPicker(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
+              <ScrollView style={{ padding: 24 }}>{userPlaylists.map(p => (<TouchableOpacity key={p.id} style={styles.tocItem} onPress={() => handleAddToPlaylist(p.id)}><Text style={styles.tocTitle}>{p.title}</Text><Plus size={18} color={theme.primary} /></TouchableOpacity>))}</ScrollView>
+          </View>
+      </Modal>
+
       <View style={[styles.bottomBar, { backgroundColor: theme.white, borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
-          <TouchableOpacity style={styles.actionBtn}><Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} /><Text style={styles.actionCount}>{likeCount}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={handleLike} style={styles.actionBtn}><Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} /><Text style={styles.actionCount}>{likeCount}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowComments(true)} style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
           <TouchableOpacity onPress={() => setShowNotes(true)} style={styles.actionBtn}><StickyNote size={22} color={theme.black} /></TouchableOpacity>
         </View>
       </View>
@@ -234,6 +423,12 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 11, marginLeft: 6, color: '#8B6508' },
   bodyContainer: { paddingHorizontal: 24, marginBottom: 40 },
   bodyText: { fontSize: 18 },
+  pollCard: { marginHorizontal: 24, padding: 24, borderRadius: 24, marginBottom: 40, ...Shadows.m },
+  pollQuestion: { fontSize: 18, marginBottom: 20 },
+  pollOption: { padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden' },
+  pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0 },
+  pollOptionText: { fontSize: 14 },
+  pollPercent: { fontSize: 12, opacity: 0.6 },
   chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginBottom: 100 },
   navBtn: { flexDirection: 'row', alignItems: 'center' },
   navBtnText: { fontSize: 14, marginHorizontal: 8 },
@@ -245,14 +440,17 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
   modalTitle: { fontSize: 18, letterSpacing: 1 },
-  centeredOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)' },
+  modalDesc: { color: Colors.mutedTeal, marginBottom: 24, paddingHorizontal: 40 },
+  centeredOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.85)' },
+  purchaseContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
+  warningContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
   tipContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
-  tipRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 32, marginTop: 10 },
+  tipRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginVertical: 32 },
   tipAmt: { width: '30%', height: 60, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' },
   tipAmtText: { fontSize: 18, fontWeight: '700' },
+  actionBtnPrimary: { backgroundColor: Colors.primary, width: '100%', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginTop: 24 },
+  actionBtnTextPrimary: { color: Colors.accent, fontSize: 14, fontWeight: '700', letterSpacing: 1 },
   tocItem: { flexDirection: 'row', alignItems: 'center', padding: 20, justifyContent: 'space-between' },
   tocOrder: { fontSize: 20, width: 40, opacity: 0.3 },
   tocTitle: { fontSize: 16 },
-  createFirstBtn: { padding: 20, alignItems: 'center', marginTop: 20 },
-  createFirstText: { fontSize: 14, letterSpacing: 1 },
 });

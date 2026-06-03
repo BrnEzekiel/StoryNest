@@ -143,14 +143,14 @@ const styles = StyleSheet.create({
     btn: {
         paddingVertical: 18,
         paddingHorizontal: 40,
-        backgroundColor: Colors.accent,
+        backgroundColor: Colors.primary,
         borderRadius: 30,
         width: "100%"
     },
     btnText: {
         fontFamily: Fonts.heading,
         fontSize: 12,
-        color: Colors.primary,
+        color: Colors.accent,
         textAlign: "center",
         letterSpacing: 2
     },

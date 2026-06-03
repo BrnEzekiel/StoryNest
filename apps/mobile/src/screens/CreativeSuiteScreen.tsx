@@ -238,7 +238,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                   <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top', fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Description / Bio" value={charDesc} onChangeText={setCharDesc} multiline placeholderTextColor={Colors.mutedTeal} />
                   
                   {submitting ? <ActivityIndicator color={theme.primary} /> : (
-                      <Button title="SAVE CHARACTER" onPress={handleAddCharacter} style={{ backgroundColor: theme.primary }} />
+                      <Button title="SAVE CHARACTER" onPress={handleAddCharacter} />
                   )}
               </ScrollView>
           </View>
@@ -268,7 +268,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                   <TextInput style={[styles.input, { height: 250, textAlignVertical: 'top', fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Details..." value={worldContent} onChangeText={setWorldContent} multiline placeholderTextColor={Colors.mutedTeal} />
                   
                   {submitting ? <ActivityIndicator color={theme.primary} /> : (
-                      <Button title="SAVE ENTRY" onPress={handleAddWorld} style={{ backgroundColor: theme.primary }} />
+                      <Button title="SAVE ENTRY" onPress={handleAddWorld} />
                   )}
               </ScrollView>
           </View>

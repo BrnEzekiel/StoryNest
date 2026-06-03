@@ -267,7 +267,14 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
     const { title, genre, authorName, mood, body, summary } = req.body;
     try {
         const story = await prisma.story.create({
-            data: { title, genre, authorName, mood, summary, ownerId: req.user.id, coverUrl: req.file ? req.file.path : null, chapters: body ? { create: { title: "Chapter 1", body, order: 1 } } : undefined }
+            data: { 
+                title, genre, authorName, mood, summary, 
+                ownerId: req.user.id, 
+                coverUrl: req.file ? req.file.path : null, 
+                isDraft: false,
+                publishedAt: new Date(),
+                chapters: body ? { create: { title: "Chapter 1", body, order: 1 } } : undefined 
+            }
         });
         res.status(201).json(story);
     } catch (e) { res.status(500).json({ error: e.message }); }

@@ -8,24 +8,9 @@ import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dimensions } from "react-native";
 
-// Screens
-import { LoginScreen } from "../screens/LoginScreen";
-import { SignupScreen } from "../screens/SignupScreen";
-import { OTPScreen } from "../screens/OTPScreen";
-import { ForgotPasswordScreen } from "../screens/ForgotPasswordScreen";
-import { ResetPasswordScreen } from "../screens/ResetPasswordScreen";
-import { LegalScreen } from "../screens/LegalScreen";
-import { HomeScreen } from "../screens/HomeScreen";
-import { ExploreScreen } from "../screens/ExploreScreen";
-import { BookmarksScreen } from "../screens/BookmarksScreen";
-import { ProfileScreen } from "../screens/ProfileScreen";
-import { AdminScreen } from "../screens/AdminScreen";
-import { StoryReaderScreen } from "../screens/StoryReaderScreen";
-import { SettingsScreen } from "../screens/SettingsScreen";
-import { EditProfileScreen } from "../screens/EditProfileScreen";
-import { AchievementsScreen } from "../screens/AchievementsScreen";
-
+const { width } = Dimensions.get("window");
 const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -46,16 +31,22 @@ const TabNavigator = () => {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.mutedTeal,
+        tabBarPressColor: 'transparent',
         tabBarIndicatorStyle: {
           top: 0,
           backgroundColor: Colors.primary,
           height: 3,
+          width: 40,
+          marginLeft: (width / 4 - 40) / 2,
+          borderRadius: 2,
         },
         tabBarStyle: {
           backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white,
           borderTopColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen,
           height: 65 + insets.bottom,
           paddingBottom: insets.bottom + 10,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarLabelStyle: {
           fontFamily: Fonts.body,

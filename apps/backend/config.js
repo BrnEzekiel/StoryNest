@@ -58,8 +58,11 @@ const sendGmail = async ({ to, subject, html }) => {
         const { token } = await client.getAccessToken();
         
         const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
+        const senderName = "StoryNest";
+        const fromHeader = `${senderName} <${config.smtp.auth.user}>`;
+
         const messageParts = [
-            `From: ${config.smtp.from}`,
+            `From: ${fromHeader}`,
             `To: ${to}`,
             `Content-Type: text/html; charset=utf-8`,
             `MIME-Version: 1.0`,

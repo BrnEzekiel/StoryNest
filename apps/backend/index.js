@@ -584,4 +584,4 @@ app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.2 (Gmail API) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.3 (Gmail API) running on port ${PORT}`));

@@ -69,15 +69,16 @@ export const AdminScreen = ({ navigation }: any) => {
   }, []);
 
   const fetchPexelsUrl = async (query: string, storyGenre: string) => {
-    if (!PEXELS_API_KEY) {
+    const key = PEXELS_API_KEY || "cKmC9mSkKyOKfmCA9PNqTm19LZthrh8xOJfXske5adPwhN4R5bpSrt0c";
+    if (!key) {
         console.error("[Pexels] API Key is missing!");
         return null;
     }
     try {
-        // Randomize results by picking a random page or index
-        const randomPage = Math.floor(Math.random() * 5) + 1;
-        const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " cinematic story")}&per_page=5&page=${randomPage}&orientation=portrait`, {
-            headers: { Authorization: PEXELS_API_KEY }
+        // Attempt 1: Title + cinematic
+        const randomPage = Math.floor(Math.random() * 10) + 1;
+        const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&page=${randomPage}&orientation=portrait`, {
+            headers: { Authorization: key }
         });
         
         if (res.data.photos?.length > 0) {
@@ -85,13 +86,22 @@ export const AdminScreen = ({ navigation }: any) => {
             return res.data.photos[randomIndex].src.large2x;
         }
         
-        // Fallback search with genre
-        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " atmosphere")}&per_page=5&orientation=portrait`, {
-            headers: { Authorization: PEXELS_API_KEY }
+        // Attempt 2: Genre + aesthetic
+        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " cinematic")}&per_page=10&orientation=portrait`, {
+            headers: { Authorization: key }
         });
         if (fallback.data.photos?.length > 0) {
             const randomIndex = Math.floor(Math.random() * fallback.data.photos.length);
             return fallback.data.photos[randomIndex].src.large2x;
+        }
+        
+        // Attempt 3: Pure Atmosphere
+        const atmosphere = await axios.get(`https://api.pexels.com/v1/search?query=cinematic+atmosphere&per_page=15&orientation=portrait`, {
+            headers: { Authorization: key }
+        });
+        if (atmosphere.data.photos?.length > 0) {
+            const randomIndex = Math.floor(Math.random() * atmosphere.data.photos.length);
+            return atmosphere.data.photos[randomIndex].src.large2x;
         }
         
         return null;
@@ -109,19 +119,23 @@ export const AdminScreen = ({ navigation }: any) => {
     setSubmitLoading(true);
     try {
       // SILENTLY FETCH UNIQUE COVER FROM PEXELS
-      const coverUrl = await fetchPexelsUrl(title, genre);
-      console.log("[Admin] Fetched Cover URL:", coverUrl);
+      let coverUrl = await fetchPexelsUrl(title, genre);
       
       const payload: any = { 
         title, 
         genre, 
         authorName, 
         summary: "",
-        coverUrl: coverUrl // Ensure this is named correctly for backend
+        coverUrl: coverUrl
       };
       if (body) payload.body = body;
 
       if (isEditing && editingId) {
+        // If editing and no new cover was fetched (failed), keep old one if exists
+        const currentStory = stories.find(s => s.id === editingId);
+        if (!payload.coverUrl && currentStory?.coverUrl) {
+            payload.coverUrl = currentStory.coverUrl;
+        }
         await apiClient.put(`/stories/${editingId}`, payload);
       } else {
         await apiClient.post("/stories", payload);

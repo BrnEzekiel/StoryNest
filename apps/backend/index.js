@@ -186,6 +186,8 @@ app.post("/auth/otp/initiate", async (req, res) => {
             console.error("[SMTP] Background failure:", e.message);
         });
         
+        sendSlackNotification(`🔑 OTP initiated for ${email}`);
+        
         res.json({ message: "OTP sent" });
 
     } catch (error) { 
@@ -207,6 +209,8 @@ app.post("/auth/otp/verify", async (req, res) => {
             where: { email }, 
             data: { emailVerified: true, otpCode: null, otpExpiry: null } 
         });
+
+        sendSlackNotification(`✅ Email verified: ${email}`);
 
         res.json({ message: "Email verified" });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -233,7 +237,7 @@ app.post("/auth/register", async (req, res) => {
       }
     });
 
-    sendSlackNotification(`🎉 New Nestling! ${username} (${email}) has joined the nest.`);
+    sendSlackNotification(`🎉 New Nestling! **${username}** (${email}) has joined the nest.`);
     const tokens = generateTokens(updatedUser);
 
     // Welcome Email via Gmail API
@@ -260,6 +264,15 @@ app.post("/auth/register", async (req, res) => {
     }
     res.status(500).json({ error: error.message }); 
   }
+});
+
+// Logout Route
+app.post("/auth/logout", authenticate, async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        sendSlackNotification(`🚪 **${user?.username}** signed out`);
+        res.json({ message: "Logged out" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // 4. Forgot Password OTP
@@ -308,6 +321,8 @@ app.post("/auth/password/reset", async (req, res) => {
                 password: newPassword
             });
         }
+
+        sendSlackNotification(`🔐 Password successfully reset for ${email}`);
 
         res.json({ message: "Password updated" });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -375,6 +390,9 @@ app.post("/auth/login", async (req, res) => {
     }
 
     const tokens = generateTokens(user);
+    
+    sendSlackNotification(`🔑 **${user.username}** logged in`);
+    
     res.json({ user, ...tokens });
   } catch (error) {
     console.error("Firebase verification error:", error);
@@ -486,6 +504,8 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
                        </div>`
             }).catch(e => console.error("[Gmail API] Update Notification Error:", e.message));
         }
+        
+        sendSlackNotification(`📝 **Admin** updated story: "${story.title}"`);
 
         res.json(story);
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -493,8 +513,12 @@ app.put("/stories/:id", authenticate, isAdmin, upload.single("cover"), async (re
 
 app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
     try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true } });
         await prisma.story.delete({ where: { id: req.params.id } });
         cache.flushAll();
+        
+        sendSlackNotification(`🗑️ **Admin** deleted story: "${story?.title || 'Unknown'}"`);
+        
         res.json({ message: "Deleted successfully" });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -503,9 +527,15 @@ app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
 
 app.post("/stories/:id/read", authenticate, async (req, res) => {
     try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true } });
+        const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+        
         await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
         // Update user XP
         await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
+        
+        sendSlackNotification(`📖 **${user?.username}** just finished reading "${story?.title || 'a story'}" (+10 XP)`);
+        
         res.json({ status: "success" });
     } catch (e) { res.json({ status: "already_logged" }); }
 });
@@ -524,6 +554,9 @@ app.post("/users/me/settings", authenticate, async (req, res) => {
             where: { id: req.user.id },
             data: { notificationsOn }
         });
+        
+        sendSlackNotification(`⚙️ **${user.username}** updated their settings (Notifications: ${notificationsOn ? 'ON' : 'OFF'})`);
+        
         res.json(user);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -532,6 +565,9 @@ app.post("/users/me/avatar", authenticate, upload.single("avatar"), async (req, 
     if (!req.file) return res.status(400).json({ error: "No image provided" });
     try {
         const user = await prisma.user.update({ where: { id: req.user.id }, data: { avatarUrl: req.file.path } });
+        
+        sendSlackNotification(`📸 **${user.username}** updated their profile picture`);
+        
         res.json(user);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -546,8 +582,12 @@ app.get("/users/me/bookmarks", authenticate, async (req, res) => {
 app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
     const { progress } = req.body; // percentage 0-100 or -1 to delete
     try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true } });
+        const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+
         if (progress === -1) {
             await prisma.bookmark.delete({ where: { userId_storyId: { userId: req.user.id, storyId: req.params.id } } });
+            sendSlackNotification(`🔖 **${user?.username}** removed "${story?.title}" from bookmarks`);
             return res.json({ message: "Removed" });
         }
         const bookmark = await prisma.bookmark.upsert({
@@ -555,20 +595,32 @@ app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
             update: { progress: parseInt(progress) },
             create: { userId: req.user.id, storyId: req.params.id, progress: parseInt(progress) }
         });
+        
+        sendSlackNotification(`🔖 **${user?.username}** bookmarked "${story?.title}" (${progress}% read)`);
+        
         res.json(bookmark);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/stories/:id/like", authenticate, async (req, res) => {
     try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true } });
+        const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+
         const existing = await prisma.like.findUnique({ where: { userId_storyId: { userId: req.user.id, storyId: req.params.id } } });
         if (existing) {
             await prisma.like.delete({ where: { id: existing.id } });
             const count = await prisma.like.count({ where: { storyId: req.params.id } });
+            
+            sendSlackNotification(`💔 **${user?.username}** unliked "${story?.title}"`);
+            
             return res.json({ isLiked: false, likes: count });
         }
         await prisma.like.create({ data: { userId: req.user.id, storyId: req.params.id } });
         const count = await prisma.like.count({ where: { storyId: req.params.id } });
+        
+        sendSlackNotification(`❤️ **${user?.username}** liked "${story?.title}"`);
+        
         res.json({ isLiked: true, likes: count });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

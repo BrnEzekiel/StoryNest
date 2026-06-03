@@ -169,9 +169,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    try {
+        await apiClient.post("/auth/logout");
+    } catch (e) {
+        console.log("[Auth] Backend logout notification failed (token likely already gone)");
+    }
     await signOut(auth);
-    await Storage.removeItem("accessToken");
-    await Storage.removeItem("refreshToken");
+    await Storage.deleteItemAsync("accessToken");
+    await Storage.deleteItemAsync("refreshToken");
     setUser(null);
   };
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, Edit2, Shield, Bookmark, Clock, Star, Zap, Flame, Calendar, LayoutList, Trophy, Mail } from "lucide-react-native";
+import { Settings, LogOut, Shield, Bookmark, Trophy, Mail } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
@@ -16,7 +16,6 @@ export const ProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     refreshUser();
@@ -55,17 +54,10 @@ export const ProfileScreen = ({ navigation }: any) => {
             </LinearGradient>
         </View>
 
-        <View style={styles.statsBar}>
-            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.streakCount || 0}</Text><Text style={styles.statLabel}>STREAK</Text></View>
-            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.bookmarks?.length || 0}</Text><Text style={styles.statLabel}>BOOKS</Text></View>
-            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.coins || 0}</Text><Text style={styles.statLabel}>COINS</Text></View>
-        </View>
-
         <View style={styles.menuGrid}>
-            <MenuOption icon={LayoutList} title="My Playlists" subtitle="Curated collections" onPress={() => navigation.navigate("Playlists")} color="#007AFF" />
+            <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
             <MenuOption icon={Trophy} title="Achievements" subtitle="Earned rewards" onPress={() => navigation.navigate("Achievements")} color="#FF9500" />
             <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
-            <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
             {user?.role === 'ADMIN' && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
         </View>
       </ScrollView>
@@ -84,11 +76,7 @@ const styles = StyleSheet.create({
   xpText: { fontSize: 10, color: Colors.primary },
   username: { fontSize: 24, marginBottom: 4 },
   userRole: { fontSize: 12, letterSpacing: 2 },
-  statsBar: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: Colors.white, marginHorizontal: 24, paddingVertical: 20, borderRadius: 24, marginTop: -30, ...Shadows.m },
-  statBox: { alignItems: 'center' },
-  statVal: { fontSize: 20 },
-  statLabel: { fontSize: 9, color: Colors.mutedTeal, letterSpacing: 1, marginTop: 2 },
-  menuGrid: { padding: 24 },
+  menuGrid: { padding: 24, marginTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
   menuIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   menuTitle: { fontSize: 15 },

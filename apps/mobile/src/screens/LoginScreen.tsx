@@ -119,13 +119,18 @@ export const LoginScreen = ({ navigation }: any) => {
       }
       await login(trimmedEmail, trimmedPassword);
     } catch (err: any) {
-      console.error("[Login Error]", err.message || JSON.stringify(err));
+      console.error("[Login Error]", err.message);
+      let msg = "We couldn't reach the server. Please check your internet connection.";
+      
       if (err?.code?.startsWith("auth/")) {
-        setError(getFirebaseErrorMessage(err.code));
-      } else {
-        const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
-        setError(serverMsg || "Unable to reach server. Try again later.");
+          msg = getFirebaseErrorMessage(err.code);
+      } else if (err.response?.status === 401) {
+          msg = "Incorrect email or password. Please try again.";
+      } else if (err.response?.status === 404) {
+          msg = "StoryNest services are temporarily down. Try again shortly.";
       }
+      
+      setError(msg);
     } finally {
       setLoading(false);
     }

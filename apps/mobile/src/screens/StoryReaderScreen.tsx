@@ -246,13 +246,12 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     <View style={[styles.container, { backgroundColor: readerTheme.bg }]}>
       <StatusBar 
         style={isReaderDark ? "light" : "dark"} 
-        backgroundColor={readerTheme.bg} 
+        backgroundColor="transparent" 
         translucent={true}
-        animated={true} 
       />
       
       {/* Top Bar */}
-      <View style={[styles.topBar, { backgroundColor: readerTheme.bg, paddingTop: insets.top, borderBottomColor: 'rgba(0,0,0,0.05)' }]}>
+      <View style={[styles.topBar, { backgroundColor: readerTheme.bg, paddingTop: insets.top, borderBottomColor: isReaderDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={readerTheme.text} /></TouchableOpacity>
           <View style={styles.topBarIcons}>

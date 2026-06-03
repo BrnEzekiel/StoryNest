@@ -1,30 +1,36 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions, Modal, FlatList, Image } from "react-native";
-import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
-import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle, Reply, Lock, Highlighter, Book, Search, Globe, ChevronLeft, ChevronRight, List, Star, BarChart2 } from "lucide-react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Animated, 
+  Alert, 
+  Dimensions, 
+  Modal, 
+  Image 
+} from "react-native";
+import { Colors, Shadows } from "../theme/colors";
+import { ArrowLeft, Bookmark, Heart, MessageSquare, StickyNote, X, AlertTriangle, Lock, Book, Globe, ChevronLeft, ChevronRight, List, Star } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SkeletonCard } from "../components/SkeletonCard";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import * as Speech from 'expo-speech';
-import { OfflineManager } from "../utils/OfflineManager";
 import axios from "axios";
 
 const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
 
 const FONT_SIZES = { small: 15, medium: 18, large: 22 };
-const HIGHLIGHT_COLORS = [{ name: 'yellow', hex: '#FFEB3B' }, { name: 'green', hex: '#8BC34A' }, { name: 'blue', hex: '#03A9F4' }, { name: 'pink', hex: '#E91E63' }];
-const LANGUAGES = [{ name: 'Spanish', code: 'es' }, { name: 'French', code: 'fr' }, { name: 'German', code: 'de' }, { name: 'Chinese', code: 'zh' }, { name: 'Arabic', code: 'ar' }, { name: 'Original', code: 'en' }];
 
 export const StoryReaderScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { storyId } = route.params;
-  const { user, refreshUser } = useAuth();
-  const { theme, fonts, themeMode, setThemeMode, isDarkMode } = useTheme();
+  const { user } = useAuth();
+  const { theme, fonts, isDarkMode } = useTheme();
   
   const [story, setStory] = useState<any>(null);
   const [chapters, setChapters] = useState<any[]>([]);
@@ -43,48 +49,27 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [reviewContent, setReviewContent] = useState("");
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  // Feature 14: Highlighting
-  const [highlights, setHighlights] = useState<any[]>([]);
-  const [selectedParaIndex, setSelectedParaIndex] = useState<number | null>(null);
-  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
-
-  // Feature 15: Note-taking
-  const [showNotes, setShowNotes] = useState(false);
-  const [notes, setNotes] = useState<any[]>([]);
-  const [newNote, setNewNote] = useState("");
-
   // Feature 16-17: Dictionary/Translate
   const [showDictionary, setShowDictionary] = useState(false);
   const [lookupWord, setLookupWord] = useState("");
   const [definition, setDefinition] = useState<any>(null);
   const [dictLoading, setDictLoading] = useState(false);
   const [showTranslate, setShowTranslate] = useState(false);
-  const [translating, setTranslating] = useState(false);
   const [currentLang, setCurrentLang] = useState("English");
 
   // Feature 24-25: TOC / Warnings
   const [showTOC, setShowTOC] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
 
-  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-
-  const likeScale = useRef(new Animated.Value(1)).current;
   const progressBarWidth = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-  const contentHeight = useRef(0);
   const scrollY = useRef(0);
-  const autoScrollTimer = useRef<any>(null);
 
   const fontSize = FONT_SIZES[fontSizeMode];
 
   useEffect(() => {
     loadSavedSettings();
     fetchStory();
-    return () => { 
-        Speech.stop(); 
-        if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); 
-    };
   }, [storyId]);
 
   useEffect(() => {
@@ -94,11 +79,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const loadSavedSettings = async () => {
     const savedFont = await AsyncStorage.getItem("readerFontSize");
     if (savedFont) setFontSizeMode(savedFont as any);
-  };
-
-  const saveFontSize = async (newSize: string) => {
-    setFontSizeMode(newSize as any);
-    await AsyncStorage.setItem("readerFontSize", newSize);
   };
 
   const fetchStory = async () => {
@@ -114,15 +94,20 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setShowWarning(true);
       }
 
-      if (res.data.chapters?.length > 0) await loadChapter(res.data.chapters[0].id);
+      if (res.data.chapters?.length > 0) {
+          await loadChapter(res.data.chapters[0].id);
+      }
       
       const bookmarksRes = await apiClient.get("/users/me/bookmarks");
       const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
       setIsBookmarked(!!bookmark);
 
       await apiClient.post(`/stories/${storyId}/read`);
-    } catch (error) { console.log(error); } 
-    finally { setLoading(false); }
+    } catch (error) { 
+        console.log("[Reader] Fetch error:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const loadChapter = async (chapterId: string) => {
@@ -134,8 +119,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           scrollViewRef.current?.scrollTo({ y: 0, animated: false });
           setScrollProgress(0);
           setShowTOC(false);
-      } catch (e) { console.log(e); }
-      finally { setLoading(false); }
+      } catch (e) { 
+          console.log("[Reader] Load chapter error:", e); 
+      } finally { 
+          setLoading(false); 
+      }
   };
 
   const fetchReviews = async () => {
@@ -168,21 +156,12 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   const handleTranslate = async (lang: string) => {
       if (lang === "Original") { setCurrentChapter({ ...currentChapter, body: originalBody }); setCurrentLang("English"); setShowTranslate(false); return; }
-      setTranslating(true); setShowTranslate(false);
+      setShowTranslate(false);
       try {
           const res = await apiClient.post("/ai/translate", { text: originalBody, targetLanguage: lang });
           setCurrentChapter({ ...currentChapter, body: res.data.result });
           setCurrentLang(lang);
       } catch (e) { Alert.alert("Error", "Translation failed."); }
-      finally { setTranslating(false); }
-  };
-
-  const toggleAutoScroll = () => {
-      if (isAutoScrolling) { setIsAutoScrolling(false); if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); }
-      else {
-          setIsAutoScrolling(true);
-          autoScrollTimer.current = setInterval(() => { scrollY.current += 1; scrollViewRef.current?.scrollTo({ y: scrollY.current, animated: false }); }, 50);
-      }
   };
 
   const handleLike = async () => {
@@ -205,7 +184,13 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsBookmarked(wasBookmarked); }
   };
 
-  if (loading && !currentChapter) return <View style={[styles.container, { backgroundColor: theme.white, justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primary} /></View>;
+  if (loading && !currentChapter) {
+      return (
+          <View style={[styles.container, { backgroundColor: theme.white, justifyContent: 'center' }]}>
+              <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+      );
+  }
 
   const paragraphs = currentChapter?.body ? currentChapter.body.split('\n\n') : [];
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
@@ -236,14 +221,15 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           scrollY.current = contentOffset.y;
         }} 
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => { setIsAutoScrolling(false); if (autoScrollTimer.current) clearInterval(autoScrollTimer.current); }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <View style={styles.header}>
           <Text style={[styles.genre, { color: theme.primary, fontFamily: fonts.body }]}>{story?.genre}</Text>
           <Text style={[styles.title, { color: theme.black, fontFamily: fonts.heading }]}>{story?.title}</Text>
           <View style={styles.chapterHeader}>
-              <Text style={[styles.chapterLabel, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>{currentChapter?.title.toUpperCase()}</Text>
+              <Text style={[styles.chapterLabel, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>
+                  {currentChapter?.title ? currentChapter.title.toUpperCase() : "CHAPTER 1"}
+              </Text>
               <TouchableOpacity onPress={() => { setShowReviews(true); fetchReviews(); }} style={styles.ratingBox}>
                   <Star size={14} color="#FFD700" fill="#FFD700" />
                   <Text style={[styles.ratingText, { fontFamily: fonts.heading }]}>{story?._count?.reviews || 0} reviews</Text>
@@ -252,21 +238,23 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         </View>
         
         <View style={styles.bodyContainer}>
-          {paragraphs.map((para, idx) => (
+          {paragraphs.length > 0 ? paragraphs.map((para, idx) => (
             <Text key={idx} style={[styles.bodyText, { color: theme.black, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
-          ))}
+          )) : (
+            <Text style={[styles.bodyText, { color: theme.black, opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 40 }]}>No content found for this chapter.</Text>
+          )}
         </View>
         
         {chapters.length > 1 && (
             <View style={styles.chapterNav}>
-                <TouchableOpacity style={[styles.navBtn, currentChapterIdx === 0 && { opacity: 0.3 }]} disabled={currentChapterIdx === 0} onPress={() => loadChapter(chapters[currentChapterIdx - 1].id)}><ChevronLeft size={24} color={theme.black} /><Text style={styles.navBtnText}>Previous</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.navBtn, currentChapterIdx <= 0 && { opacity: 0.3 }]} disabled={currentChapterIdx <= 0} onPress={() => loadChapter(chapters[currentChapterIdx - 1].id)}><ChevronLeft size={24} color={theme.black} /><Text style={styles.navBtnText}>Previous</Text></TouchableOpacity>
                 <Text style={[styles.navProgress, { fontFamily: fonts.heading }]}>{currentChapterIdx + 1} / {chapters.length}</Text>
-                <TouchableOpacity style={[styles.navBtn, currentChapterIdx === chapters.length - 1 && { opacity: 0.3 }]} disabled={currentChapterIdx === chapters.length - 1} onPress={() => loadChapter(chapters[currentChapterIdx + 1].id)}><Text style={styles.navBtnText}>Next</Text><ChevronRight size={24} color={theme.black} /></TouchableOpacity>
+                <TouchableOpacity style={[styles.navBtn, currentChapterIdx >= chapters.length - 1 && { opacity: 0.3 }]} disabled={currentChapterIdx >= chapters.length - 1} onPress={() => loadChapter(chapters[currentChapterIdx + 1].id)}><Text style={styles.navBtnText}>Next</Text><ChevronRight size={24} color={theme.black} /></TouchableOpacity>
             </View>
         )}
       </ScrollView>
 
-      {/* Modals: Warning, Reviews, TOC */}
+      {/* Modals: Warning, TOC */}
       <Modal visible={showWarning} animationType="fade" transparent>
           <View style={styles.centeredOverlay}>
               <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
@@ -290,8 +278,8 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       <View style={[styles.bottomBar, { backgroundColor: theme.white, borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}><Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} /><Text style={styles.actionCount}>{likeCount}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowComments(true)} style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowNotes(true)} style={styles.actionBtn}><StickyNote size={22} color={theme.black} /></TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn}><StickyNote size={22} color={theme.black} /></TouchableOpacity>
         </View>
       </View>
     </View>

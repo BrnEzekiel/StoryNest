@@ -29,13 +29,13 @@ export const EditProfileScreen = ({ navigation }: any) => {
     }
     setLoading(true);
     try {
-      // In a real app, you'd have an update profile endpoint
-      // For now, we'll simulate success and refresh user
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      Alert.alert("Success", "Profile updated successfully!");
+      await apiClient.put("/users/me/profile", { username, bio });
+      await refreshUser();
+      Alert.alert("Success", "Profile identity updated!");
       navigation.goBack();
-    } catch (error) {
-      Alert.alert("Error", "Failed to update profile.");
+    } catch (error: any) {
+      const msg = error.response?.data?.error || "Failed to update profile.";
+      Alert.alert("Error", msg);
     } finally {
       setLoading(false);
     }

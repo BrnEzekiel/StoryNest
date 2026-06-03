@@ -561,6 +561,23 @@ app.post("/users/me/settings", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put("/users/me/profile", authenticate, async (req, res) => {
+    const { username, bio } = req.body;
+    try {
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { username, bio }
+        });
+        
+        sendSlackNotification(`👤 **${user.username}** updated their profile info`);
+        
+        res.json(user);
+    } catch (e) { 
+        if (e.code === 'P2002') return res.status(400).json({ error: "Username already taken" });
+        res.status(500).json({ error: e.message }); 
+    }
+});
+
 app.post("/users/me/avatar", authenticate, upload.single("avatar"), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No image provided" });
     try {

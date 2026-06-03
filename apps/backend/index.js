@@ -527,17 +527,96 @@ app.delete("/stories/:id", authenticate, isAdmin, async (req, res) => {
 
 app.post("/stories/:id/read", authenticate, async (req, res) => {
     try {
-        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true } });
-        const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+        const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { title: true, readingTime: true } });
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
         
         await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
-        // Update user XP
-        await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
+        
+        // Update user XP and reading stats
+        const now = new Date();
+        const readTime = story?.readingTime || 5;
+        
+        let streak = user.streakCount || 0;
+        let todayTime = user.todayReadTime || 0;
+        
+        const lastRead = user.lastReadDate ? new Date(user.lastReadDate) : null;
+        const isSameDay = lastRead && 
+            lastRead.getDate() === now.getDate() && 
+            lastRead.getMonth() === now.getMonth() && 
+            lastRead.getFullYear() === now.getFullYear();
+
+        if (!isSameDay) {
+            // Check for streak (if yesterday)
+            const yesterday = new Date();
+            yesterday.setDate(now.getDate() - 1);
+            const isYesterday = lastRead && 
+                lastRead.getDate() === yesterday.getDate() && 
+                lastRead.getMonth() === yesterday.getMonth() && 
+                lastRead.getFullYear() === yesterday.getFullYear();
+            
+            streak = isYesterday ? streak + 1 : 1;
+            todayTime = readTime;
+        } else {
+            todayTime += readTime;
+        }
+
+        const updatedUser = await prisma.user.update({ 
+            where: { id: req.user.id }, 
+            data: { 
+                xp: { increment: 10 },
+                totalReadTime: { increment: readTime },
+                todayReadTime: todayTime,
+                streakCount: streak,
+                lastReadDate: now
+            } 
+        });
+
+        if (todayTime >= user.dailyGoalMinutes && user.todayReadTime < user.dailyGoalMinutes) {
+            sendSlackNotification(`🎯 **${user.username}** reached their daily reading goal! (${user.dailyGoalMinutes} min)`);
+        }
+
+        // --- ACHIEVEMENT LOGIC ---
+        const checkAchievements = async () => {
+            const hour = now.getHours();
+            
+            // 1. Early Bird (4 AM - 7 AM)
+            if (hour >= 4 && hour <= 7) {
+                const existing = await prisma.achievement.findFirst({ where: { userId: user.id, title: "Early Bird" } });
+                if (!existing) {
+                    await prisma.achievement.create({ data: { userId: user.id, title: "Early Bird", icon: "flame" } });
+                    sendSlackNotification(`🌟 **${user.username}** unlocked badge: **Early Bird**`);
+                }
+            }
+
+            // 2. Night Owl (11 PM - 3 AM)
+            if (hour >= 23 || hour <= 3) {
+                const existing = await prisma.achievement.findFirst({ where: { userId: user.id, title: "Night Owl" } });
+                if (!existing) {
+                    await prisma.achievement.create({ data: { userId: user.id, title: "Night Owl", icon: "moon" } });
+                    sendSlackNotification(`🌟 **${user.username}** unlocked badge: **Night Owl**`);
+                }
+            }
+
+            // 3. First Flight (First read)
+            const readCount = await prisma.history.count({ where: { userId: user.id } });
+            if (readCount === 1) {
+                const existing = await prisma.achievement.findFirst({ where: { userId: user.id, title: "First Flight" } });
+                if (!existing) {
+                    await prisma.achievement.create({ data: { userId: user.id, title: "First Flight", icon: "award" } });
+                    sendSlackNotification(`🌟 **${user.username}** unlocked badge: **First Flight**`);
+                }
+            }
+        };
+
+        checkAchievements().catch(e => console.error("Achievement error:", e));
         
         sendSlackNotification(`📖 **${user?.username}** just finished reading "${story?.title || 'a story'}" (+10 XP)`);
         
-        res.json({ status: "success" });
-    } catch (e) { res.json({ status: "already_logged" }); }
+        res.json({ status: "success", todayReadTime: todayTime, dailyGoal: user.dailyGoalMinutes });
+    } catch (e) { 
+        console.error("[Read Endpoint] Error:", e.message);
+        res.json({ status: "already_logged" }); 
+    }
 });
 
 app.get("/users/me", authenticate, async (req, res) => {

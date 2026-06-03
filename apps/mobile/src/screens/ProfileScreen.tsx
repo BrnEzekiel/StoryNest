@@ -15,6 +15,29 @@ import { StatusBar } from "expo-status-bar";
 
 const { width } = Dimensions.get("window");
 
+const getLevelInfo = (xp: number) => {
+    const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+    const currentLevelXP = Math.pow(level - 1, 2) * 100;
+    const nextLevelXP = Math.pow(level, 2) * 100;
+    const progress = (xp - currentLevelXP) / (nextLevelXP - currentLevelXP);
+    
+    const titles: any = {
+        1: "Novice Reader",
+        2: "Story Seeker",
+        3: "Nest Explorer",
+        4: "Myth Finder",
+        5: "Legend Weaver",
+        6: "Grand Librarian"
+    };
+
+    return {
+        level,
+        title: titles[level] || "Legendary Teller",
+        progress: Math.min(1, progress),
+        xpToNext: nextLevelXP - xp
+    };
+};
+
 export const ProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuth();
@@ -22,6 +45,8 @@ export const ProfileScreen = ({ navigation }: any) => {
   const [uploading, setUploading] = useState(false);
   const [finishedCount, setFinishedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const levelInfo = getLevelInfo(user?.xp || 0);
 
   useFocusEffect(
     useCallback(() => {
@@ -34,7 +59,6 @@ export const ProfileScreen = ({ navigation }: any) => {
     try {
       setLoading(true);
       const res = await apiClient.get("/users/me/bookmarks");
-      // Count stories where progress is 100
       const finished = res.data.filter((b: any) => b.progress >= 100).length;
       setFinishedCount(finished);
     } catch (error) {
@@ -146,6 +170,17 @@ export const ProfileScreen = ({ navigation }: any) => {
                 </View>
                 <Text style={[styles.email, { fontFamily: fonts.body }]}>{user?.email}</Text>
                 
+                {/* Level Progress */}
+                <View style={styles.levelContainer}>
+                    <View style={styles.levelHeader}>
+                        <Text style={[styles.levelTitle, { fontFamily: fonts.heading }]}>LVL {levelInfo.level} • {levelInfo.title}</Text>
+                        <Text style={[styles.xpText, { fontFamily: fonts.body }]}>{user?.xp || 0} XP</Text>
+                    </View>
+                    <View style={styles.levelBarBg}>
+                        <View style={[styles.levelBarFill, { width: `${levelInfo.progress * 100}%` }]} />
+                    </View>
+                </View>
+
                 {user?.role === "ADMIN" && (
                     <TouchableOpacity style={styles.adminBadge} onPress={() => navigation.navigate("Admin")}>
                        <Zap size={12} color={Colors.primary} style={{ marginRight: 4 }} />
@@ -245,6 +280,12 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   username: { fontSize: 28, color: Colors.white },
   email: { fontSize: 14, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
+  levelContainer: { marginTop: 12, width: '100%' },
+  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 },
+  levelTitle: { color: Colors.accent, fontSize: 10, letterSpacing: 1 },
+  xpText: { color: Colors.paleGreen, fontSize: 9, opacity: 0.8 },
+  levelBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' },
+  levelBarFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
   adminBadge: { backgroundColor: Colors.accent, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   adminBadgeText: { fontSize: 9, color: Colors.primary, letterSpacing: 0.5 },
   content: { flex: 1, padding: 20 },

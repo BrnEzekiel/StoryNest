@@ -8,6 +8,7 @@ import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { HeaderWave } from "../components/HeaderWave";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Check, Info } from "lucide-react-native";
@@ -28,6 +29,7 @@ const { height, width } = Dimensions.get("window");
 
 export const SignupScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { fonts, theme: appTheme, isDarkMode } = useTheme();
   const { initiateRegistration, loginWithGoogle } = useAuth();
   
   const [step, setStep] = useState(1);
@@ -62,13 +64,10 @@ export const SignupScreen = ({ navigation }: any) => {
   }, [response]);
 
   const handleGoogleLogin = async (idToken: string) => {
-    console.log("[Signup] Starting Google login with ID Token...");
     setLoading(true);
     try {
       await loginWithGoogle(idToken);
-      console.log("[Signup] Google Login Success");
     } catch (err: any) {
-      console.log("[Signup] Google login failed:", err.message);
       Alert.alert("Google Auth", "Google sign-in failed. Please try again.");
     } finally {
       setLoading(false);
@@ -105,7 +104,6 @@ export const SignupScreen = ({ navigation }: any) => {
         });
       } catch (err: any) {
         if (err.response?.status === 403) {
-            // Underage
             Alert.alert("Age Restriction", err.response.data.message);
         } else {
             setError(err.response?.data?.error || "Registration failed. Try again.");
@@ -133,13 +131,13 @@ export const SignupScreen = ({ navigation }: any) => {
         secureTextEntry 
         icon="lock"
       />
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <Button title="Continue" onPress={handleNext} style={styles.signupBtn} />
+      {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
+      <Button title="Continue" onPress={handleNext} style={[styles.signupBtn, { backgroundColor: appTheme.primary }]} />
 
       <View style={styles.socialSection}>
-        <Text style={styles.socialText}>OR JOIN WITH</Text>
+        <Text style={[styles.socialText, { fontFamily: fonts.heading }]}>OR JOIN WITH</Text>
         <TouchableOpacity 
-          style={styles.googleBtn} 
+          style={[styles.googleBtn, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }]} 
           onPress={() => {
             setGoogleLoading(true);
             promptAsync();
@@ -147,11 +145,11 @@ export const SignupScreen = ({ navigation }: any) => {
           disabled={loading || googleLoading}
         >
           {googleLoading ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={appTheme.primary} />
           ) : (
             <>
               <GoogleIcon />
-              <Text style={styles.googleBtnText}>Google</Text>
+              <Text style={[styles.googleBtnText, { fontFamily: fonts.heading, color: appTheme.black }]}>Google</Text>
             </>
           )}
         </TouchableOpacity>
@@ -161,15 +159,15 @@ export const SignupScreen = ({ navigation }: any) => {
 
   const renderStep2 = () => (
     <View style={styles.form}>
-      <Text style={styles.complianceHeader}>Finalizing Your Entry</Text>
+      <Text style={[styles.complianceHeader, { fontFamily: fonts.heading, color: appTheme.black }]}>Finalizing Your Entry</Text>
       
       <TouchableOpacity 
-        style={[styles.datePickerBtn, { borderColor: Colors.paleGreen }]} 
+        style={[styles.datePickerBtn, { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]} 
         onPress={() => setShowDatePicker(true)}
       >
         <View>
-            <Text style={styles.dateLabel}>DATE OF BIRTH</Text>
-            <Text style={styles.dateValue}>{dob.toDateString()}</Text>
+            <Text style={[styles.dateLabel, { fontFamily: fonts.heading }]}>DATE OF BIRTH</Text>
+            <Text style={[styles.dateValue, { fontFamily: fonts.body, color: appTheme.black }]}>{dob.toDateString()}</Text>
         </View>
         <Info size={20} color={Colors.mutedTeal} />
       </TouchableOpacity>
@@ -186,41 +184,43 @@ export const SignupScreen = ({ navigation }: any) => {
 
       <View style={styles.legalSection}>
         <TouchableOpacity style={styles.checkboxRow} onPress={() => setTosAccepted(!tosAccepted)}>
-            <View style={[styles.checkbox, tosAccepted && styles.checkboxActive]}>
-                {tosAccepted && <Check size={12} color={Colors.accent} />}
+            <View style={[styles.checkbox, { borderColor: appTheme.primary }, tosAccepted && { backgroundColor: appTheme.primary }]}>
+                {tosAccepted && <Check size={12} color={appTheme.white} />}
             </View>
-            <Text style={styles.checkboxText}>
+            <Text style={[styles.checkboxText, { fontFamily: fonts.body, color: appTheme.black }]}>
                 I accept the <Text style={styles.link} onPress={() => navigation.navigate("Legal", { type: 'tos' })}>Terms of Service</Text>
             </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.checkboxRow} onPress={() => setPrivacyAccepted(!privacyAccepted)}>
-            <View style={[styles.checkbox, privacyAccepted && styles.checkboxActive]}>
-                {privacyAccepted && <Check size={12} color={Colors.accent} />}
+            <View style={[styles.checkbox, { borderColor: appTheme.primary }, privacyAccepted && { backgroundColor: appTheme.primary }]}>
+                {privacyAccepted && <Check size={12} color={appTheme.white} />}
             </View>
-            <Text style={styles.checkboxText}>
+            <Text style={[styles.checkboxText, { fontFamily: fonts.body, color: appTheme.black }]}>
                 I agree to the <Text style={styles.link} onPress={() => navigation.navigate("Legal", { type: 'privacy' })}>Privacy Policy</Text>
             </Text>
         </TouchableOpacity>
 
         <View style={styles.ageDisclaimer}>
             <ShieldCheck size={14} color={Colors.mutedTeal} />
-            <Text style={styles.disclaimerText}>You must be 13+ to join the StoryNest.</Text>
+            <Text style={[styles.disclaimerText, { fontFamily: fonts.body }]}>You must be 13+ to join the StoryNest.</Text>
         </View>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
 
-      <Button title={loading ? "PREPARING..." : "Verify Email"} onPress={handleNext} disabled={loading} style={styles.signupBtn} />
+      <Button title={loading ? "PREPARING..." : "Verify Email"} onPress={handleNext} disabled={loading} style={[styles.signupBtn, { backgroundColor: appTheme.primary }]} />
       
       <TouchableOpacity onPress={() => setStep(1)} style={styles.backLink}>
-        <Text style={styles.backLinkText}>Back to details</Text>
+        <Text style={[styles.backLinkText, { fontFamily: fonts.body }]}>Back to details</Text>
       </TouchableOpacity>
     </View>
   );
 
+  const currentBg = isDarkMode ? appTheme.white : Colors.paleCream;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: currentBg }]}>
       <ImageBackground 
         source={require("../../assets/auth-bg.jpg")} 
         style={[styles.topSection, { height: height * 0.3 + insets.top }]} 
@@ -229,30 +229,30 @@ export const SignupScreen = ({ navigation }: any) => {
         <View style={styles.brandOverlay}>
           <SafeAreaView style={styles.safeArea} edges={['top']}>
              <View style={styles.headerContent}>
-                <Text style={styles.brandName}>StoryNest</Text>
-                <Text style={styles.stepIndicator}>Step {step} of 2</Text>
+                <Text style={[styles.brandName, { fontFamily: fonts.heading }]}>StoryNest</Text>
+                <Text style={[styles.stepIndicator, { fontFamily: fonts.body }]}>Step {step} of 2</Text>
              </View>
           </SafeAreaView>
         </View>
-        <HeaderWave color={Colors.paleCream} />
+        <HeaderWave color={currentBg} />
       </ImageBackground>
 
-      <SafeAreaView style={styles.bottomSection} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView style={[styles.bottomSection, { backgroundColor: currentBg }]} edges={['bottom', 'left', 'right']}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboardView}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
             <View style={styles.headerContainer}>
                <View style={styles.underlineWrapper}>
-                 <Text style={styles.header}>{step === 1 ? "Start your journey" : "One last thing"}</Text>
-                 <View style={styles.headerUnderline} />
+                 <Text style={[styles.header, { fontFamily: fonts.heading, color: appTheme.black }]}>{step === 1 ? "Start your journey" : "One last thing"}</Text>
+                 <View style={[styles.headerUnderline, { backgroundColor: appTheme.primary }]} />
                </View>
             </View>
 
             {step === 1 ? renderStep1() : renderStep2()}
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already part of the Nest? </Text>
+              <Text style={[styles.footerText, { fontFamily: fonts.body }]}>Already part of the Nest? </Text>
               <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-                <Text style={styles.footerLink}>Sign in</Text>
+                <Text style={[styles.footerLink, { fontFamily: fonts.heading, color: appTheme.primary }]}>Sign in</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -262,48 +262,46 @@ export const SignupScreen = ({ navigation }: any) => {
   );
 };
 
-// Using common components for simplicity
 const ShieldCheck = ({ size, color }: any) => (
   <View style={{ marginRight: 8 }}><Check size={size} color={color} /></View>
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.paleCream },
+  container: { flex: 1 },
   topSection: { width: "100%" },
   brandOverlay: { flex: 1, backgroundColor: "rgba(0, 54, 49, 0.7)" },
   safeArea: { flex: 1 },
   headerContent: { padding: 24, alignItems: 'center' },
-  brandName: { fontFamily: Fonts.heading, fontSize: 24, color: Colors.accent, letterSpacing: 2 },
-  stepIndicator: { fontFamily: Fonts.body, fontSize: 12, color: Colors.paleGreen, marginTop: 4 },
-  bottomSection: { flex: 1, backgroundColor: Colors.paleCream },
+  brandName: { fontSize: 24, color: Colors.accent, letterSpacing: 2 },
+  stepIndicator: { fontSize: 12, color: Colors.paleGreen, marginTop: 4 },
+  bottomSection: { flex: 1 },
   keyboardView: { flex: 1 },
   formScroll: { paddingHorizontal: 32, paddingVertical: 40 },
   headerContainer: { alignSelf: 'flex-start' },
   underlineWrapper: { alignSelf: 'flex-start' },
-  header: { fontFamily: Fonts.heading, fontSize: 32, color: Colors.primary },
-  headerUnderline: { height: 3, backgroundColor: Colors.error, marginTop: 4, marginBottom: 30, width: '100%' },
+  header: { fontSize: 32 },
+  headerUnderline: { height: 3, marginTop: 4, marginBottom: 30, width: '100%' },
   form: { width: '100%' },
-  errorText: { color: Colors.error, marginBottom: 16, fontFamily: Fonts.body, textAlign: "center" },
-  signupBtn: { height: 56, borderRadius: 12, backgroundColor: Colors.error, width: '100%' },
-  complianceHeader: { fontFamily: Fonts.heading, fontSize: 16, color: Colors.primary, marginBottom: 20 },
+  errorText: { color: Colors.error, marginBottom: 16, textAlign: "center" },
+  signupBtn: { height: 56, borderRadius: 12, width: '100%' },
+  complianceHeader: { fontSize: 16, marginBottom: 20 },
   datePickerBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderRadius: 12, marginBottom: 24, backgroundColor: 'rgba(0,54,49,0.02)' },
-  dateLabel: { fontFamily: Fonts.heading, fontSize: 10, color: Colors.mutedTeal, letterSpacing: 0.5 },
-  dateValue: { fontFamily: Fonts.body, fontSize: 16, color: Colors.primary, marginTop: 4 },
+  dateLabel: { fontSize: 10, color: Colors.mutedTeal, letterSpacing: 0.5 },
+  dateValue: { fontSize: 16, marginTop: 4 },
   legalSection: { marginBottom: 32 },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: Colors.primary, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-  checkboxActive: { backgroundColor: Colors.primary },
-  checkboxText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.primary },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  checkboxText: { fontSize: 14 },
   link: { fontWeight: 'bold', textDecorationLine: 'underline' },
   ageDisclaimer: { flexDirection: 'row', alignItems: 'center', marginTop: 8, opacity: 0.7 },
-  disclaimerText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal },
+  disclaimerText: { fontSize: 12, color: Colors.mutedTeal },
   backLink: { marginTop: 20, alignItems: 'center' },
-  backLinkText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textDecorationLine: 'underline' },
+  backLinkText: { fontSize: 14, color: Colors.mutedTeal, textDecorationLine: 'underline' },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
-  footerText: { fontFamily: Fonts.body, color: Colors.mutedTeal, fontSize: 14 },
-  footerLink: { fontFamily: Fonts.heading, color: Colors.error, fontSize: 14 },
+  footerText: { color: Colors.mutedTeal, fontSize: 14 },
+  footerLink: { fontSize: 14 },
   socialSection: { marginTop: 32, alignItems: 'center' },
-  socialText: { fontFamily: Fonts.heading, fontSize: 10, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 16 },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white, width: '100%', height: 54, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0,54,49,0.1)', ...Shadows.s },
-  googleBtnText: { fontFamily: Fonts.heading, color: Colors.primary, fontSize: 14, marginLeft: 12 },
+  socialText: { fontSize: 10, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 16 },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', height: 54, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0,54,49,0.1)' },
+  googleBtnText: { fontSize: 14, marginLeft: 12 },
 });

@@ -20,7 +20,7 @@ const ACHIEVEMENTS = [
 
 export const AchievementsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { isDarkMode, theme } = useTheme();
+  const { isDarkMode, theme, fonts } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
@@ -29,14 +29,14 @@ export const AchievementsScreen = ({ navigation }: any) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>ACHIEVEMENTS</Text>
+        <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>ACHIEVEMENTS</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 24 }}>
         <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>3/6</Text>
-            <Text style={styles.summaryLabel}>NEST BADGES EARNED</Text>
+            <Text style={[styles.summaryValue, { fontFamily: fonts.heading }]}>3/6</Text>
+            <Text style={[styles.summaryLabel, { fontFamily: fonts.heading }]}>NEST BADGES EARNED</Text>
         </View>
 
         <View style={styles.grid}>
@@ -47,9 +47,13 @@ export const AchievementsScreen = ({ navigation }: any) => {
                         <View style={[styles.iconBox, { backgroundColor: ach.unlocked ? ach.color + '15' : 'rgba(0,0,0,0.05)' }]}>
                             {ach.unlocked ? <Icon size={32} color={ach.color} /> : <Lock size={24} color={Colors.mutedTeal} />}
                         </View>
-                        <Text style={[styles.achTitle, { color: isDarkMode ? Colors.white : Colors.primary }]}>{ach.title}</Text>
-                        <Text style={styles.achDesc}>{ach.desc}</Text>
-                        {ach.unlocked && <View style={styles.unlockedBadge}><Text style={styles.unlockedText}>UNLOCKED</Text></View>}
+                        <Text style={[styles.achTitle, { color: isDarkMode ? Colors.white : Colors.primary, fontFamily: fonts.heading }]}>{ach.title}</Text>
+                        <Text style={[styles.achDesc, { fontFamily: fonts.body }]}>{ach.desc}</Text>
+                        {ach.unlocked && (
+                            <View style={styles.unlockedBadge}>
+                                <Text style={[styles.unlockedText, { fontFamily: fonts.heading }]}>UNLOCKED</Text>
+                            </View>
+                        )}
                     </View>
                 );
             })}
@@ -62,16 +66,16 @@ export const AchievementsScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20 },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 16, color: Colors.accent, letterSpacing: 1 },
+  headerTitle: { fontSize: 16, color: Colors.accent, letterSpacing: 1 },
   backBtn: { padding: 4 },
   summaryCard: { backgroundColor: Colors.primary, padding: 32, borderRadius: 24, alignItems: 'center', marginBottom: 32, ...Shadows.m },
-  summaryValue: { fontFamily: Fonts.heading, fontSize: 48, color: Colors.accent },
-  summaryLabel: { fontFamily: Fonts.heading, fontSize: 12, color: Colors.paleGreen, letterSpacing: 1, marginTop: 4 },
+  summaryValue: { fontSize: 48, color: Colors.accent },
+  summaryLabel: { fontSize: 12, color: Colors.paleGreen, letterSpacing: 1, marginTop: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   achCard: { width: (width - 64) / 2, padding: 20, borderRadius: 24, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.03)' },
   iconBox: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  achTitle: { fontFamily: Fonts.heading, fontSize: 15, textAlign: 'center', marginBottom: 4 },
-  achDesc: { fontFamily: Fonts.body, fontSize: 11, color: Colors.mutedTeal, textAlign: 'center', lineHeight: 16 },
+  achTitle: { fontSize: 15, textAlign: 'center', marginBottom: 4 },
+  achDesc: { fontSize: 11, color: Colors.mutedTeal, textAlign: 'center', lineHeight: 16 },
   unlockedBadge: { marginTop: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#34C75915' },
-  unlockedText: { fontFamily: Fonts.heading, fontSize: 8, color: '#34C759', letterSpacing: 0.5 },
+  unlockedText: { fontSize: 8, color: '#34C759', letterSpacing: 0.5 },
 });

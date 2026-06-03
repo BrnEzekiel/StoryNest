@@ -4,11 +4,14 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Shield, FileText } from "lucide-react-native";
+import { useTheme } from "../context/ThemeContext";
 import { HeaderWave } from "../components/HeaderWave";
+import { StatusBar } from "expo-status-bar";
 
 export const LegalScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { type } = route.params; // 'tos' | 'privacy'
+  const { fonts, theme, isDarkMode } = useTheme();
+  const { type } = route.params; 
 
   const content = type === 'tos' ? {
     title: "Terms of Service",
@@ -50,24 +53,27 @@ The app uses local storage to keep you logged in. We do not sell your personal d
 You can request to delete your account and all associated data at any time through the settings menu.`
   };
 
+  const currentBg = isDarkMode ? theme.white : Colors.paleCream;
+
   return (
-    <View style={styles.container}>
-        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
+    <View style={[styles.container, { backgroundColor: currentBg }]}>
+        <StatusBar style="light" />
+        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <ArrowLeft size={24} color={Colors.accent} />
             </TouchableOpacity>
             <View style={styles.iconCircle}>
                 {content.icon}
             </View>
-            <Text style={styles.title}>{content.title}</Text>
-            <HeaderWave color={Colors.paleCream} />
+            <Text style={[styles.title, { fontFamily: fonts.heading }]}>{content.title}</Text>
+            <HeaderWave color={currentBg} />
         </View>
 
         <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.legalText}>{content.body}</Text>
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>Last Updated: May 2026</Text>
+                <Text style={[styles.legalText, { fontFamily: fonts.body, color: theme.black }]}>{content.body}</Text>
+                <View style={[styles.footer, { borderTopColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,54,49,0.1)' }]}>
+                    <Text style={[styles.footerText, { fontFamily: fonts.body }]}>Last Updated: May 2026</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -76,14 +82,14 @@ You can request to delete your account and all associated data at any time throu
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.paleCream },
-  headerSection: { backgroundColor: Colors.primary, paddingBottom: 80, alignItems: 'center' },
+  container: { flex: 1 },
+  headerSection: { paddingBottom: 80, alignItems: 'center' },
   backBtn: { position: 'absolute', left: 24, top: 60 },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontFamily: Fonts.heading, fontSize: 24, color: Colors.white, letterSpacing: 1 },
+  title: { fontSize: 24, color: Colors.white, letterSpacing: 1 },
   bottomSection: { flex: 1 },
   scrollContent: { padding: 32 },
-  legalText: { fontFamily: Fonts.body, fontSize: 15, color: Colors.primary, lineHeight: 26, textAlign: 'justify' },
-  footer: { marginTop: 40, borderTopWidth: 1, borderTopColor: 'rgba(0,54,49,0.1)', paddingTop: 20 },
-  footerText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal, textAlign: 'center', fontStyle: 'italic' }
+  legalText: { fontSize: 15, lineHeight: 26, textAlign: 'justify' },
+  footer: { marginTop: 40, borderTopWidth: 1, paddingTop: 20 },
+  footerText: { fontSize: 12, color: Colors.mutedTeal, textAlign: 'center', fontStyle: 'italic' }
 });

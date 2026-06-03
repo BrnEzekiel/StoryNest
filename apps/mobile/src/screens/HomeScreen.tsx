@@ -100,8 +100,26 @@ export const HomeScreen = ({ navigation, route }: any) => {
   const featuredStory = stories.length > 0 ? stories[0] : null;
   const newReleases = [...stories].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
 
+  const goalProgress = user?.dailyGoalMinutes ? (user.todayReadTime / user.dailyGoalMinutes) : 0;
+  const progressPercent = Math.min(100, Math.round(goalProgress * 100));
+
   const renderHeader = () => (
     <>
+      <View style={[styles.goalCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white }, Shadows.s]}>
+        <View style={styles.goalInfo}>
+            <Text style={[styles.goalTitle, { fontFamily: fonts.heading, color: theme.primary }]}>DAILY READING GOAL</Text>
+            <Text style={[styles.goalStats, { fontFamily: fonts.body, color: theme.black }]}>
+                {user?.todayReadTime || 0} / {user?.dailyGoalMinutes || 30} min
+            </Text>
+        </View>
+        <View style={styles.goalProgressContainer}>
+            <View style={[styles.goalBarBg, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
+                <View style={[styles.goalBarFill, { width: `${progressPercent}%`, backgroundColor: Colors.accent }]} />
+            </View>
+            <Text style={[styles.goalPercent, { fontFamily: fonts.heading, color: Colors.accent }]}>{progressPercent}%</Text>
+        </View>
+      </View>
+
       {!searchQuery && featuredStory && (
         <StoryCard 
           story={featuredStory} 
@@ -242,6 +260,12 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
       {loading && !refreshing ? (
         <View style={{ flex: 1, paddingHorizontal: Spacing.l, marginTop: Spacing.m }}>
+          <SkeletonCard variant="featured" />
+          <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginBottom: 20, fontFamily: fonts.heading }]}>NEW RELEASES</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 32 }}>
+            {[1, 2, 3].map(i => <SkeletonCard key={i} variant="compact" />)}
+          </ScrollView>
+          <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginBottom: 20, fontFamily: fonts.heading }]}>ALL STORIES</Text>
           {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </View>
       ) : (
@@ -296,4 +320,12 @@ const styles = StyleSheet.create({
   carouselItem: { marginRight: Spacing.m },
   storiesList: { marginBottom: 40 },
   emptyText: { fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 40 },
+  goalCard: { marginHorizontal: Spacing.l, marginTop: -30, borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 },
+  goalInfo: { flex: 1 },
+  goalTitle: { fontSize: 10, letterSpacing: 1.2, marginBottom: 4 },
+  goalStats: { fontSize: 18, fontWeight: '700' },
+  goalProgressContainer: { alignItems: 'flex-end', width: 100 },
+  goalBarBg: { width: '100%', height: 6, borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
+  goalBarFill: { height: '100%', borderRadius: 3 },
+  goalPercent: { fontSize: 12, fontWeight: '700' },
 });

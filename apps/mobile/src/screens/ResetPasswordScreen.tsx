@@ -6,11 +6,14 @@ import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { ArrowLeft, Lock } from "lucide-react-native";
 import { HeaderWave } from "../components/HeaderWave";
+import { StatusBar } from "expo-status-bar";
 
 export const ResetPasswordScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { fonts, theme, isDarkMode } = useTheme();
   const { email, otp } = route.params;
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,15 +49,18 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
     }
   };
 
+  const currentBg = isDarkMode ? theme.white : Colors.paleCream;
+
   return (
-    <View style={styles.container}>
-        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
+    <View style={[styles.container, { backgroundColor: currentBg }]}>
+        <StatusBar style="light" />
+        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
             <View style={styles.iconCircle}>
                 <Lock size={32} color={Colors.primary} />
             </View>
-            <Text style={styles.title}>New Access</Text>
-            <Text style={styles.subtitle}>Create a strong new password for your{"\n"}StoryNest account.</Text>
-            <HeaderWave color={Colors.paleCream} />
+            <Text style={[styles.title, { fontFamily: fonts.heading }]}>New Access</Text>
+            <Text style={[styles.subtitle, { fontFamily: fonts.body }]}>Create a strong new password for your{"\n"}StoryNest account.</Text>
+            <HeaderWave color={currentBg} />
         </View>
 
         <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
@@ -80,7 +86,7 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
                     title={loading ? "UPDATING..." : "Reset Password"} 
                     onPress={handleReset} 
                     disabled={loading}
-                    style={{ marginTop: 24 }}
+                    style={{ marginTop: 24, backgroundColor: theme.primary }}
                 />
             </ScrollView>
         </SafeAreaView>
@@ -89,11 +95,11 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.paleCream },
-  headerSection: { backgroundColor: Colors.primary, paddingBottom: 80, alignItems: 'center' },
+  container: { flex: 1 },
+  headerSection: { paddingBottom: 80, alignItems: 'center' },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontFamily: Fonts.heading, fontSize: 28, color: Colors.white, marginBottom: 8 },
-  subtitle: { fontFamily: Fonts.body, fontSize: 14, color: Colors.paleGreen, textAlign: 'center', lineHeight: 22 },
+  title: { fontSize: 28, color: Colors.white, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: Colors.paleGreen, textAlign: 'center', lineHeight: 22 },
   bottomSection: { flex: 1 },
   formContent: { padding: 32 }
 });

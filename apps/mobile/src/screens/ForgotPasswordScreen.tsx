@@ -6,11 +6,14 @@ import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { ArrowLeft, KeyRound } from "lucide-react-native";
 import { HeaderWave } from "../components/HeaderWave";
+import { StatusBar } from "expo-status-bar";
 
 export const ForgotPasswordScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { fonts, theme, isDarkMode } = useTheme();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const { forgotPassword } = useAuth();
@@ -32,18 +35,21 @@ export const ForgotPasswordScreen = ({ navigation }: any) => {
     }
   };
 
+  const currentBg = isDarkMode ? theme.white : Colors.paleCream;
+
   return (
-    <View style={styles.container}>
-        <View style={[styles.headerSection, { paddingTop: insets.top + 20 }]}>
+    <View style={[styles.container, { backgroundColor: currentBg }]}>
+        <StatusBar style="light" />
+        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <ArrowLeft size={24} color={Colors.accent} />
             </TouchableOpacity>
             <View style={styles.iconCircle}>
                 <KeyRound size={32} color={Colors.primary} />
             </View>
-            <Text style={styles.title}>Forgotten Key?</Text>
-            <Text style={styles.subtitle}>Enter your email and we'll send you{"\n"}a code to reset your access.</Text>
-            <HeaderWave color={Colors.paleCream} />
+            <Text style={[styles.title, { fontFamily: fonts.heading }]}>Forgotten Key?</Text>
+            <Text style={[styles.subtitle, { fontFamily: fonts.body }]}>Enter your email and we'll send you{"\n"}a code to reset your access.</Text>
+            <HeaderWave color={currentBg} />
         </View>
 
         <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
@@ -61,11 +67,11 @@ export const ForgotPasswordScreen = ({ navigation }: any) => {
                     title={loading ? "FINDING ACCOUNT..." : "Send Reset Code"} 
                     onPress={handleRequest} 
                     disabled={loading}
-                    style={{ marginTop: 24 }}
+                    style={{ marginTop: 24, backgroundColor: theme.primary }}
                 />
 
                 <TouchableOpacity style={styles.footer} onPress={() => navigation.goBack()}>
-                    <Text style={styles.footerText}>Back to Login</Text>
+                    <Text style={[styles.footerText, { fontFamily: fonts.heading, color: theme.primary }]}>Back to Login</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
@@ -74,14 +80,14 @@ export const ForgotPasswordScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.paleCream },
-  headerSection: { backgroundColor: Colors.primary, paddingBottom: 80, alignItems: 'center' },
+  container: { flex: 1 },
+  headerSection: { paddingBottom: 80, alignItems: 'center' },
   backBtn: { position: 'absolute', left: 24, top: 60 },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontFamily: Fonts.heading, fontSize: 28, color: Colors.white, marginBottom: 8 },
-  subtitle: { fontFamily: Fonts.body, fontSize: 14, color: Colors.paleGreen, textAlign: 'center', lineHeight: 22 },
+  title: { fontSize: 28, color: Colors.white, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: Colors.paleGreen, textAlign: 'center', lineHeight: 22 },
   bottomSection: { flex: 1 },
   formContent: { padding: 32 },
   footer: { marginTop: 32, alignItems: 'center' },
-  footerText: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.primary, textDecorationLine: 'underline' }
+  footerText: { fontSize: 14, textDecorationLine: 'underline' }
 });

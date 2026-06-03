@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput, RefreshControl, Dimensions } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus, X, FolderPlus } from "lucide-react-native";
+import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus, X, FolderPlus, Zap } from "lucide-react-native";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { SkeletonCard } from "../components/SkeletonCard";
@@ -10,14 +10,18 @@ import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+
+const { width } = Dimensions.get("window");
 
 export const AdminScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { isDarkMode, theme } = useTheme();
+  const { fonts, theme, isDarkMode } = useTheme();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [stories, setStories] = useState<any[]>([]);
   const [stats, setStats] = useState({ storyCount: 0, totalReads: 0, userCount: 0 });
@@ -158,16 +162,20 @@ export const AdminScreen = ({ navigation }: any) => {
   if (isAdding) {
     return (
       <View style={[styles.container, { backgroundColor: theme.white }]}>
-        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top }]}>
-          <TouchableOpacity onPress={() => { setIsAdding(false); resetForm(); }} style={[styles.backBtnHeader, { top: insets.top + 10 }]}>
+        <StatusBar style="light" />
+        <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
+          <TouchableOpacity onPress={() => { setIsAdding(false); resetForm(); }} style={[styles.backBtnHeader, { top: insets.top + 20 }]}>
             <ArrowLeft size={24} color={Colors.accent} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEditing ? 'EDIT STORY' : 'UPLOAD'}</Text>
+          <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>{isEditing ? 'EDIT STORY' : 'UPLOAD'}</Text>
         </View>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
           <TouchableOpacity style={[styles.imagePicker, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.mutedTeal }]} onPress={pickImage}>
             {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : (
-              <View style={styles.imagePlaceholder}><Camera size={32} color={Colors.mutedTeal} /><Text style={styles.imagePlaceholderText}>Upload Cover Image</Text></View>
+              <View style={styles.imagePlaceholder}>
+                  <Camera size={32} color={Colors.mutedTeal} />
+                  <Text style={[styles.imagePlaceholderText, { fontFamily: fonts.body }]}>Upload Cover Image</Text>
+              </View>
             )}
           </TouchableOpacity>
           
@@ -184,23 +192,23 @@ export const AdminScreen = ({ navigation }: any) => {
             placeholder="Author name" 
           />
           
-          <Text style={[styles.dropdownLabel, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>GENRE</Text>
+          <Text style={[styles.dropdownLabel, { color: theme.primary, fontFamily: fonts.heading }]}>GENRE</Text>
           <TouchableOpacity style={[styles.dropdown, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.lightForest }]} onPress={() => setShowGenreDropdown(!showGenreDropdown)}>
-            <Text style={[styles.dropdownText, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{genre}</Text>
-            <ChevronDown size={20} color={isDarkMode ? Colors.accent : Colors.primary} />
+            <Text style={[styles.dropdownText, { color: theme.black, fontFamily: fonts.body }]}>{genre}</Text>
+            <ChevronDown size={20} color={theme.primary} />
           </TouchableOpacity>
           
           {showGenreDropdown && (
             <View style={[styles.dropdownMenu, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
               {availableGenres.map((g) => (
                 <TouchableOpacity key={g} style={styles.dropdownItem} onPress={() => { setGenre(g); setShowGenreDropdown(false); }}>
-                  <Text style={[styles.dropdownItemText, { color: isDarkMode ? Colors.paleGreen : Colors.mutedTeal }, g === genre && { color: Colors.accent, fontWeight: "700" }]}>{g}</Text>
+                  <Text style={[styles.dropdownItemText, { color: theme.black, fontFamily: fonts.body }, g === genre && { color: Colors.accent, fontWeight: "700" }]}>{g}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={[styles.dropdownItem, { borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 8 }]} onPress={() => setShowGenreModal(true)}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <FolderPlus size={16} color={Colors.error} style={{ marginRight: 8 }} />
-                    <Text style={[styles.dropdownItemText, { color: Colors.error, fontWeight: '700' }]}>Add New Genre...</Text>
+                    <Text style={[styles.dropdownItemText, { color: Colors.error, fontWeight: '700', fontFamily: fonts.heading }]}>Add New Genre...</Text>
                   </View>
               </TouchableOpacity>
             </View>
@@ -217,29 +225,28 @@ export const AdminScreen = ({ navigation }: any) => {
 
           {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginVertical: 20 }} /> : (
             <View style={{ marginBottom: 40 }}>
-              <Button title={isEditing ? "UPDATE STORY" : "UPLOAD STORY"} onPress={handleSave} type="primary" />
+              <Button title={isEditing ? "UPDATE STORY" : "UPLOAD STORY"} onPress={handleSave} type="primary" style={{ backgroundColor: theme.primary }} />
               <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
             </View>
           )}
         </ScrollView>
 
-        {/* Add Genre Modal */}
         <Modal visible={showAddGenreModal} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white }]}>
                     <View style={styles.modalHeader}>
-                        <Text style={[styles.modalTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>NEW GENRE</Text>
+                        <Text style={[styles.modalTitle, { color: theme.primary, fontFamily: fonts.heading }]}>NEW GENRE</Text>
                         <TouchableOpacity onPress={() => setShowGenreModal(false)}><X size={20} color={Colors.mutedTeal} /></TouchableOpacity>
                     </View>
                     <TextInput 
-                        style={[styles.modalInput, { color: isDarkMode ? Colors.white : Colors.primary, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+                        style={[styles.modalInput, { fontFamily: fonts.body, color: theme.black, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
                         placeholder="e.g. Fantasy, History"
                         placeholderTextColor={Colors.mutedTeal}
                         value={newGenreName}
                         onChangeText={setNewGenreName}
                         autoFocus
                     />
-                    <Button title="ADD TO LIST" onPress={handleAddNewGenre} type="primary" />
+                    <Button title="ADD TO LIST" onPress={handleAddNewGenre} type="primary" style={{ backgroundColor: theme.primary }} />
                 </View>
             </View>
         </Modal>
@@ -249,11 +256,12 @@ export const AdminScreen = ({ navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtnHeader, { top: insets.top + 10 }]}>
+      <StatusBar style="light" />
+      <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtnHeader, { top: insets.top + 20 }]}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>MANAGE CONTENT</Text>
+        <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>MANAGE CONTENT</Text>
       </View>
 
       <ScrollView 
@@ -262,33 +270,33 @@ export const AdminScreen = ({ navigation }: any) => {
       >
         <View style={styles.statsGrid}>
           <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.storyCount}</Text>
-            <Text style={styles.statLabel}>Stories</Text>
+            <Text style={[styles.statValue, { color: theme.primary, fontFamily: fonts.heading }]}>{stats.storyCount}</Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>Stories</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.totalReads}</Text>
-            <Text style={styles.statLabel}>Reads</Text>
+            <Text style={[styles.statValue, { color: theme.primary, fontFamily: fonts.heading }]}>{stats.totalReads}</Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>Reads</Text>
           </View>
           <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.userCount}</Text>
-            <Text style={styles.statLabel}>Users</Text>
+            <Text style={[styles.statValue, { color: theme.primary, fontFamily: fonts.heading }]}>{stats.userCount}</Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>Users</Text>
           </View>
         </View>
 
         <View style={styles.actionSection}>
           <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="secondary" style={{ marginBottom: 24 }} />
-          <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ALL STORIES</Text>
+          <Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>ALL STORIES</Text>
           <View style={{ paddingBottom: insets.bottom + 40 }}>
             {loading && !refreshing ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
               stories.map((story) => (
                 <View key={story.id} style={[styles.storyRow, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
                   <View style={styles.storyInfo}>
-                    <Text style={[styles.storyTitle, { color: isDarkMode ? Colors.white : Colors.primary }]} numberOfLines={1}>{story.title}</Text>
-                    <Text style={styles.storyMeta}>{story.genre} • {story.readingTime} min</Text>
+                    <Text style={[styles.storyTitle, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{story.title}</Text>
+                    <Text style={[styles.storyMeta, { fontFamily: fonts.body }]}>{story.genre} • {story.readingTime} min</Text>
                   </View>
                   <View style={styles.storyActions}>
                     <TouchableOpacity onPress={() => startEdit(story)} style={styles.actionBtn}>
-                      <Edit2 size={18} color={isDarkMode ? Colors.accent : Colors.primary} />
+                      <Edit2 size={18} color={theme.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDelete(story.id)} style={styles.actionBtn}>
                       <Trash2 size={18} color="red" />
@@ -297,7 +305,7 @@ export const AdminScreen = ({ navigation }: any) => {
                 </View>
               ))
             )}
-            {!loading && stories.length === 0 && <Text style={styles.emptyText}>No stories found.</Text>}
+            {!loading && stories.length === 0 && <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories found.</Text>}
           </View>
         </View>
       </ScrollView>
@@ -308,36 +316,35 @@ export const AdminScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   headerSection: { paddingBottom: 24, flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 18, color: Colors.accent, textAlign: "center", marginTop: 10, letterSpacing: 0.05 },
+  headerTitle: { fontSize: 18, color: Colors.accent, textAlign: "center", marginTop: 10, letterSpacing: 0.05 },
   backBtnHeader: { position: "absolute", left: 24 },
   content: { padding: 24 },
   imagePicker: { width: "100%", aspectRatio: 1.5, borderRadius: 16, marginBottom: 24, overflow: "hidden", justifyContent: "center", alignItems: "center", borderWidth: 1, borderStyle: "dashed" },
   previewImage: { width: "100%", height: "100%" },
   imagePlaceholder: { alignItems: "center" },
-  imagePlaceholderText: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal, marginTop: 8 },
-  dropdownLabel: { fontFamily: Fonts.body, fontSize: 12, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.05 },
+  imagePlaceholderText: { fontSize: 12, color: Colors.mutedTeal, marginTop: 8 },
+  dropdownLabel: { fontSize: 12, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.05 },
   dropdown: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 8, marginBottom: 20, borderWidth: 0.5 },
-  dropdownText: { fontFamily: Fonts.body, fontSize: 14 },
+  dropdownText: { fontSize: 14 },
   dropdownMenu: { borderRadius: 8, borderWidth: 1, marginTop: -15, marginBottom: 20, padding: 8, elevation: 4 },
   dropdownItem: { paddingVertical: 10, paddingHorizontal: 12 },
-  dropdownItemText: { fontFamily: Fonts.body, fontSize: 14 },
+  dropdownItemText: { fontSize: 14 },
   statsGrid: { flexDirection: "row", paddingHorizontal: 24, paddingVertical: 20, justifyContent: "space-between" },
   statBox: { width: "31%", padding: 12, borderRadius: 12, alignItems: "center" },
-  statValue: { fontFamily: Fonts.heading, fontSize: 18 },
-  statLabel: { fontFamily: Fonts.body, fontSize: 10, color: Colors.mutedTeal },
+  statValue: { fontSize: 18 },
+  statLabel: { fontSize: 10, color: Colors.mutedTeal },
   actionSection: { flex: 1, paddingHorizontal: 24 },
-  sectionTitle: { fontFamily: Fonts.heading, fontSize: 16, marginBottom: 16 },
+  sectionTitle: { fontSize: 16, marginBottom: 16 },
   storyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 16, borderBottomWidth: 1 },
   storyInfo: { flex: 1 },
-  storyTitle: { fontFamily: Fonts.heading, fontSize: 14 },
-  storyMeta: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal },
+  storyTitle: { fontSize: 14 },
+  storyMeta: { fontSize: 12, color: Colors.mutedTeal },
   storyActions: { flexDirection: "row" },
   actionBtn: { marginLeft: 16, padding: 8 },
-  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 20 },
-  // Modal styles
+  emptyText: { fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { width: '100%', borderRadius: 24, padding: 24, ...Shadows.m },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontFamily: Fonts.heading, fontSize: 16, letterSpacing: 1 },
-  modalInput: { height: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, marginBottom: 20, fontFamily: Fonts.body, fontSize: 16 }
+  modalTitle: { fontSize: 16, letterSpacing: 1 },
+  modalInput: { height: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, marginBottom: 20, fontSize: 16 }
 });

@@ -150,8 +150,16 @@ app.post("/auth/otp/initiate", async (req, res) => {
         }
 
         const existing = await prisma.user.findUnique({ where: { email } });
-        if (existing && existing.firebaseUid) {
-            return res.status(400).json({ error: "Email already exists" });
+        
+        // Check Firebase as well
+        let firebaseUserExists = false;
+        try {
+            await admin.auth().getUserByEmail(email);
+            firebaseUserExists = true;
+        } catch (e) {}
+
+        if ((existing && existing.firebaseUid) || firebaseUserExists) {
+            return res.status(400).json({ error: "An account with this email already exists." });
         }
 
         const otp = generateOTP();
@@ -576,4 +584,4 @@ app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v2.5 running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.2 (Gmail API) running on port ${PORT}`));

@@ -10,6 +10,23 @@ import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dimensions } from "react-native";
 
+// Screens
+import { LoginScreen } from "../screens/LoginScreen";
+import { SignupScreen } from "../screens/SignupScreen";
+import { OTPScreen } from "../screens/OTPScreen";
+import { ForgotPasswordScreen } from "../screens/ForgotPasswordScreen";
+import { ResetPasswordScreen } from "../screens/ResetPasswordScreen";
+import { LegalScreen } from "../screens/LegalScreen";
+import { HomeScreen } from "../screens/HomeScreen";
+import { ExploreScreen } from "../screens/ExploreScreen";
+import { BookmarksScreen } from "../screens/BookmarksScreen";
+import { ProfileScreen } from "../screens/ProfileScreen";
+import { AdminScreen } from "../screens/AdminScreen";
+import { StoryReaderScreen } from "../screens/StoryReaderScreen";
+import { SettingsScreen } from "../screens/SettingsScreen";
+import { EditProfileScreen } from "../screens/EditProfileScreen";
+import { AchievementsScreen } from "../screens/AchievementsScreen";
+
 const { width } = Dimensions.get("window");
 const Tab = createMaterialTopTabNavigator();
 const Stack = createNativeStackNavigator();

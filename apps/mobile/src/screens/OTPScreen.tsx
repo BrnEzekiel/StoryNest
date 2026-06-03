@@ -99,9 +99,16 @@ export const OTPScreen = ({ route, navigation }: any) => {
       setLoading(false);
       
       const serverMsg = err.response?.data?.error || err.response?.data?.message;
+      let finalMsg = serverMsg || err.message || "Process failed.";
+      
+      // Handle Firebase specific credential errors
+      if (err.code === 'auth/invalid-credential') {
+          finalMsg = "This email is already partially registered with a different password. Please use the original password or delete the user from Firebase console to restart.";
+      }
+      
       const statusStr = err.response ? `(HTTP ${err.response.status})` : (err.message?.includes("network") ? "(Network Error)" : "");
       
-      Alert.alert("Registration Error", `${serverMsg || err.message || "Process failed."} ${statusStr}`);
+      Alert.alert("Registration Error", `${finalMsg} ${statusStr}`);
       
       setTimeout(() => {
         setOtp(["", "", "", "", "", ""]);

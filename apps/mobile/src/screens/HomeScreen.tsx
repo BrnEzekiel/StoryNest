@@ -2,15 +2,14 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, Bell, X, ChevronRight, CheckCircle2, Circle, Heart, MessageSquare, BookOpen, Sparkles, Users } from "lucide-react-native";
+import { Search, Bell, X, Sparkles, Users } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
-import { Button } from "../components/Button";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
 import { useFocusEffect } from "@react-navigation/native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
 const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
@@ -106,64 +105,11 @@ export const HomeScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const today = new Date().toDateString();
-  const likedToday = user?.lastLikeDate && new Date(user.lastLikeDate).toDateString() === today;
-  const commentedToday = user?.lastCommentDate && new Date(user.lastCommentDate).toDateString() === today;
-  const goalMet = user?.todayReadTime >= user?.dailyGoalMinutes;
-
-  const quests = [
-    { id: '1', title: 'The Explorer', desc: 'Like a story today', done: likedToday, icon: Heart, color: '#FF2D55' },
-    { id: '2', title: 'The Critic', desc: 'Post a comment today', done: commentedToday, icon: MessageSquare, color: '#5856D6' },
-    { id: '3', title: 'The Scholar', desc: 'Reach your daily goal', done: goalMet, icon: BookOpen, color: '#34C759' },
-  ];
-
   const featuredStory = stories.length > 0 ? stories[0] : null;
   const newReleases = [...stories].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
 
-  const goalProgress = user?.dailyGoalMinutes ? (user.todayReadTime / user.dailyGoalMinutes) : 0;
-  const progressPercent = Math.min(100, Math.round(goalProgress * 100));
-
   const renderHeader = () => (
     <>
-      <View style={[styles.goalCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white }, Shadows.s]}>
-        <View style={styles.goalInfo}>
-            <Text style={[styles.goalTitle, { fontFamily: fonts.heading, color: theme.primary }]}>DAILY READING GOAL</Text>
-            <Text style={[styles.goalStats, { fontFamily: fonts.body, color: theme.black }]}>
-                {user?.todayReadTime || 0} / {user?.dailyGoalMinutes || 30} min
-            </Text>
-        </View>
-        <View style={styles.goalProgressContainer}>
-            <View style={[styles.goalBarBg, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
-                <View style={[styles.goalBarFill, { width: `${progressPercent}%`, backgroundColor: Colors.accent }]} />
-            </View>
-            <Text style={[styles.goalPercent, { fontFamily: fonts.heading, color: Colors.accent }]}>{progressPercent}%</Text>
-        </View>
-      </View>
-
-      {!searchQuery && (
-          <View style={styles.questsSection}>
-              <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary, marginBottom: 16 }]}>DAILY QUESTS</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
-                  {quests.map(quest => (
-                      <View key={quest.id} style={[styles.questCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
-                          <View style={[styles.questIconBox, { backgroundColor: quest.color + '15' }]}>
-                              <quest.icon size={18} color={quest.color} />
-                          </View>
-                          <Text style={[styles.questTitle, { fontFamily: fonts.heading, color: theme.black }]}>{quest.title}</Text>
-                          <Text style={[styles.questDesc, { fontFamily: fonts.body }]}>{quest.desc}</Text>
-                          <View style={styles.questStatus}>
-                              {quest.done ? (
-                                  <CheckCircle2 size={16} color="#34C759" />
-                              ) : (
-                                  <Circle size={16} color={Colors.mutedTeal} />
-                              )}
-                          </View>
-                      </View>
-                  ))}
-              </ScrollView>
-          </View>
-      )}
-
       {!searchQuery && recommendations.length > 0 && (
           <View style={styles.recsSection}>
               <View style={styles.sectionHeader}>
@@ -257,9 +203,6 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <Text style={[styles.username, { fontFamily: fonts.heading }]}>StoryNest</Text>
           </TouchableOpacity>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconCircle} onPress={() => navigation.navigate("ActivityFeed")}>
-              <Users size={20} color={Colors.accent} />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.iconCircle} onPress={() => {}}>
               <Bell size={20} color={Colors.accent} />
             </TouchableOpacity>
@@ -375,21 +318,6 @@ const styles = StyleSheet.create({
   carouselSection: { marginBottom: Spacing.xl },
   carouselContent: { paddingLeft: 2 },
   carouselItem: { marginRight: Spacing.m },
-  storiesList: { marginBottom: 40 },
   emptyText: { fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 40 },
-  goalCard: { marginHorizontal: Spacing.l, marginTop: -30, borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 },
-  goalInfo: { flex: 1 },
-  goalTitle: { fontSize: 10, letterSpacing: 1.2, marginBottom: 4 },
-  goalStats: { fontSize: 18, fontWeight: '700' },
-  goalProgressContainer: { alignItems: 'flex-end', width: 100 },
-  goalBarBg: { width: '100%', height: 6, borderRadius: 3, marginBottom: 6, overflow: 'hidden' },
-  goalBarFill: { height: '100%', borderRadius: 3 },
-  goalPercent: { fontSize: 12, fontWeight: '700' },
-  questsSection: { marginBottom: 32 },
-  questCard: { width: 150, padding: 16, borderRadius: 20, marginRight: 16 },
-  questIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  questTitle: { fontSize: 13, marginBottom: 4 },
-  questDesc: { fontSize: 10, color: Colors.mutedTeal, lineHeight: 14, height: 28 },
-  questStatus: { marginTop: 12, alignItems: 'flex-end' },
   recsSection: { marginBottom: 32 },
 });

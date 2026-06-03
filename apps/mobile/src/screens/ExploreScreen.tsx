@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, X, TrendingUp, Sparkles, Filter, Shuffle, Heart, Zap, Shield, Bird } from "lucide-react-native";
+import { Search, X, TrendingUp, Sparkles, Filter, Shuffle } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
@@ -14,15 +14,6 @@ import { HeaderWave } from "../components/HeaderWave";
 
 const { width } = Dimensions.get("window");
 
-const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"];
-const MOODS = [
-    { name: "Cozy", icon: Heart, color: "#FFB7B2" },
-    { name: "Epic", icon: Zap, color: "#FFDAC1" },
-    { name: "Thrilling", icon: Sparkles, color: "#E2F0CB" },
-    { name: "Inspiring", icon: Bird, color: "#B5EAD7" },
-    { name: "Dark", icon: Shield, color: "#C7CEEA" }
-];
-
 export const ExploreScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
@@ -31,7 +22,6 @@ export const ExploreScreen = ({ navigation }: any) => {
   const [trending, setTrending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeMood, setActiveMood] = useState("All");
   
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
 
@@ -52,12 +42,10 @@ export const ExploreScreen = ({ navigation }: any) => {
       finally { setLoading(false); setRefreshing(false); }
   };
 
-  const fetchFilteredStories = async (query = "", mood = "All") => {
+  const fetchFilteredStories = async (query = "") => {
     setLoading(true);
     try {
-      let url = "/stories?limit=20";
-      if (query) url = `/stories?q=${query}`;
-      else if (mood !== "All") url = `/stories?mood=${mood}`;
+      let url = query ? `/stories?q=${query}` : "/stories?limit=20";
       const res = await apiClient.get(url);
       setStories(res.data);
     } catch (error) { console.log(error); } 
@@ -67,12 +55,6 @@ export const ExploreScreen = ({ navigation }: any) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchInitialData();
-  };
-
-  const handleMoodPress = (name: string) => {
-      const nextMood = activeMood === name ? "All" : name;
-      setActiveMood(nextMood);
-      fetchFilteredStories("", nextMood);
   };
 
   return (
@@ -85,7 +67,7 @@ export const ExploreScreen = ({ navigation }: any) => {
             <View style={styles.searchWrapper}>
               <View style={styles.searchBar}>
                 <Search size={18} color={Colors.accent} style={styles.searchIcon} />
-                <TextInput placeholder="Search..." placeholderTextColor="rgba(255, 237, 168, 0.5)" style={[styles.searchInput, { fontFamily: fonts.body }]} value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={() => fetchFilteredStories(searchQuery)} />
+                <TextInput placeholder="Search..." placeholderTextColor="rgba(255, 237, 168, 0.5)" style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={() => fetchFilteredStories(searchQuery)} />
               </View>
             </View>
             <HeaderWave color={theme.white} />
@@ -93,20 +75,6 @@ export const ExploreScreen = ({ navigation }: any) => {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {!searchQuery && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>HOW ARE YOU FEELING?</Text></View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moodScroll} contentContainerStyle={{ paddingHorizontal: 24 }}>
-                {MOODS.map(m => (
-                    <TouchableOpacity key={m.name} style={[styles.moodCard, { backgroundColor: activeMood === m.name ? theme.primary : Colors.paleGreen }]} onPress={() => handleMoodPress(m.name)}>
-                        <m.icon size={20} color={activeMood === m.name ? theme.white : theme.primary} />
-                        <Text style={[styles.moodName, { color: activeMood === m.name ? theme.white : theme.black, fontFamily: fonts.body }]}>{m.name}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-          </View>
-        )}
-
         <View style={styles.section}>
             <View style={styles.sectionHeader}><TrendingUp size={16} color={theme.primary} /><Text style={[styles.sectionTitle, { marginLeft: 8, color: theme.primary, fontFamily: fonts.heading }]}>TRENDING NOW</Text></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
@@ -142,9 +110,6 @@ const styles = StyleSheet.create({
   section: { marginTop: 32 },
   sectionHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 24, marginBottom: 16 },
   sectionTitle: { fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase" },
-  moodScroll: { paddingVertical: 10 },
-  moodCard: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, marginRight: 12, flexDirection: 'row', alignItems: 'center', ...Shadows.s },
-  moodName: { marginLeft: 8, fontSize: 13 },
   trendingCard: { width: 140, marginRight: 16 },
   trendingImg: { width: 140, height: 200, borderRadius: 16, marginBottom: 8 },
   trendingTitle: { fontSize: 14 },

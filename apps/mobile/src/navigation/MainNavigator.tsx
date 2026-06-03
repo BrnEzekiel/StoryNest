@@ -13,7 +13,6 @@ import { Dimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Screens
-import { WalkthroughScreen } from "../screens/WalkthroughScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { SignupScreen } from "../screens/SignupScreen";
 import { OTPScreen } from "../screens/OTPScreen";
@@ -33,7 +32,6 @@ import { StatisticsScreen } from "../screens/StatisticsScreen";
 import { ShopScreen } from "../screens/ShopScreen";
 import { LeaderboardScreen } from "../screens/LeaderboardScreen";
 import { UserProfileScreen } from "../screens/UserProfileScreen";
-import { ActivityFeedScreen } from "../screens/ActivityFeedScreen";
 import { CreativeSuiteScreen } from "../screens/CreativeSuiteScreen";
 import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
@@ -113,18 +111,8 @@ const TabNavigator = () => {
 export const MainNavigator = () => {
   const { user, loading } = useAuth();
   const { isDarkMode } = useTheme();
-  const [showWalkthrough, setShowWalkthrough] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    checkWalkthrough();
-  }, []);
-
-  const checkWalkthrough = async () => {
-    const hasSeen = await AsyncStorage.getItem("hasSeenWalkthrough");
-    setShowWalkthrough(hasSeen !== "true");
-  };
-
-  if (loading || showWalkthrough === null) return null;
+  if (loading) return null;
 
   return (
     <Stack.Navigator 
@@ -136,11 +124,10 @@ export const MainNavigator = () => {
         gestureEnabled: true,
         gestureDirection: 'horizontal',
       }}
-      initialRouteName={!user && showWalkthrough ? "Walkthrough" : (!user ? "Login" : "Main")}
+      initialRouteName={!user ? "Login" : "Main"}
     >
       {!user ? (
         <>
-          {showWalkthrough && <Stack.Screen name="Walkthrough" component={WalkthroughScreen} />}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="OTP" component={OTPScreen} />
@@ -160,7 +147,6 @@ export const MainNavigator = () => {
           <Stack.Screen name="Shop" component={ShopScreen} />
           <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
           <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-          <Stack.Screen name="ActivityFeed" component={ActivityFeedScreen} />
           <Stack.Screen name="CreativeSuite" component={CreativeSuiteScreen} />
           <Stack.Screen name="ManageChapters" component={ManageChaptersScreen} />
           <Stack.Screen name="Messages" component={MessagesScreen} />

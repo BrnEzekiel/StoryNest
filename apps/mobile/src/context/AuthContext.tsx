@@ -1,24 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import * as SecureStore from "expo-secure-store";
-import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
 import { Platform } from "react-native";
-
-const Storage = {
-  setItem: async (key: string, value: string) => {
-    if (Platform.OS === 'web') localStorage.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value);
-  },
-  getItem: async (key: string) => {
-    if (Platform.OS === 'web') return localStorage.getItem(key);
-    else return await SecureStore.getItemAsync(key);
-  },
-  removeItem: async (key: string) => {
-    if (Platform.OS === 'web') localStorage.removeItem(key);
-    else await SecureStore.deleteItemAsync(key);
-  }
-};
+import { Storage } from "../utils/Storage";
 
 interface User {
   id: string;
@@ -71,31 +56,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const restoreSession = async () => {
+    console.log("[Auth] restoreSession started...");
     try {
+      console.log("[Auth] Checking for accessToken in storage...");
       const accessToken = await Storage.getItem("accessToken");
+      console.log("[Auth] Access token found:", accessToken ? "YES" : "NO");
+      
       if (accessToken) {
-        // Try to fetch current user to verify token
+        console.log("[Auth] Verifying session with backend...");
         const res = await apiClient.get("/users/me");
+        console.log("[Auth] Session verified, user:", res.data?.username);
         setUser(res.data);
+      } else {
+        console.log("[Auth] No active session found.");
       }
-    } catch (err) {
-      console.log("[Auth] Session restoration failed, token likely expired.");
-      // Token might be expired, apiClient interceptor will try to refresh it
-      // if it fails there, user remains null and must log in.
+    } catch (err: any) {
+      console.log("[Auth] Session restoration failed/expired:", err.message);
     } finally {
+      console.log("[Auth] restoreSession finished, setting loading to false.");
       setLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
-    const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
-    const idToken = await firebaseUser.getIdToken();
-    const res = await apiClient.post("/auth/login", { idToken });
-    
-    const { user: backendUser, accessToken, refreshToken } = res.data;
-    await Storage.setItem("accessToken", accessToken);
-    await Storage.setItem("refreshToken", refreshToken);
-    setUser(backendUser);
+    console.log(`[Auth] Attempting login for ${email}...`);
+    try {
+        let idToken = null;
+        try {
+            console.log(`[Auth] STEP 1: Trying Firebase Sign-In (5s timeout)...`);
+            const firebaseAuthPromise = signInWithEmailAndPassword(auth, email, password);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase Timeout")), 5000));
+            const { user: firebaseUser } = await Promise.race([firebaseAuthPromise, timeoutPromise]) as any;
+            console.log(`[Auth] Firebase User authenticated: ${firebaseUser.uid}`);
+            idToken = await firebaseUser.getIdToken();
+        } catch (firebaseErr: any) {
+            console.log(`[Auth] Firebase sign-in skipped/failed: ${firebaseErr.message}`);
+        }
+        
+        console.log(`[Auth] STEP 2: Backend Authentication...`);
+        const res = await apiClient.post("/auth/login", idToken ? { idToken } : { email, password });
+        console.log(`[Auth] Backend Login Success`);
+        
+        const { user: backendUser, accessToken, refreshToken } = res.data;
+        await Storage.setItem("accessToken", accessToken);
+        await Storage.setItem("refreshToken", refreshToken);
+        setUser(backendUser);
+    } catch (err: any) {
+        console.error(`[Auth] Login Failed:`, err.message || err);
+        throw err;
+    }
   };
 
   const loginWithGoogle = async (idToken: string) => {
@@ -175,8 +184,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log("[Auth] Backend logout notification failed (token likely already gone)");
     }
     await signOut(auth);
-    await Storage.deleteItemAsync("accessToken");
-    await Storage.deleteItemAsync("refreshToken");
+    await Storage.removeItem("accessToken");
+    await Storage.removeItem("refreshToken");
     setUser(null);
   };
 

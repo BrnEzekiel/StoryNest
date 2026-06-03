@@ -1,12 +1,14 @@
 import axios from "axios";
-import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { Storage } from "../utils/Storage";
 
 // --- ENVIRONMENT CONFIG ---
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
+  timeout: 15000, // 15 seconds
   headers: {
     "Content-Type": "application/json",
   },
@@ -14,9 +16,13 @@ const apiClient = axios.create({
 
 // Interceptor to add access token to requests
 apiClient.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync("accessToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = await Storage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (e) {
+    console.log("[API Client] Token fetch failed:", e.message);
   }
   return config;
 });
@@ -29,21 +35,20 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await SecureStore.getItemAsync("refreshToken");
+        const refreshToken = await Storage.getItem("refreshToken");
         if (!refreshToken) throw new Error("No refresh token");
 
         const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = res.data;
 
-        await SecureStore.setItemAsync("accessToken", accessToken);
-        await SecureStore.setItemAsync("refreshToken", newRefreshToken);
+        await Storage.setItem("accessToken", accessToken);
+        await Storage.setItem("refreshToken", newRefreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (err) {
-        // If refresh fails, clear tokens
-        await SecureStore.deleteItemAsync("accessToken");
-        await SecureStore.deleteItemAsync("refreshToken");
+        await Storage.removeItem("accessToken");
+        await Storage.removeItem("refreshToken");
       }
     }
     return Promise.reject(error);

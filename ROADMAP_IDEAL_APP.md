@@ -7,7 +7,7 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 3.  **Custom Typography:** Choice of 10+ premium fonts (Serif, Sans, Dyslexic-friendly). ✅
 4.  **Haptic Feedback:** Subtle vibrations when interacting with buttons and navigations. ✅
 5.  **Biometric Lock:** Secure the app with Fingerprint or Face ID. ✅
-6.  **Interactive Walkthrough:** Dynamic onboarding for new users. ✅
+6.  **Interactive Walkthrough:** Dynamic onboarding for new users.
 7.  **Customizable Bottom Bar:** Allow users to reorder navigation icons. ✅
 8.  **Pull-to-Refresh:** Standardized refreshing across all list views. ✅
 9.  **Skeleton Screens:** Polished loading states instead of simple spinners. ✅
@@ -16,7 +16,7 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 ## 📖 Reader Features
 11. **Text-to-Speech (TTS):** High-quality AI voices to listen to stories. ✅
 12. **Offline Mode:** Download stories for reading without internet. ✅
-13. **Reading Goals:** Set daily/weekly word count or time targets. ✅
+13. **Reading Goals:** Set daily/weekly word count or time targets.
 14. **Highlighting:** Highlight favorite passages in different colors. ✅
 15. **Note-taking:** Attach personal thoughts to specific lines. ✅
 16. **In-App Dictionary:** Long-press any word for instant definitions. ✅
@@ -50,7 +50,7 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 ## 🏆 Gamification & Engagement
 41. **Leveling System:** Gain XP for reading, commenting, and writing. ✅
 42. **User Badges:** "Bookworm," "Night Owl," "First Commenter" badges. ✅
-43. **Daily Quests:** "Read for 10 minutes," "Like 3 stories." ✅
+43. **Daily Quests:** "Read for 10 minutes," "Like 3 stories."
 44. **Global Leaderboard:** Weekly rankings for top readers and authors. ✅
 45. **Achievement Shop:** Spend XP/Coins on exclusive themes or avatars. ✅
 46. **Reading Streaks:** Visual calendar showing consecutive days read.
@@ -61,8 +61,8 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 
 ## 👥 Social & Community
 51. **Nested Comments:** Threaded replies for better discussions. ✅
-52. **@Mentions:** Tag other users in comments. ✅
-53. **Activity Feed:** See what the authors you follow are reading/writing. ✅
+52. **@Mentions:** Tag other users in comments.
+53. **Activity Feed:** See what the authors you follow are reading/writing.
 54. **User Profiles:** Display bio, favorite stories, and achievements. ✅
 55. **Private Messaging:** Chat with friends or authors directly. ✅
 56. **Book Clubs:** Community-run groups with monthly "Required Reading."
@@ -73,7 +73,7 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 
 ## 🔍 Discovery & Personalization
 61. **AI Recommendations:** "Because you liked [Story A]..." ✅
-62. **Mood-based Filters:** Find stories for "Feeling Sad," "Need Adventure," etc. ✅
+62. **Mood-based Filters:** Find stories for "Feeling Sad," "Need Adventure," etc.
 63. **Trending Charts:** Hot stories in the last 24 hours. ✅
 64. **"Surprise Me":** Random story generator based on preferred genres. ✅
 65. **Editorial Picks:** Curated lists from the StoryNest staff.

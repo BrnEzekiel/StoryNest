@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Animated, Keyboard, Alert, Dimensions, Modal } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle } from "lucide-react-native";
+import { ArrowLeft, Bookmark, Heart, MessageSquare, Moon, Sun, Type, Send, Share2, Volume2, Square, Download, Trash, MousePointer2, StickyNote, Plus, X, AlertTriangle, Reply, Lock, Zap } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -13,7 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Speech from 'expo-speech';
 import { OfflineManager } from "../utils/OfflineManager";
 
-const { height: WINDOW_HEIGHT } = Dimensions.get("window");
+const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
 
 const FONT_SIZES = {
   small: 15,
@@ -40,6 +40,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [replyTo, setReplyTo] = useState<any>(null);
 
   // Feature 15: Note-taking
   const [showNotes, setShowNotes] = useState(false);
@@ -49,6 +50,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   // Feature 25: Content Warnings
   const [showWarning, setShowWarning] = useState(false);
+
+  // Feature 73: Paid Stories / Purchase
+  const [showPurchase, setShowPurchase] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
 
   // Feature 18: Auto-Scroll
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
@@ -110,14 +115,16 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setIsLiked(storyRes.data.isLiked);
       setIsDownloaded(downloaded);
       
-      if (storyRes.data.contentWarnings || storyRes.data.isAdult) {
+      if (!storyRes.data.isUnlocked) {
+          setShowPurchase(true);
+      } else if (storyRes.data.contentWarnings || storyRes.data.isAdult) {
           setShowWarning(true);
       }
 
       const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
       setIsBookmarked(!!bookmark);
 
-      if (bookmark && bookmark.progress > 5 && bookmark.progress < 95) {
+      if (storyRes.data.isUnlocked && bookmark && bookmark.progress > 5 && bookmark.progress < 95) {
           Alert.alert(
               "Resume Story?",
               `You were at ${bookmark.progress}% in this story. Would you like to resume?`,
@@ -128,8 +135,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           );
       }
       
-      await apiClient.post(`/stories/${storyId}/read`);
-      await refreshUser();
+      if (storyRes.data.isUnlocked) {
+          await apiClient.post(`/stories/${storyId}/read`);
+          await refreshUser();
+      }
     } catch (error) {
         const offlineStories = await OfflineManager.getDownloadedStories();
         const found = offlineStories.find(s => s.id === storyId);
@@ -147,6 +156,27 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         const target = (percent / 100) * (contentHeight.current - WINDOW_HEIGHT);
         scrollViewRef.current?.scrollTo({ y: target, animated: true });
     }, 500);
+  };
+
+  const handlePurchase = async () => {
+    if ((user?.coins || 0) < (story?.price || 0)) {
+        Alert.alert("Insufficient Coins", "Visit the marketplace to top up your Nest Coins.", [
+            { text: "Go to Shop", onPress: () => { setShowPurchase(false); navigation.navigate("Shop"); } },
+            { text: "Later", style: "cancel" }
+        ]);
+        return;
+    }
+
+    setPurchasing(true);
+    try {
+        await apiClient.post(`/stories/${storyId}/purchase`);
+        setShowPurchase(false);
+        fetchStory(); // Refresh to unlock content
+    } catch (e) {
+        Alert.alert("Error", "Unlock failed. Please try again.");
+    } finally {
+        setPurchasing(false);
+    }
   };
 
   const toggleAutoScroll = () => {
@@ -193,9 +223,19 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await apiClient.post(`/stories/${storyId}/comments`, { content: newComment });
-      setComments([res.data, ...comments]);
+      const res = await apiClient.post(`/stories/${storyId}/comments`, { 
+          content: newComment,
+          parentId: replyTo?.id
+      });
+      
+      if (replyTo) {
+          fetchComments();
+      } else {
+          setComments([res.data, ...comments]);
+      }
+      
       setNewComment("");
+      setReplyTo(null);
       Keyboard.dismiss();
     } catch (error) { console.log(error); }
   };
@@ -311,6 +351,57 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     );
   }
 
+  const CommentItem = ({ comment, isReply = false }: { comment: any, isReply?: boolean }) => {
+      const [showReplies, setShowReplies] = useState(false);
+      const [replies, setReplies] = useState<any[]>([]);
+      const [repliesLoading, setRepliesLoading] = useState(false);
+
+      const fetchReplies = async () => {
+          if (showReplies) {
+              setShowReplies(false);
+              return;
+          }
+          setRepliesLoading(true);
+          setShowReplies(true);
+          try {
+              const res = await apiClient.get(`/stories/${storyId}/comments?parentId=${comment.id}`);
+              setReplies(res.data);
+          } catch (e) { console.log(e); }
+          finally { setRepliesLoading(false); }
+      };
+
+      return (
+          <View style={[styles.commentItem, isReply && styles.replyItem, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+            <View style={styles.commentHeaderRow}>
+                <Text style={[styles.commentUser, { color: theme.black, fontFamily: fonts.heading }]}>{comment?.user?.username || "Story Reader"}</Text>
+                {!isReply && (
+                    <TouchableOpacity onPress={() => setReplyTo(comment)} style={styles.replyBtn}>
+                        <Reply size={14} color={Colors.mutedTeal} />
+                        <Text style={[styles.replyBtnText, { fontFamily: fonts.body }]}>Reply</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+            <Text style={[styles.commentText, { color: theme.black, opacity: 0.8, fontFamily: fonts.body }]}>{comment?.content}</Text>
+            
+            {comment._count?.replies > 0 && !isReply && (
+                <TouchableOpacity onPress={fetchReplies} style={styles.viewRepliesBtn}>
+                    <Text style={[styles.viewRepliesText, { color: theme.primary, fontFamily: fonts.heading }]}>
+                        {showReplies ? "Hide Replies" : `View ${comment._count.replies} Replies`}
+                    </Text>
+                </TouchableOpacity>
+            )}
+
+            {showReplies && (
+                <View style={styles.repliesContainer}>
+                    {repliesLoading ? <ActivityIndicator size="small" color={theme.primary} /> : (
+                        replies.map(r => <CommentItem key={r.id} comment={r} isReply />)
+                    )}
+                </View>
+            )}
+          </View>
+      );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
       <StatusBar style={isDarkMode ? "light" : "dark"} />
@@ -328,6 +419,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
                 {isSpeaking ? <Square size={20} color={Colors.error} /> : <Volume2 size={20} color={theme.black} />}
             </TouchableOpacity>
             <TouchableOpacity onPress={toggleFontSize} style={styles.iconBtn}><Type size={20} color={theme.black} /></TouchableOpacity>
+            <TouchableOpacity onPress={handleShare} style={styles.iconBtn}><Share2 size={20} color={theme.black} /></TouchableOpacity>
             <TouchableOpacity onPress={handleBookmark} style={styles.iconBtn}>
               <Bookmark size={20} color={isBookmarked ? Colors.accent : theme.black} fill={isBookmarked ? Colors.accent : "none"} />
             </TouchableOpacity>
@@ -387,16 +479,52 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
               letterSpacing: 0.2
             }
           ]}>
-            {story.body}
+            {story.isUnlocked ? story.body : "Content Locked. Unlock this premium story to continue reading."}
           </Text>
         </View>
         
-        <View style={styles.endOfStory}>
-          <View style={[styles.endDot, { backgroundColor: theme.primary + '40' }]} />
-          <Text style={[styles.endText, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>End of Story</Text>
-          <View style={[styles.endDot, { backgroundColor: theme.primary + '40' }]} />
-        </View>
+        {story.isUnlocked && (
+            <View style={styles.endOfStory}>
+                <View style={[styles.endDot, { backgroundColor: theme.primary + '40' }]} />
+                <Text style={[styles.endText, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>End of Story</Text>
+                <View style={[styles.endDot, { backgroundColor: theme.primary + '40' }]} />
+            </View>
+        )}
       </ScrollView>
+
+      {/* Feature 73: Purchase Modal */}
+      <Modal visible={showPurchase} animationType="slide" transparent>
+          <View style={styles.purchaseOverlay}>
+              <View style={[styles.purchaseContent, { backgroundColor: theme.white }]}>
+                  <View style={styles.lockCircle}>
+                      <Lock size={40} color={Colors.primary} />
+                  </View>
+                  <Text style={[styles.purchaseTitle, { color: theme.black, fontFamily: fonts.heading }]}>UNLOCK THIS STORY</Text>
+                  <Text style={[styles.purchaseDesc, { fontFamily: fonts.body }]}>
+                      This is a premium exclusive story. Unlock it permanently for your library.
+                  </Text>
+                  
+                  <View style={styles.priceTag}>
+                      <Zap size={20} color={Colors.accent} fill={Colors.accent} />
+                      <Text style={[styles.priceText, { color: theme.black, fontFamily: fonts.heading }]}>{story?.price || 50} COINS</Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.buyStoryBtn, { backgroundColor: theme.primary }]} 
+                    onPress={handlePurchase}
+                    disabled={purchasing}
+                  >
+                      {purchasing ? <ActivityIndicator color={theme.white} /> : (
+                          <Text style={[styles.buyStoryText, { fontFamily: fonts.heading }]}>UNLOCK NOW</Text>
+                      )}
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+                      <Text style={[styles.cancelText, { fontFamily: fonts.body }]}>Maybe Later</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
 
       {/* Feature 25: Content Warning Modal */}
       <Modal visible={showWarning} animationType="fade" transparent>
@@ -477,28 +605,31 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
             
             <ScrollView style={{ flex: 1 }}>
               {commentsLoading ? <ActivityIndicator color={theme.primary} /> : (
-                comments.map(c => (
-                  <View key={c.id} style={[styles.commentItem, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
-                    <Text style={[styles.commentUser, { color: theme.black, fontFamily: fonts.heading }]}>{c?.user?.username || "Story Reader"}</Text>
-                    <Text style={[styles.commentText, { color: theme.black, opacity: 0.8, fontFamily: fonts.body }]}>{c?.content}</Text>
-                  </View>
-                ))
+                comments.map(c => <CommentItem key={c.id} comment={c} />)
               )}
             </ScrollView>
 
-            <View style={[styles.commentInputRow, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
-              <TextInput 
-                style={[styles.commentInput, { color: theme.black, fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} 
-                placeholder="Share your thoughts..." 
-                placeholderTextColor={isDarkMode ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"} 
-                value={newComment} 
-                onChangeText={setNewComment}
-                multiline
-                underlineColorAndroid="transparent"
-              />
-              <TouchableOpacity onPress={handlePostComment} style={styles.sendBtn}>
-                <Send size={20} color={theme.primary} />
-              </TouchableOpacity>
+            <View style={styles.inputArea}>
+                {replyTo && (
+                    <View style={styles.replyBanner}>
+                        <Text style={[styles.replyingTo, { fontFamily: fonts.body }]}>Replying to <Text style={{fontWeight:'700'}}>{replyTo.user.username}</Text></Text>
+                        <TouchableOpacity onPress={() => setReplyTo(null)}><X size={14} color={Colors.mutedTeal} /></TouchableOpacity>
+                    </View>
+                )}
+                <View style={[styles.commentInputRow, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+                <TextInput 
+                    style={[styles.commentInput, { color: theme.black, fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} 
+                    placeholder="Share your thoughts..." 
+                    placeholderTextColor={isDarkMode ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)"} 
+                    value={newComment} 
+                    onChangeText={setNewComment}
+                    multiline
+                    underlineColorAndroid="transparent"
+                />
+                <TouchableOpacity onPress={handlePostComment} style={styles.sendBtn}>
+                    <Send size={20} color={theme.primary} />
+                </TouchableOpacity>
+                </View>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -559,9 +690,19 @@ const styles = StyleSheet.create({
   commentsTitle: { fontSize: 20 },
   closeComments: { fontSize: 14 },
   commentItem: { marginBottom: 20, borderBottomWidth: 1, paddingBottom: 16 },
-  commentUser: { fontSize: 15, marginBottom: 6 },
+  commentHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  commentUser: { fontSize: 15 },
   commentText: { fontSize: 15, lineHeight: 22 },
-  commentInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, marginBottom: 20, minHeight: 56, maxHeight: 120 },
+  replyBtn: { flexDirection: 'row', alignItems: 'center' },
+  replyBtnText: { fontSize: 12, color: Colors.mutedTeal, marginLeft: 4 },
+  replyItem: { marginLeft: 24, borderBottomWidth: 0, marginBottom: 12, paddingBottom: 0 },
+  viewRepliesBtn: { marginTop: 10 },
+  viewRepliesText: { fontSize: 12, letterSpacing: 0.5 },
+  repliesContainer: { marginTop: 16, borderLeftWidth: 1, borderLeftColor: 'rgba(0,54,49,0.1)', paddingLeft: 12 },
+  inputArea: { marginBottom: 20 },
+  replyBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,54,49,0.05)', padding: 8, borderRadius: 8, marginBottom: 8 },
+  replyingTo: { fontSize: 12, color: Colors.mutedTeal },
+  commentInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 16, minHeight: 56, maxHeight: 120 },
   commentInput: { flex: 1, fontSize: 16, paddingVertical: 12 },
   sendBtn: { marginLeft: 12, padding: 4 },
   notesModal: { flex: 1, paddingHorizontal: 24 },
@@ -582,6 +723,16 @@ const styles = StyleSheet.create({
   warningBtn: { paddingVertical: 18, paddingHorizontal: 40, borderRadius: 30, width: '100%', alignItems: 'center' },
   warningBtnText: { color: Colors.white, fontSize: 14, letterSpacing: 1 },
   backLink: { fontSize: 14, color: Colors.mutedTeal },
+  purchaseOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  purchaseContent: { width: '100%', borderRadius: 32, padding: 32, alignItems: 'center' },
+  lockCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
+  purchaseTitle: { fontSize: 22, letterSpacing: 2, marginBottom: 16 },
+  purchaseDesc: { fontSize: 15, lineHeight: 24, textAlign: 'center', color: Colors.mutedTeal, marginBottom: 32 },
+  priceTag: { flexDirection: 'row', alignItems: 'center', marginBottom: 40 },
+  priceText: { fontSize: 24, marginLeft: 12 },
+  buyStoryBtn: { paddingVertical: 20, width: '100%', borderRadius: 20, alignItems: 'center', ...Shadows.m },
+  buyStoryText: { color: Colors.white, fontSize: 14, letterSpacing: 2 },
+  cancelText: { fontSize: 14, color: Colors.mutedTeal },
   skeletonTitle: { height: 40, width: '80%', borderRadius: 8, marginBottom: 20 },
   skeletonMeta: { height: 20, width: '40%', borderRadius: 4, marginBottom: 40 },
   skeletonLine: { height: 16, width: '100%', borderRadius: 4, marginBottom: 12 },

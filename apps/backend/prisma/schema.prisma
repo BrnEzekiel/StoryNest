@@ -16,8 +16,11 @@ model User {
   refreshToken     String?
   avatarUrl        String?
   role             Role         @default(READER)
+  
+  // Monetization
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
+  coins            Int          @default(100) // Start with some free coins
 
   // v2.0 Compliance & Growth
   dateOfBirth      DateTime?
@@ -61,10 +64,18 @@ model Achievement {
 model Purchase {
   id        String   @id @default(uuid())
   userId    String
-  storyId   String
-  amount    Float
+  storyId   String?  // Optional for subscription/coin purchases
+  type      PurchaseType @default(STORY)
+  amount    Float    // Real money or coin amount
+  currency  String   @default("COIN")
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+}
+
+enum PurchaseType {
+    STORY
+    COINS
+    SUBSCRIPTION
 }
 
 model Follows {
@@ -86,6 +97,11 @@ model Story {
   coverUrl       String?
   authorName     String
   readingTime    Int        @default(0)
+  
+  // Monetization
+  isPremium      Boolean    @default(false)
+  price          Int        @default(0) // In Nest Coins
+
   contentWarnings String?
   isAdult        Boolean    @default(false)
   isFeatured     Boolean    @default(false)

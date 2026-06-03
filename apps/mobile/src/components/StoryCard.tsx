@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity, ViewStyle, Animated } from "react-native";
 import { Colors, Radii, Shadows, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Clock } from "lucide-react-native";
+import { Clock, Lock, Zap } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -13,6 +13,8 @@ interface Story {
   genre: string;
   authorName: string;
   readingTime: number;
+  isPremium?: boolean;
+  price?: number;
 }
 
 interface StoryCardProps {
@@ -57,7 +59,15 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
     ]).start();
   }, []);
 
-  const colors = GENRE_COLORS[story.genre] || GENRE_COLORS["Default"];
+  const renderPremiumBadge = () => {
+    if (!story.isPremium) return null;
+    return (
+        <View style={styles.premiumBadge}>
+            <Zap size={10} color={Colors.primary} fill={Colors.primary} />
+            <Text style={[styles.premiumText, { fontFamily: fonts.heading }]}>{story.price || 50}</Text>
+        </View>
+    );
+  };
 
   const renderContent = () => {
     if (variant === "featured") {
@@ -69,7 +79,16 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.featuredInfo}>
-            <View style={[styles.featuredBadge, { backgroundColor: theme.primary }]}><Text style={[styles.featuredBadgeText, { fontFamily: fonts.heading, color: theme.white }]}>FEATURED</Text></View>
+            <View style={styles.featuredTopRow}>
+                <View style={[styles.featuredBadge, { backgroundColor: theme.primary }]}>
+                    <Text style={[styles.featuredBadgeText, { fontFamily: fonts.heading, color: theme.white }]}>FEATURED</Text>
+                </View>
+                {story.isPremium && (
+                    <View style={styles.featuredPremiumBadge}>
+                        <Zap size={12} color={Colors.accent} fill={Colors.accent} />
+                    </View>
+                )}
+            </View>
             <Text style={[styles.featuredTitle, { fontFamily: fonts.heading }]} numberOfLines={2}>{story.title}</Text>
             <Text style={[styles.featuredMeta, { fontFamily: fonts.body }]}>{story.genre} • {story.readingTime} min read</Text>
           </View>
@@ -80,7 +99,10 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
     if (variant === "compact") {
       return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.compactContainer, style]}>
-          <Image source={{ uri: story.coverUrl }} style={styles.compactCover} />
+          <View>
+            <Image source={{ uri: story.coverUrl }} style={styles.compactCover} />
+            {renderPremiumBadge()}
+          </View>
           <Text style={[styles.compactTitle, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={1}>{story.title}</Text>
         </TouchableOpacity>
       );
@@ -97,9 +119,20 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
             style
         ]}
       >
-        <Image source={{ uri: story.coverUrl }} style={styles.cover} />
+        <View>
+            <Image source={{ uri: story.coverUrl }} style={styles.cover} />
+            {story.isPremium && <View style={styles.listPremiumOverlay}><Lock size={12} color={Colors.white} /></View>}
+        </View>
         <View style={styles.info}>
-          <Text style={[styles.genre, { fontFamily: fonts.body, color: theme.primary }]}>{story.genre}</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.genre, { fontFamily: fonts.body, color: theme.primary }]}>{story.genre}</Text>
+            {story.isPremium && (
+                <View style={styles.coinTag}>
+                    <Zap size={10} color={Colors.accent} fill={Colors.accent} />
+                    <Text style={[styles.coinText, { fontFamily: fonts.heading }]}>{story.price}</Text>
+                </View>
+            )}
+          </View>
           <Text style={[styles.title, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={2}>{story.title}</Text>
           <View style={styles.meta}>
             <Text style={[styles.author, { fontFamily: fonts.body }]}>{story.authorName}</Text>
@@ -138,17 +171,28 @@ const styles = StyleSheet.create({
     borderRadius: Radii.s,
     backgroundColor: Colors.paleGreen,
   },
+  listPremiumOverlay: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 8,
+    padding: 4
+  },
   info: {
     flex: 1,
     marginLeft: Spacing.m,
     justifyContent: "center",
   },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   genre: {
     fontSize: 10,
     textTransform: "uppercase",
     marginBottom: Spacing.xs,
     letterSpacing: 0.05,
   },
+  coinTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  coinText: { fontSize: 10, color: Colors.accent, marginLeft: 4 },
   title: {
     fontSize: 16,
     marginBottom: Spacing.xs,
@@ -187,16 +231,16 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     padding: Spacing.l,
   },
+  featuredTopRow: { flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', top: 20, left: 20, right: 20 },
   featuredBadge: {
-    alignSelf: "flex-start",
     paddingHorizontal: Spacing.s,
     paddingVertical: 2,
     borderRadius: Radii.s,
-    marginBottom: Spacing.s,
   },
   featuredBadgeText: {
     fontSize: 10,
   },
+  featuredPremiumBadge: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 6, borderRadius: 10 },
   featuredTitle: {
     fontSize: 26,
     color: Colors.white,
@@ -217,6 +261,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.s,
     backgroundColor: Colors.paleGreen,
   },
+  premiumBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.accent, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  premiumText: { fontSize: 10, color: Colors.primary, marginLeft: 2 },
   compactTitle: {
     fontSize: 14,
   },

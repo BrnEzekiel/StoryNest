@@ -60,7 +60,7 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 50. **Guilds/Clubs:** Join groups with shared reading interests and group XP.
 
 ## 👥 Social & Community
-51. **Nested Comments:** Threaded replies for better discussions.
+51. **Nested Comments:** Threaded replies for better discussions. ✅
 52. **@Mentions:** Tag other users in comments.
 53. **Activity Feed:** See what the authors you follow are reading/writing.
 54. **User Profiles:** Display bio, favorite stories, and achievements.
@@ -84,9 +84,9 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 70. **Reading Level Filter:** Sort by "Beginner," "Intermediate," or "Advanced."
 
 ## 💰 Monetization & Economy
-71. **Subscription Tiers:** "Nest Plus" for ad-free and offline reading.
-72. **Virtual Currency:** "Nest Coins" for unlocking premium chapters.
-73. **Paid Stories:** One-time purchase for exclusive professional content.
+71. **Subscription Tiers:** "Nest Plus" for ad-free and offline reading. ✅
+72. **Virtual Currency:** "Nest Coins" for unlocking premium chapters. ✅
+73. **Paid Stories:** One-time purchase for exclusive professional content. ✅
 74. **Referral Program:** Earn coins for inviting friends.
 75. **Ad-Supported Access:** Watch a video to unlock a chapter for free.
 76. **Affiliate Links:** Link to physical copies of books on Amazon.

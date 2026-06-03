@@ -497,12 +497,36 @@ app.get("/stories", async (req, res) => {
 
 app.get("/stories/:id", async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+            const decoded = jwt.verify(authHeader.split(" ")[1], config.jwtAccessSecret);
+            userId = decoded.id;
+        } catch (e) {}
+    }
+
     const story = await prisma.story.findUnique({
       where: { id: req.params.id },
       include: { _count: { select: { likes: true, comments: true } } }
     });
+
     if (!story) return res.status(404).json({ error: "Story not found" });
-    res.json(story);
+
+    let isUnlocked = !story.isPremium;
+    if (!isUnlocked && userId) {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user.isPremium) {
+            isUnlocked = true;
+        } else {
+            const purchase = await prisma.purchase.findFirst({
+                where: { userId, storyId: req.params.id, type: "STORY" }
+            });
+            if (purchase) isUnlocked = true;
+        }
+    }
+
+    res.json({ ...story, isUnlocked });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -824,9 +848,16 @@ app.delete("/notes/:id", authenticate, async (req, res) => {
 
 app.get("/stories/:id/comments", async (req, res) => {
     try {
+      const { parentId } = req.query;
       const comments = await prisma.comment.findMany({
-        where: { storyId: req.params.id },
-        include: { user: { select: { username: true, avatarUrl: true } } },
+        where: { 
+            storyId: req.params.id,
+            parentId: parentId || null // Fetch top-level if no parentId
+        },
+        include: { 
+            user: { select: { username: true, avatarUrl: true } },
+            _count: { select: { replies: true } }
+        },
         orderBy: { createdAt: "desc" }
       });
       res.json(comments);
@@ -834,21 +865,110 @@ app.get("/stories/:id/comments", async (req, res) => {
 });
 
 app.post("/stories/:id/comments", authenticate, async (req, res) => {
-    const { content } = req.body;
+    const { content, parentId } = req.body;
     try {
       const comment = await prisma.comment.create({
         data: {
           content,
           storyId: req.params.id,
-          userId: req.user.id
+          userId: req.user.id,
+          parentId: parentId || null
         },
         include: { user: { select: { username: true, avatarUrl: true } } }
       });
       
       await prisma.user.update({ where: { id: req.user.id }, data: { lastCommentDate: new Date() } });
       
+      sendSlackNotification(`💬 **${req.user.id}** commented on story ${req.params.id}${parentId ? ' (Reply)' : ''}`);
+      
       res.status(201).json(comment);
     } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- MONETIZATION ---
+
+app.post("/monetization/coins/purchase", authenticate, async (req, res) => {
+    const { amount, planId } = req.body; // amount is number of coins
+    try {
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { coins: { increment: amount } }
+        });
+
+        await prisma.purchase.create({
+            data: {
+                userId: req.user.id,
+                type: "COINS",
+                amount: amount,
+                currency: "COIN"
+            }
+        });
+
+        sendSlackNotification(`💰 **${user.username}** purchased ${amount} Nest Coins!`);
+        res.json({ coins: user.coins });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/monetization/subscribe", authenticate, async (req, res) => {
+    try {
+        const expiry = new Date();
+        expiry.setMonth(expiry.getMonth() + 1);
+
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { 
+                isPremium: true,
+                premiumExpiresAt: expiry
+            }
+        });
+
+        await prisma.purchase.create({
+            data: {
+                userId: req.user.id,
+                type: "SUBSCRIPTION",
+                amount: 9.99, // Simulated price
+                currency: "USD"
+            }
+        });
+
+        sendSlackNotification(`👑 **${user.username}** subscribed to **Nest Plus**!`);
+        res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/stories/:id/purchase", authenticate, async (req, res) => {
+    try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id } });
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+        if (!story || !story.isPremium) return res.status(400).json({ error: "Story is not for sale" });
+        if (user.coins < story.price) return res.status(400).json({ error: "Insufficient Nest Coins" });
+
+        // Check if already purchased
+        const existing = await prisma.purchase.findFirst({
+            where: { userId: req.user.id, storyId: req.params.id, type: "STORY" }
+        });
+        if (existing) return res.json({ message: "Already owned" });
+
+        const [updatedUser] = await prisma.$transaction([
+            prisma.user.update({
+                where: { id: req.user.id },
+                data: { coins: { decrement: story.price } }
+            }),
+            prisma.purchase.create({
+                data: {
+                    userId: req.user.id,
+                    storyId: req.params.id,
+                    type: "STORY",
+                    amount: story.price,
+                    currency: "COIN"
+                }
+            })
+        ]);
+
+        sendSlackNotification(`📖 **${user.username}** unlocked premium story: "${story.title}"`);
+        res.json({ message: "Unlocked", coins: updatedUser.coins });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- ADMIN STATS ---

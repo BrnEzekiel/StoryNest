@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, ChevronRight, Edit3, Award, Flame, Clock, BookOpen, Camera, ShieldCheck, Zap } from "lucide-react-native";
+import { Settings, LogOut, ChevronRight, Edit3, Award, Flame, Clock, BookOpen, Camera, ShieldCheck, Zap, ShoppingBag } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import * as ImagePicker from "expo-image-picker";
@@ -141,9 +141,15 @@ export const ProfileScreen = ({ navigation }: any) => {
             
             <View style={styles.headerTop}>
               <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>YOUR SANCTUARY</Text>
-              <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}>
-                <Settings size={22} color={Colors.accent} />
-              </TouchableOpacity>
+              <View style={styles.headerRightIcons}>
+                  <TouchableOpacity style={styles.coinBadge} onPress={() => navigation.navigate("Shop")}>
+                      <Zap size={14} color={Colors.accent} fill={Colors.accent} />
+                      <Text style={[styles.coinText, { fontFamily: fonts.heading }]}>{user?.coins || 0}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}>
+                    <Settings size={22} color={Colors.accent} />
+                  </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.profileInfo}>
@@ -166,7 +172,7 @@ export const ProfileScreen = ({ navigation }: any) => {
               <View style={styles.userDetails}>
                 <View style={styles.nameRow}>
                     <Text style={[styles.username, { fontFamily: fonts.heading }]}>{user?.username || "Story Reader"}</Text>
-                    {user?.role === "ADMIN" && <ShieldCheck size={18} color={Colors.accent} style={{ marginLeft: 8 }} />}
+                    {user?.isPremium && <Zap size={18} color={Colors.accent} fill={Colors.accent} style={{ marginLeft: 8 }} />}
                 </View>
                 <Text style={[styles.email, { fontFamily: fonts.body }]}>{user?.email}</Text>
                 
@@ -180,13 +186,6 @@ export const ProfileScreen = ({ navigation }: any) => {
                         <View style={[styles.levelBarFill, { width: `${levelInfo.progress * 100}%` }]} />
                     </View>
                 </View>
-
-                {user?.role === "ADMIN" && (
-                    <TouchableOpacity style={styles.adminBadge} onPress={() => navigation.navigate("Admin")}>
-                       <Zap size={12} color={Colors.primary} style={{ marginRight: 4 }} />
-                       <Text style={[styles.adminBadgeText, { fontFamily: fonts.heading }]}>SUPER ADMIN DASHBOARD</Text>
-                    </TouchableOpacity>
-                )}
               </View>
             </View>
             <HeaderWave color={isDarkMode ? theme.white : theme.white} />
@@ -201,8 +200,22 @@ export const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>ACCOUNT SETTINGS</Text>
+          <Text style={[styles.sectionHeader, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>EXPLORE THE NEST</Text>
           
+          <TouchableOpacity 
+            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+            onPress={() => navigation.navigate("Shop")}
+          >
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: Colors.accent + '15' }]}><ShoppingBag size={20} color={Colors.accent} /></View>
+              <View>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Nest Marketplace</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Buy coins and subscriptions</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={Colors.mutedTeal} />
+          </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
             onPress={() => navigation.navigate("EditProfile")}
@@ -217,33 +230,21 @@ export const ProfileScreen = ({ navigation }: any) => {
             <ChevronRight size={18} color={Colors.mutedTeal} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("Achievements")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: '#FF950015' }]}><Award size={20} color="#FF9500" /></View>
-              <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reader Achievements</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>View your unlocked badges</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("Statistics")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: '#007AFF15' }]}><BarChart2 size={20} color="#007AFF" /></View>
-              <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reading Insights</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Your streaks and statistics</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </TouchableOpacity>
+          {user?.role === "ADMIN" && (
+            <TouchableOpacity 
+                style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+                onPress={() => navigation.navigate("Admin")}
+            >
+                <View style={styles.menuLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: theme.primary + '10' }]}><ShieldCheck size={20} color={theme.primary} /></View>
+                <View>
+                    <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Admin Dashboard</Text>
+                    <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Manage stories and stats</Text>
+                </View>
+                </View>
+                <ChevronRight size={18} color={Colors.mutedTeal} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={[styles.menuItem, { borderLeftColor: Colors.error, borderLeftWidth: 4 }]} onPress={handleLogout}>
             <View style={styles.menuLeft}>
@@ -253,23 +254,25 @@ export const ProfileScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.proCard, Shadows.m]}>
-          <LinearGradient
-            colors={[theme.primary, "#004D46"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.proGradient}
-          >
-            <View style={styles.proContent}>
-               <Text style={[styles.proTitle, { fontFamily: fonts.heading }]}>Elevate to Premium</Text>
-               <Text style={[styles.proDesc, { fontFamily: fonts.body }]}>Access high-fidelity audio stories and exclusive author notes.</Text>
-               <View style={styles.proBadge}><Text style={[styles.proBadgeText, { fontFamily: fonts.heading }]}>EARLY BIRD 50% OFF</Text></View>
-            </View>
-            <Image source={require("../../assets/icon.png")} style={styles.proIcon} />
-          </LinearGradient>
-        </TouchableOpacity>
+        {!user?.isPremium && (
+            <TouchableOpacity style={[styles.proCard, Shadows.m]} onPress={() => navigation.navigate("Shop")}>
+            <LinearGradient
+                colors={[theme.primary, "#004D46"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.proGradient}
+            >
+                <View style={styles.proContent}>
+                <Text style={[styles.proTitle, { fontFamily: fonts.heading }]}>Elevate to Premium</Text>
+                <Text style={[styles.proDesc, { fontFamily: fonts.body }]}>Access high-fidelity audio stories and exclusive author notes.</Text>
+                <View style={styles.proBadge}><Text style={[styles.proBadgeText, { fontFamily: fonts.heading }]}>EARLY BIRD 50% OFF</Text></View>
+                </View>
+                <Image source={require("../../assets/icon.png")} style={styles.proIcon} />
+            </LinearGradient>
+            </TouchableOpacity>
+        )}
         
-        <Text style={[styles.footerVersion, { fontFamily: fonts.body }]}>StoryNest v1.0.4 • Crafted with passion</Text>
+        <Text style={[styles.footerVersion, { fontFamily: fonts.body }]}>StoryNest v1.0.5 • Crafted with passion</Text>
       </ScrollView>
     </View>
   );
@@ -281,6 +284,9 @@ const styles = StyleSheet.create({
   headerBg: { paddingBottom: 60 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 32 },
   headerTitle: { fontSize: 14, color: Colors.accent, letterSpacing: 2, opacity: 0.9 },
+  headerRightIcons: { flexDirection: 'row', alignItems: 'center' },
+  coinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 12 },
+  coinText: { color: Colors.accent, fontSize: 13, marginLeft: 6 },
   settingsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
   profileInfo: { flexDirection: 'row', alignItems: "center", paddingHorizontal: 24 },
   avatarWrapper: { marginRight: 20 },

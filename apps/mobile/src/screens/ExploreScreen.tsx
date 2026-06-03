@@ -80,7 +80,7 @@ export const ExploreScreen = ({ navigation }: any) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
                 {loading ? [1,2].map(i => <View key={i} style={styles.trendingSkeleton} />) : trending.map(s => (
                     <TouchableOpacity key={s.id} style={styles.trendingCard} onPress={() => navigation.navigate("Reader", { storyId: s.id })}>
-                        <Image source={{ uri: s.coverUrl || 'https://via.placeholder.com/150' }} style={styles.trendingImg} />
+                        <Image source={{ uri: s.coverUrl || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1000&auto=format&fit=crop' }} style={styles.trendingImg} resizeMode="cover" />
                         <Text style={[styles.trendingTitle, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{s.title}</Text>
                     </TouchableOpacity>
                 ))}

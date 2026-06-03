@@ -264,13 +264,13 @@ app.get("/stories/:id", async (req, res) => {
 });
 
 app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
-    const { title, genre, authorName, mood, body, summary } = req.body;
+    const { title, genre, authorName, mood, body, summary, coverUrl: bodyCoverUrl } = req.body;
     try {
         const story = await prisma.story.create({
             data: { 
                 title, genre, authorName, mood, summary, 
                 ownerId: req.user.id, 
-                coverUrl: req.file ? req.file.path : null, 
+                coverUrl: req.file ? req.file.path : (bodyCoverUrl || null), 
                 isDraft: false,
                 publishedAt: new Date(),
                 chapters: body ? { create: { title: "Chapter 1", body, order: 1 } } : undefined 
@@ -282,7 +282,11 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
 
 app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
     const updateData = { ...req.body };
-    if (req.file) updateData.coverUrl = req.file.path;
+    if (req.file) {
+        updateData.coverUrl = req.file.path;
+    } else if (req.body.coverUrl) {
+        updateData.coverUrl = req.body.coverUrl;
+    }
     try {
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         res.json(story);

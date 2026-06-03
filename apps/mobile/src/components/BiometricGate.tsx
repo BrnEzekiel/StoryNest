@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { CheckCircle2 } from "lucide-react-native";
-import { Impact } from "../utils/haptics";
+import { Notification } from "../utils/haptics";
 import { LinearGradient } from "expo-linear-gradient";
 
 export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -21,7 +21,6 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
         const enabled = await AsyncStorage.getItem("biometricEnabled");
         if (enabled === "true") {
             setIsLocked(true);
-            // Don't auto-authenticate immediately on mount to ensure UI is ready
             setTimeout(authenticate, 500);
         } else {
             setIsLocked(false);
@@ -37,12 +36,11 @@ export const BiometricGate: React.FC<{ children: React.ReactNode }> = ({ childre
             });
 
             if (result.success) {
-                Impact.success();
+                try { Notification.success(); } catch (e) {}
                 setUnlocked(true);
-                // Give the user a moment to see the "Unlocked" status
                 setTimeout(() => {
                     setIsLocked(false);
-                }, 1000);
+                }, 800);
             }
         } catch (e) {
             console.log("[Biometric] Auth error", e);

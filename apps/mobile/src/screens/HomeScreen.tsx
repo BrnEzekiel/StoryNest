@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, Bell, X, ChevronRight, CheckCircle2, Circle, Heart, MessageSquare, BookOpen, Sparkles } from "lucide-react-native";
+import { Search, Bell, X, ChevronRight, CheckCircle2, Circle, Heart, MessageSquare, BookOpen, Sparkles, Users } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { Button } from "../components/Button";
@@ -164,7 +164,6 @@ export const HomeScreen = ({ navigation, route }: any) => {
           </View>
       )}
 
-      {/* Feature 61: AI Recommendations */}
       {!searchQuery && recommendations.length > 0 && (
           <View style={styles.recsSection}>
               <View style={styles.sectionHeader}>
@@ -258,6 +257,9 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <Text style={[styles.username, { fontFamily: fonts.heading }]}>StoryNest</Text>
           </TouchableOpacity>
           <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconCircle} onPress={() => navigation.navigate("ActivityFeed")}>
+              <Users size={20} color={Colors.accent} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.iconCircle} onPress={() => {}}>
               <Bell size={20} color={Colors.accent} />
             </TouchableOpacity>

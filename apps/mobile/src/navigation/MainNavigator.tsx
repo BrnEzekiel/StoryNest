@@ -32,6 +32,8 @@ import { AchievementsScreen } from "../screens/AchievementsScreen";
 import { StatisticsScreen } from "../screens/StatisticsScreen";
 import { ShopScreen } from "../screens/ShopScreen";
 import { LeaderboardScreen } from "../screens/LeaderboardScreen";
+import { UserProfileScreen } from "../screens/UserProfileScreen";
+import { ActivityFeedScreen } from "../screens/ActivityFeedScreen";
 
 const { width } = Dimensions.get("window");
 const Tab = createMaterialTopTabNavigator();
@@ -152,6 +154,8 @@ export const MainNavigator = () => {
           <Stack.Screen name="Statistics" component={StatisticsScreen} />
           <Stack.Screen name="Shop" component={ShopScreen} />
           <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+          <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+          <Stack.Screen name="ActivityFeed" component={ActivityFeedScreen} />
         </>
       )}
     </Stack.Navigator>

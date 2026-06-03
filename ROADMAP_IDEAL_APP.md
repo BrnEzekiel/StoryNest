@@ -62,8 +62,8 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 ## 👥 Social & Community
 51. **Nested Comments:** Threaded replies for better discussions. ✅
 52. **@Mentions:** Tag other users in comments.
-53. **Activity Feed:** See what the authors you follow are reading/writing.
-54. **User Profiles:** Display bio, favorite stories, and achievements.
+53. **Activity Feed:** See what the authors you follow are reading/writing. ✅
+54. **User Profiles:** Display bio, favorite stories, and achievements. ✅
 55. **Private Messaging:** Chat with friends or authors directly.
 56. **Book Clubs:** Community-run groups with monthly "Required Reading."
 57. **Live Reading Events:** Real-time audio rooms where authors read aloud.

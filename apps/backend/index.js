@@ -1014,6 +1014,99 @@ app.post("/gamification/shop/purchase", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- SOCIAL ---
+
+app.get("/users/:id/profile", async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+                bio: true,
+                xp: true,
+                isPremium: true,
+                _count: {
+                    select: {
+                        followers: true,
+                        following: true,
+                        history: true
+                    }
+                },
+                achievements: true
+            }
+        });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        // Check if current user follows them
+        let isFollowing = false;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            try {
+                const decoded = jwt.verify(authHeader.split(" ")[1], config.jwtAccessSecret);
+                const follow = await prisma.follows.findUnique({
+                    where: { followerId_followingId: { followerId: decoded.id, followingId: req.params.id } }
+                });
+                isFollowing = !!follow;
+            } catch (e) {}
+        }
+
+        res.json({ ...user, isFollowing });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/users/:id/follow", authenticate, async (req, res) => {
+    try {
+        if (req.user.id === req.params.id) return res.status(400).json({ error: "Cannot follow yourself" });
+        
+        await prisma.follows.create({
+            data: {
+                followerId: req.user.id,
+                followingId: req.params.id
+            }
+        });
+        
+        const follower = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+        const followed = await prisma.user.findUnique({ where: { id: req.params.id }, select: { username: true } });
+        
+        sendSlackNotification(`👥 **${follower.username}** followed **${followed.username}**!`);
+        res.json({ message: "Followed" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/users/:id/follow", authenticate, async (req, res) => {
+    try {
+        await prisma.follows.delete({
+            where: { followerId_followingId: { followerId: req.user.id, followingId: req.params.id } }
+        });
+        res.json({ message: "Unfollowed" });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/activity/feed", authenticate, async (req, res) => {
+    try {
+        // 1. Get IDs of users we follow
+        const following = await prisma.follows.findMany({
+            where: { followerId: req.user.id },
+            select: { followingId: true }
+        });
+        const followingIds = following.map(f => f.followingId);
+
+        // 2. Get activities from those users
+        const feed = await prisma.activity.findMany({
+            where: { userId: { in: followingIds } },
+            include: {
+                user: { select: { username: true, avatarUrl: true } },
+                story: { select: { title: true, coverUrl: true, genre: true } }
+            },
+            take: 30,
+            orderBy: { createdAt: "desc" }
+        });
+        res.json(feed);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- ADMIN STATS ---
 app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
   try {

@@ -15,12 +15,13 @@ model User {
   firebaseUid      String?      @unique
   refreshToken     String?
   avatarUrl        String?
+  bio              String?      @db.Text
   role             Role         @default(READER)
   
   // Monetization
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
-  coins            Int          @default(100) // Start with some free coins
+  coins            Int          @default(100)
 
   // v2.0 Compliance & Growth
   dateOfBirth      DateTime?
@@ -39,6 +40,7 @@ model User {
   likes            Like[]
   comments         Comment[]
   notes            Note[]
+  activities       Activity[]
   following        Follows[]    @relation("follower")
   followers        Follows[]    @relation("following")
   purchases        Purchase[]
@@ -50,6 +52,25 @@ model User {
   lastCommentDate  DateTime?
   lastLikeDate     DateTime?
   createdAt        DateTime     @default(now())
+}
+
+model Activity {
+    id        String   @id @default(uuid())
+    userId    String
+    type      ActivityType
+    storyId   String?
+    content   String?  @db.Text
+    user      User     @relation(fields: [userId], references: [id])
+    story     Story?   @relation(fields: [storyId], references: [id])
+    createdAt DateTime @default(now())
+}
+
+enum ActivityType {
+    READ
+    LIKE
+    COMMENT
+    ACHIEVEMENT
+    PUBLISH
 }
 
 model Achievement {
@@ -64,9 +85,9 @@ model Achievement {
 model Purchase {
   id        String   @id @default(uuid())
   userId    String
-  storyId   String?  // Optional for subscription/coin purchases
+  storyId   String?
   type      PurchaseType @default(STORY)
-  amount    Float    // Real money or coin amount
+  amount    Float
   currency  String   @default("COIN")
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
@@ -98,9 +119,8 @@ model Story {
   authorName     String
   readingTime    Int        @default(0)
   
-  // Monetization
   isPremium      Boolean    @default(false)
-  price          Int        @default(0) // In Nest Coins
+  price          Int        @default(0)
 
   contentWarnings String?
   isAdult        Boolean    @default(false)
@@ -114,6 +134,7 @@ model Story {
   notes          Note[]
   history        History[]
   bookmarks      Bookmark[]
+  activities     Activity[]
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 }

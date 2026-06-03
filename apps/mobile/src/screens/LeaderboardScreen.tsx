@@ -121,21 +121,25 @@ export const LeaderboardScreen = ({ navigation }: any) => {
                 {renderTop3()}
 
                 <View style={[styles.listContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
-                    {leaders.slice(3).map((user, index) => (
-                        <View key={user.username} style={[styles.userRow, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+                    {leaders.slice(3).map((leader, index) => (
+                        <TouchableOpacity 
+                            key={leader.id || leader.username} 
+                            style={[styles.userRow, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+                            onPress={() => navigation.navigate("UserProfile", { userId: leader.id })}
+                        >
                             <Text style={[styles.rankText, { fontFamily: fonts.heading, color: Colors.mutedTeal }]}>{index + 4}</Text>
-                            <Image source={{ uri: user.avatarUrl || 'https://via.placeholder.com/40' }} style={styles.rowAvatar} />
+                            <Image source={{ uri: leader.avatarUrl || 'https://via.placeholder.com/40' }} style={styles.rowAvatar} />
                             <View style={styles.rowInfo}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Text style={[styles.rowName, { fontFamily: fonts.heading, color: theme.black }]}>{user.username}</Text>
-                                    {user.isPremium && <Crown size={12} color={Colors.accent} fill={Colors.accent} style={{ marginLeft: 6 }} />}
+                                    <Text style={[styles.rowName, { fontFamily: fonts.heading, color: theme.black }]}>{leader.username}</Text>
+                                    {leader.isPremium && <Crown size={12} color={Colors.accent} fill={Colors.accent} style={{ marginLeft: 6 }} />}
                                 </View>
                                 <Text style={[styles.rowSub, { fontFamily: fonts.body }]}>Legendary Reader</Text>
                             </View>
                             <View style={styles.xpBadge}>
-                                <Text style={[styles.xpText, { fontFamily: fonts.heading, color: theme.primary }]}>{user.xp} XP</Text>
+                                <Text style={[styles.xpText, { fontFamily: fonts.heading, color: theme.primary }]}>{leader.xp} XP</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
                     ))}
                 </View>
             </>

@@ -35,7 +35,8 @@ const config = {
   },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
-  }
+  },
+  geminiApiKey: process.env.GEMINI_API_KEY
 };
 
 console.log("[Config] v3.2 — Email: Gmail REST API (Port 443)");

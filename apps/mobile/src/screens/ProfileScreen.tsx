@@ -2,291 +2,72 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, ChevronRight, Edit3, Award, Flame, Clock, BookOpen, Camera, ShieldCheck, Zap, ShoppingBag } from "lucide-react-native";
+import { Settings, LogOut, Edit2, Shield, Bookmark, Clock, Star, Zap, Flame, Calendar, LayoutList, Trophy, Mail } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import * as ImagePicker from "expo-image-picker";
 import apiClient from "../api/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
-import { HeaderWave } from "../components/HeaderWave";
 import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
-
-const getLevelInfo = (xp: number) => {
-    const level = Math.floor(Math.sqrt(xp / 100)) + 1;
-    const currentLevelXP = Math.pow(level - 1, 2) * 100;
-    const nextLevelXP = Math.pow(level, 2) * 100;
-    const progress = (xp - currentLevelXP) / (nextLevelXP - currentLevelXP);
-    
-    const titles: any = {
-        1: "Novice Reader",
-        2: "Story Seeker",
-        3: "Nest Explorer",
-        4: "Myth Finder",
-        5: "Legend Weaver",
-        6: "Grand Librarian"
-    };
-
-    return {
-        level,
-        title: titles[level] || "Legendary Teller",
-        progress: Math.min(1, progress),
-        xpToNext: nextLevelXP - xp
-    };
-};
 
 export const ProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
-  const [uploading, setUploading] = useState(false);
-  const [finishedCount, setFinishedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const levelInfo = getLevelInfo(user?.xp || 0);
-
-  useFocusEffect(
-    useCallback(() => {
-      refreshUser();
-      fetchProfileData();
-    }, [])
-  );
-
-  const fetchProfileData = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get("/users/me/bookmarks");
-      const finished = res.data.filter((b: any) => b.progress >= 100).length;
-      setFinishedCount(finished);
-    } catch (error) {
-      console.log("[Profile] Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to leave the Nest?", [
-      { text: "Stay", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: logout }
+    Alert.alert("Logout", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", onPress: logout }
     ]);
   };
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled) {
-      uploadAvatar(result.assets[0].uri);
-    }
-  };
-
-  const uploadAvatar = async (uri: string) => {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      const filename = uri.split("/").pop();
-      const match = /\.(\w+)$/.exec(filename || "");
-      const type = match ? `image/${match[1]}` : `image`;
-
-      formData.append("avatar", {
-        uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
-        name: filename,
-        type,
-      } as any);
-
-      await apiClient.post("/users/me/avatar", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      await refreshUser();
-    } catch (error) {
-      console.log(error);
-      Alert.alert("Error", "Failed to update avatar.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const StatItem = ({ icon: Icon, label, value, color }: any) => (
-    <View style={[styles.statItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }, Shadows.s]}>
-      <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
-        <Icon size={22} color={color} />
-      </View>
-      <Text style={[styles.statValue, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>{value}</Text>
-      <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>{label}</Text>
-    </View>
+  const MenuOption = ({ icon: Icon, title, subtitle, onPress, color = theme.primary }: any) => (
+    <TouchableOpacity style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.paleGreen }]} onPress={onPress}>
+      <View style={[styles.menuIcon, { backgroundColor: color + '15' }]}><Icon size={22} color={color} /></View>
+      <View style={{ flex: 1, marginLeft: 16 }}><Text style={[styles.menuTitle, { color: theme.black, fontFamily: fonts.heading }]}>{title}</Text><Text style={[styles.menuSubtitle, { fontFamily: fonts.body }]}>{subtitle}</Text></View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
       <StatusBar style="light" />
-      <View style={styles.headerWrapper}>
-        <ImageBackground 
-            source={require("../../assets/onboarding-bg.jpg")}
-            style={[styles.headerBg, { paddingTop: insets.top + 20 }]}
-            resizeMode="cover"
-        >
-            <LinearGradient
-                colors={["rgba(0, 30, 28, 0.85)", "rgba(0, 30, 28, 0.99)"]}
-                style={StyleSheet.absoluteFill}
-            />
-            
-            <View style={styles.headerTop}>
-              <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>YOUR SANCTUARY</Text>
-              <View style={styles.headerRightIcons}>
-                  <TouchableOpacity style={styles.coinBadge} onPress={() => navigation.navigate("Shop")}>
-                      <Zap size={14} color={Colors.accent} fill={Colors.accent} />
-                      <Text style={[styles.coinText, { fontFamily: fonts.heading }]}>{user?.coins || 0}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}>
-                    <Settings size={22} color={Colors.accent} />
-                  </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.profileInfo}>
-              <View style={styles.avatarWrapper}>
-                <TouchableOpacity onPress={pickImage} activeOpacity={0.9} style={styles.avatarContainer}>
-                  {user?.avatarUrl ? (
-                    <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-                  ) : (
-                    <View style={styles.avatarPlaceholder}>
-                      <Text style={[styles.avatarText, { fontFamily: fonts.heading }]}>{user?.username?.substring(0, 2).toUpperCase()}</Text>
-                    </View>
-                  )}
-                  <View style={styles.editBadge}>
-                    {uploading ? <ActivityIndicator size="small" color={Colors.primary} /> : <Camera size={14} color={Colors.primary} />}
-                  </View>
-                </TouchableOpacity>
-                <View style={styles.statusDot} />
-              </View>
-              
-              <View style={styles.userDetails}>
-                <View style={styles.nameRow}>
-                    <Text style={[styles.username, { fontFamily: fonts.heading }]}>{user?.username || "Story Reader"}</Text>
-                    {user?.isPremium && <Zap size={18} color={Colors.accent} fill={Colors.accent} style={{ marginLeft: 8 }} />}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={styles.header}>
+            <LinearGradient colors={[Colors.primary, "#004D46"]} style={[styles.headerGradient, { paddingTop: insets.top + 20 }]}>
+                <View style={styles.topRow}>
+                    <TouchableOpacity onPress={() => navigation.navigate("Settings")}><Settings size={22} color={Colors.accent} /></TouchableOpacity>
+                    <TouchableOpacity onPress={handleLogout}><LogOut size={22} color={Colors.accent} /></TouchableOpacity>
                 </View>
-                <Text style={[styles.email, { fontFamily: fonts.body }]}>{user?.email}</Text>
-                
-                {/* Level Progress */}
-                <View style={styles.levelContainer}>
-                    <View style={styles.levelHeader}>
-                        <Text style={[styles.levelTitle, { fontFamily: fonts.heading }]}>LVL {levelInfo.level} • {levelInfo.title}</Text>
-                        <Text style={[styles.xpText, { fontFamily: fonts.body }]}>{user?.xp || 0} XP</Text>
-                    </View>
-                    <View style={styles.levelBarBg}>
-                        <View style={[styles.levelBarFill, { width: `${levelInfo.progress * 100}%` }]} />
-                    </View>
+                <View style={styles.avatarWrapper}>
+                    <View style={styles.avatarBorder}><Image source={{ uri: user?.avatarUrl || "https://via.placeholder.com/100" }} style={styles.avatar} /></View>
+                    <View style={styles.xpBadge}><Text style={[styles.xpText, { fontFamily: fonts.heading }]}>{user?.xp || 0} XP</Text></View>
                 </View>
-              </View>
-            </View>
-            <HeaderWave color={isDarkMode ? theme.white : theme.white} />
-        </ImageBackground>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        <View style={styles.statsGrid}>
-          <StatItem icon={Flame} label="Day Streak" value={user?.streakCount || 0} color="#FF9500" />
-          <StatItem icon={Clock} label="Min Read" value={user?.totalReadTime || 0} color="#34C759" />
-          <StatItem icon={BookOpen} label="Finished" value={loading ? "..." : finishedCount} color="#5856D6" />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>EXPLORE THE NEST</Text>
-          
-          <TouchableOpacity 
-            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("Statistics")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: '#007AFF15' }]}><BarChart2 size={20} color="#007AFF" /></View>
-              <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reading Insights</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Your streaks and statistics</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("Leaderboard")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: '#FFD70015' }]}><Trophy size={20} color="#FFD700" /></View>
-              <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Global Leaderboard</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Rank against all readers</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-            onPress={() => navigation.navigate("EditProfile")}
-          >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: theme.primary + '10' }]}><Edit3 size={20} color={theme.primary} /></View>
-              <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Profile Identity</Text>
-                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Update your bio and handle</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={Colors.mutedTeal} />
-          </TouchableOpacity>
-
-          {user?.role === "ADMIN" && (
-            <TouchableOpacity 
-                style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
-                onPress={() => navigation.navigate("Admin")}
-            >
-                <View style={styles.menuLeft}>
-                <View style={[styles.menuIcon, { backgroundColor: theme.primary + '10' }]}><ShieldCheck size={20} color={theme.primary} /></View>
-                <View>
-                    <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Admin Dashboard</Text>
-                    <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Manage stories and stats</Text>
-                </View>
-                </View>
-                <ChevronRight size={18} color={Colors.mutedTeal} />
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={[styles.menuItem, { borderLeftColor: Colors.error, borderLeftWidth: 4 }]} onPress={handleLogout}>
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: Colors.error + '10' }]}><LogOut size={20} color={Colors.error} /></View>
-              <Text style={[styles.menuText, { color: Colors.error, fontWeight: '700', fontFamily: fonts.heading }]}>Sign Out of the Nest</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {!user?.isPremium && (
-            <TouchableOpacity style={[styles.proCard, Shadows.m]} onPress={() => navigation.navigate("Shop")}>
-            <LinearGradient
-                colors={[theme.primary, "#004D46"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.proGradient}
-            >
-                <View style={styles.proContent}>
-                <Text style={[styles.proTitle, { fontFamily: fonts.heading }]}>Elevate to Premium</Text>
-                <Text style={[styles.proDesc, { fontFamily: fonts.body }]}>Access high-fidelity audio stories and exclusive author notes.</Text>
-                <View style={styles.proBadge}><Text style={[styles.proBadgeText, { fontFamily: fonts.heading }]}>EARLY BIRD 50% OFF</Text></View>
-                </View>
-                <Image source={require("../../assets/icon.png")} style={styles.proIcon} />
+                <Text style={[styles.username, { fontFamily: fonts.heading, color: Colors.white }]}>{user?.username}</Text>
+                <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
             </LinearGradient>
-            </TouchableOpacity>
-        )}
-        
-        <Text style={[styles.footerVersion, { fontFamily: fonts.body }]}>StoryNest v1.0.5 • Crafted with passion</Text>
+        </View>
+
+        <View style={styles.statsBar}>
+            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.streakCount || 0}</Text><Text style={styles.statLabel}>STREAK</Text></View>
+            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.bookmarks?.length || 0}</Text><Text style={styles.statLabel}>BOOKS</Text></View>
+            <View style={styles.statBox}><Text style={[styles.statVal, { color: theme.primary, fontFamily: fonts.heading }]}>{user?.coins || 0}</Text><Text style={styles.statLabel}>COINS</Text></View>
+        </View>
+
+        <View style={styles.menuGrid}>
+            <MenuOption icon={LayoutList} title="My Playlists" subtitle="Curated collections" onPress={() => navigation.navigate("Playlists")} color="#007AFF" />
+            <MenuOption icon={Trophy} title="Achievements" subtitle="Earned rewards" onPress={() => navigation.navigate("Achievements")} color="#FF9500" />
+            <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
+            <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
+            {user?.role === 'ADMIN' && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
+        </View>
       </ScrollView>
     </View>
   );
@@ -294,54 +75,22 @@ export const ProfileScreen = ({ navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerWrapper: { overflow: 'hidden' },
-  headerBg: { paddingBottom: 60 },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 32 },
-  headerTitle: { fontSize: 14, color: Colors.accent, letterSpacing: 2, opacity: 0.9 },
-  headerRightIcons: { flexDirection: 'row', alignItems: 'center' },
-  coinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 12 },
-  coinText: { color: Colors.accent, fontSize: 13, marginLeft: 6 },
-  settingsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
-  profileInfo: { flexDirection: 'row', alignItems: "center", paddingHorizontal: 24 },
-  avatarWrapper: { marginRight: 20 },
-  avatarContainer: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: Colors.accent, padding: 4 },
-  avatar: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarPlaceholder: { width: "100%", height: "100%", borderRadius: 40, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: 32, color: Colors.primary },
-  editBadge: { position: "absolute", bottom: -2, right: -2, backgroundColor: Colors.accent, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#003631" },
-  statusDot: { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34C759', borderWidth: 2, borderColor: '#003631' },
-  userDetails: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center' },
-  username: { fontSize: 28, color: Colors.white },
-  email: { fontSize: 14, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
-  levelContainer: { marginTop: 12, width: '100%' },
-  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 },
-  levelTitle: { color: Colors.accent, fontSize: 10, letterSpacing: 1 },
-  xpText: { color: Colors.paleGreen, fontSize: 9, opacity: 0.8 },
-  levelBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' },
-  levelBarFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 2 },
-  adminBadge: { backgroundColor: Colors.accent, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  adminBadgeText: { fontSize: 9, color: Colors.primary, letterSpacing: 0.5 },
-  content: { flex: 1, padding: 20 },
-  statsGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 32, marginTop: 10 },
-  statItem: { width: (width - 60) / 3, padding: 16, borderRadius: 24, alignItems: "center" },
-  statIcon: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  statValue: { fontSize: 20, marginBottom: 2 },
-  statLabel: { fontSize: 10, color: Colors.mutedTeal, textTransform: "uppercase", letterSpacing: 0.5 },
-  section: { marginBottom: 32 },
-  sectionHeader: { fontSize: 12, letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
-  menuItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderRadius: 20, marginBottom: 12 },
-  menuLeft: { flexDirection: "row", alignItems: "center" },
-  menuIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 16 },
-  menuText: { fontSize: 15 },
-  menuSubtext: { fontSize: 12, color: Colors.mutedTeal, marginTop: 1 },
-  proCard: { borderRadius: 28, overflow: "hidden" },
-  proGradient: { padding: 24, flexDirection: "row", alignItems: "center" },
-  proContent: { flex: 1, zIndex: 1 },
-  proTitle: { fontSize: 22, color: Colors.accent, marginBottom: 4 },
-  proDesc: { fontSize: 13, color: Colors.paleGreen, marginBottom: 16, lineHeight: 18, opacity: 0.9 },
-  proBadge: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
-  proBadgeText: { fontSize: 9, color: Colors.white, letterSpacing: 1 },
-  proIcon: { width: 120, height: 120, opacity: 0.08, position: "absolute", right: -20, bottom: -20, transform: [{ rotate: '-15deg' }] },
-  footerVersion: { textAlign: "center", marginTop: 10, marginBottom: 20, fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 },
+  headerGradient: { paddingBottom: 50, alignItems: 'center' },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 24, marginBottom: 10 },
+  avatarWrapper: { position: 'relative', marginBottom: 16 },
+  avatarBorder: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: Colors.accent, padding: 4 },
+  avatar: { width: '100%', height: '100%', borderRadius: 45 },
+  xpBadge: { position: 'absolute', bottom: -10, alignSelf: 'center', backgroundColor: Colors.accent, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  xpText: { fontSize: 10, color: Colors.primary },
+  username: { fontSize: 24, marginBottom: 4 },
+  userRole: { fontSize: 12, letterSpacing: 2 },
+  statsBar: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: Colors.white, marginHorizontal: 24, paddingVertical: 20, borderRadius: 24, marginTop: -30, ...Shadows.m },
+  statBox: { alignItems: 'center' },
+  statVal: { fontSize: 20 },
+  statLabel: { fontSize: 9, color: Colors.mutedTeal, letterSpacing: 1, marginTop: 2 },
+  menuGrid: { padding: 24 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
+  menuIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  menuTitle: { fontSize: 15 },
+  menuSubtitle: { fontSize: 12, color: Colors.mutedTeal, marginTop: 2 }
 });

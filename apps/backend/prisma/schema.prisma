@@ -39,12 +39,24 @@ model User {
   history          History[]
   likes            Like[]
   comments         Comment[]
+  reviews          Review[]
   notes            Note[]
-  activities       Activity[]
+  highlights       Highlight[]
+  activities       Activity[]   @relation("UserActivities")
+  mentions         Activity[]   @relation("UserMentions")
+  pollVotes        PollVote[]
+  playlists        Playlist[]
   following        Follows[]    @relation("follower")
   followers        Follows[]    @relation("following")
   purchases        Purchase[]
   achievements     Achievement[]
+  
+  sentMessages     Message[]    @relation("SentMessages")
+  receivedMessages Message[]    @relation("ReceivedMessages")
+
+  ownedStories     Story[]      @relation("StoryOwner")
+  coAuthoredStories Story[]     @relation("StoryCoAuthors")
+
   streakCount      Int          @default(0)
   lastReadDate     DateTime?
   todayReadTime    Int          @default(0)
@@ -55,14 +67,16 @@ model User {
 }
 
 model Activity {
-    id        String   @id @default(uuid())
-    userId    String
-    type      ActivityType
-    storyId   String?
-    content   String?  @db.Text
-    user      User     @relation(fields: [userId], references: [id])
-    story     Story?   @relation(fields: [storyId], references: [id])
-    createdAt DateTime @default(now())
+    id           String   @id @default(uuid())
+    userId       String
+    targetUserId String?
+    type         ActivityType
+    storyId      String?
+    content      String?  @db.Text
+    user         User     @relation("UserActivities", fields: [userId], references: [id])
+    targetUser   User?    @relation("UserMentions", fields: [targetUserId], references: [id])
+    story        Story?   @relation(fields: [storyId], references: [id])
+    createdAt    DateTime @default(now())
 }
 
 enum ActivityType {
@@ -71,6 +85,10 @@ enum ActivityType {
     COMMENT
     ACHIEVEMENT
     PUBLISH
+    REVIEW
+    POLL_VOTE
+    PLAYLIST_CREATE
+    MENTION
 }
 
 model Achievement {
@@ -97,6 +115,7 @@ enum PurchaseType {
     STORY
     COINS
     SUBSCRIPTION
+    TIP
 }
 
 model Follows {
@@ -112,11 +131,12 @@ model Follows {
 model Story {
   id             String     @id @default(uuid())
   title          String
-  body           String     @db.Text
   summary        String?    @db.Text
   genre          String
+  mood           String?    // e.g. Cozy, Epic, Thrilling
   coverUrl       String?
   authorName     String
+  ownerId        String?    // The user who created the story
   readingTime    Int        @default(0)
   
   isPremium      Boolean    @default(false)
@@ -128,15 +148,124 @@ model Story {
   isDraft        Boolean    @default(true)
   isFlagged      Boolean    @default(false)
   publishedAt    DateTime?
+  
+  owner          User?      @relation("StoryOwner", fields: [ownerId], references: [id])
+  coAuthors      User[]     @relation("StoryCoAuthors")
+  
+  chapters       Chapter[]
+  characters     Character[]
+  worldEntries   WorldEntry[]
+  reviews        Review[]
+  polls          Poll[]
+  playlistStories PlaylistStory[]
+
   versions       Version[]
   likes          Like[]
-  comments       Comment[]
+  comments         Comment[]
   notes          Note[]
+  highlights     Highlight[]
   history        History[]
   bookmarks      Bookmark[]
   activities     Activity[]
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+}
+
+model Chapter {
+    id          String   @id @default(uuid())
+    storyId     String
+    title       String
+    body        String   @db.Text
+    order       Int      @default(0)
+    isDraft     Boolean  @default(false)
+    publishedAt DateTime? // For scheduled publishing
+    story       Story    @relation(fields: [storyId], references: [id])
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+
+model Character {
+    id          String   @id @default(uuid())
+    storyId     String
+    name        String
+    role        String?  // Protagonist, Antagonist, etc.
+    description String?  @db.Text
+    traits      String?  // Comma separated
+    avatarUrl   String?
+    story       Story    @relation(fields: [storyId], references: [id])
+    createdAt   DateTime @default(now())
+}
+
+model WorldEntry {
+    id          String   @id @default(uuid())
+    storyId     String
+    title       String   // Location name, Magic name, etc.
+    type        String   // LOCATION, LORE, SYSTEM
+    content     String   @db.Text
+    story       Story    @relation(fields: [storyId], references: [id])
+    createdAt   DateTime @default(now())
+}
+
+model Poll {
+    id          String   @id @default(uuid())
+    storyId     String
+    question    String
+    isActive    Boolean  @default(true)
+    story       Story    @relation(fields: [storyId], references: [id])
+    options     PollOption[]
+    votes       PollVote[]
+    createdAt   DateTime @default(now())
+}
+
+model PollOption {
+    id      String   @id @default(uuid())
+    pollId  String
+    text    String
+    poll    Poll     @relation(fields: [pollId], references: [id])
+    votes   PollVote[]
+}
+
+model PollVote {
+    id        String   @id @default(uuid())
+    userId    String
+    pollId    String
+    optionId  String
+    user      User     @relation(fields: [userId], references: [id])
+    poll      Poll     @relation(fields: [pollId], references: [id])
+    option    PollOption @relation(fields: [optionId], references: [id])
+
+    @@unique([userId, pollId])
+}
+
+model Playlist {
+    id          String   @id @default(uuid())
+    userId      String
+    title       String
+    description String?  @db.Text
+    isPublic    Boolean  @default(true)
+    user        User     @relation(fields: [userId], references: [id])
+    stories     PlaylistStory[]
+    createdAt   DateTime @default(now())
+}
+
+model PlaylistStory {
+    playlistId String
+    storyId    String
+    playlist   Playlist @relation(fields: [playlistId], references: [id])
+    story      Story    @relation(fields: [storyId], references: [id])
+
+    @@id([playlistId, storyId])
+}
+
+model Review {
+    id        String   @id @default(uuid())
+    userId    String
+    storyId   String
+    rating    Int      @default(5)
+    content   String   @db.Text
+    user      User     @relation(fields: [userId], references: [id])
+    story     Story    @relation(fields: [storyId], references: [id])
+    createdAt DateTime @default(now())
 }
 
 model Version {
@@ -188,6 +317,28 @@ model Note {
   story     Story    @relation(fields: [storyId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  senderId    String
+  receiverId  String
+  content     String   @db.Text
+  isRead      Boolean  @default(false)
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Highlight {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  content   String   @db.Text
+  color     String   @default("yellow")
+  user      User     @relation(fields: [userId], references: [id])
+  story     Story    @relation(fields: [storyId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model Comment {

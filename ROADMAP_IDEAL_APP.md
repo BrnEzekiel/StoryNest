@@ -17,34 +17,34 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 11. **Text-to-Speech (TTS):** High-quality AI voices to listen to stories. ✅
 12. **Offline Mode:** Download stories for reading without internet. ✅
 13. **Reading Goals:** Set daily/weekly word count or time targets. ✅
-14. **Highlighting:** Highlight favorite passages in different colors.
+14. **Highlighting:** Highlight favorite passages in different colors. ✅
 15. **Note-taking:** Attach personal thoughts to specific lines. ✅
-16. **In-App Dictionary:** Long-press any word for instant definitions.
-17. **Translation:** Instant translation for stories in foreign languages.
+16. **In-App Dictionary:** Long-press any word for instant definitions. ✅
+17. **Translation:** Instant translation for stories in foreign languages. ✅
 18. **Auto-Scroll:** Hands-free reading with adjustable speed. ✅
 19. **Progress Sync:** Resume exactly where you left off across all devices. ✅
 20. **Landscape Support:** Fully optimized view for tablets and rotated phones.
 21. **PDF/EPUB Export:** Allow users to download owned stories for external readers.
 22. **Blue Light Filter:** Built-in night shift mode for late-night reading. ✅ (Via Sepia/Solarized themes)
 23. **Reading Statistics:** Detailed charts of reading habits over time. ✅
-24. **Multi-Chapter View:** Scrollable "Infinity" mode vs. traditional paging.
+24. **Multi-Chapter View:** Scrollable "Infinity" mode vs. traditional paging. ✅
 25. **Content Warnings:** Tags for sensitive content with a toggle to hide them. ✅
 
 ## ✍️ Author Tools
 26. **Rich Text Editor:** Markdown support, bold, italics, and nested lists. ✅
-27. **Character Manager:** dedicated space to store character bios and traits.
-28. **World-Building Wiki:** Log locations, lore, and magic systems.
-29. **AI Writing Assistant:** Prompt-based brainstorming and grammar checks.
-30. **Cover Art Studio:** Simple built-in tool to design covers with templates.
-31. **Version History:** Revert to previous drafts of a story.
-32. **Collaborative Writing:** Invite a co-author to work on a story in real-time.
-33. **Scheduled Publishing:** Set a time for new chapters to go live.
-34. **Analytics Dashboard:** See views, likes, and drop-off rates per chapter.
-35. **Author Tip Jar:** Direct integration for readers to support authors.
+27. **Character Manager:** dedicated space to store character bios and traits. ✅
+28. **World-Building Wiki:** Log locations, lore, and magic systems. ✅
+29. **AI Writing Assistant:** Prompt-based brainstorming and grammar checks. ✅
+30. **Cover Art Studio:** Simple built-in tool to design covers with templates. ✅
+31. **Version History:** Revert to previous drafts of a story. ✅
+32. **Collaborative Writing:** Invite a co-author to work on a story in real-time. ✅
+33. **Scheduled Publishing:** Set a time for new chapters to go live. ✅
+34. **Analytics Dashboard:** See views, likes, and drop-off rates per chapter. ✅
+35. **Author Tip Jar:** Direct integration for readers to support authors. ✅
 36. **Private Drafts:** Share hidden links with "Beta Readers" for feedback.
-37. **Serial Management:** Easy tools to organize long-running series.
+37. **Serial Management:** Easy tools to organize long-running series. ✅
 38. **Footnotes Support:** Interactive popups for scholarly or lore-heavy notes.
-39. **Word Count Tracker:** Live counter during the writing process.
+39. **Word Count Tracker:** Live counter during the writing process. ✅
 40. **Contest Entry:** One-click submission to official StoryNest writing prompts.
 
 ## 🏆 Gamification & Engagement
@@ -61,24 +61,24 @@ Over 100 feature suggestions to transform StoryNest into a world-class reading a
 
 ## 👥 Social & Community
 51. **Nested Comments:** Threaded replies for better discussions. ✅
-52. **@Mentions:** Tag other users in comments.
+52. **@Mentions:** Tag other users in comments. ✅
 53. **Activity Feed:** See what the authors you follow are reading/writing. ✅
 54. **User Profiles:** Display bio, favorite stories, and achievements. ✅
-55. **Private Messaging:** Chat with friends or authors directly.
+55. **Private Messaging:** Chat with friends or authors directly. ✅
 56. **Book Clubs:** Community-run groups with monthly "Required Reading."
 57. **Live Reading Events:** Real-time audio rooms where authors read aloud.
 58. **Social Sharing Cards:** Beautiful image exports of quotes for Instagram/X.
-59. **Community Polls:** Authors can ask readers to vote on plot directions.
-60. **User Reviews:** In-depth written reviews alongside simple star ratings.
+59. **Community Polls:** Authors can ask readers to vote on plot directions. ✅
+60. **User Reviews:** In-depth written reviews alongside simple star ratings. ✅
 
 ## 🔍 Discovery & Personalization
 61. **AI Recommendations:** "Because you liked [Story A]..." ✅
-62. **Mood-based Filters:** Find stories for "Feeling Sad," "Need Adventure," etc.
-63. **Trending Charts:** Hot stories in the last 24 hours.
+62. **Mood-based Filters:** Find stories for "Feeling Sad," "Need Adventure," etc. ✅
+63. **Trending Charts:** Hot stories in the last 24 hours. ✅
 64. **"Surprise Me":** Random story generator based on preferred genres. ✅
 65. **Editorial Picks:** Curated lists from the StoryNest staff.
 66. **Advanced Search:** Filter by word count, completion status, and tags.
-67. **User-Curated Playlists:** Public lists like "Best Fantasy of 2026."
+67. **User-Curated Playlists:** Public lists like "Best Fantasy of 2026." ✅
 68. **Genre Tags:** Nested tags (e.g., Fantasy > Grimdark).
 69. **New Arrival Alerts:** Instant notifications for stories in your niche.
 70. **Reading Level Filter:** Sort by "Beginner," "Intermediate," or "Advanced."

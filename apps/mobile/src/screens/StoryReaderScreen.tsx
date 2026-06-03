@@ -17,6 +17,7 @@ import {
   RefreshControl
 } from "react-native";
 import { Colors, Shadows } from "../theme/colors";
+import { Fonts } from "../theme/fonts";
 import { 
   ArrowLeft, 
   Bookmark, 

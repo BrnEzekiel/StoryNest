@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput, RefreshControl } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus, X, FolderPlus } from "lucide-react-native";
@@ -57,8 +57,17 @@ export const AdminScreen = ({ navigation }: any) => {
       setStories(storiesRes.data);
       setStats(statsRes.data);
     } catch (error) { console.log("Error fetching admin data:", error); }
-    finally { setLoading(false); }
+    finally { 
+        setLoading(false); 
+        setRefreshing(false);
+    }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchAdminData();
+    loadUniqueGenres();
+  }, []);
 
   const handleAddNewGenre = () => {
     if (!newGenreName.trim()) return;
@@ -247,46 +256,51 @@ export const AdminScreen = ({ navigation }: any) => {
         <Text style={styles.headerTitle}>MANAGE CONTENT</Text>
       </View>
 
-      <View style={styles.statsGrid}>
-        <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-          <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.storyCount}</Text>
-          <Text style={styles.statLabel}>Stories</Text>
+      <ScrollView 
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.statsGrid}>
+          <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
+            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.storyCount}</Text>
+            <Text style={styles.statLabel}>Stories</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
+            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.totalReads}</Text>
+            <Text style={styles.statLabel}>Reads</Text>
+          </View>
+          <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
+            <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.userCount}</Text>
+            <Text style={styles.statLabel}>Users</Text>
+          </View>
         </View>
-        <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-          <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.totalReads}</Text>
-          <Text style={styles.statLabel}>Reads</Text>
-        </View>
-        <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-          <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{stats.userCount}</Text>
-          <Text style={styles.statLabel}>Users</Text>
-        </View>
-      </View>
 
-      <View style={styles.actionSection}>
-        <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="secondary" style={{ marginBottom: 24 }} />
-        <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ALL STORIES</Text>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-          {loading ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
-            stories.map((story) => (
-              <View key={story.id} style={[styles.storyRow, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
-                <View style={styles.storyInfo}>
-                  <Text style={[styles.storyTitle, { color: isDarkMode ? Colors.white : Colors.primary }]} numberOfLines={1}>{story.title}</Text>
-                  <Text style={styles.storyMeta}>{story.genre} • {story.readingTime} min</Text>
+        <View style={styles.actionSection}>
+          <Button title="ADD NEW STORY" onPress={() => setIsAdding(true)} type="secondary" style={{ marginBottom: 24 }} />
+          <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ALL STORIES</Text>
+          <View style={{ paddingBottom: insets.bottom + 40 }}>
+            {loading && !refreshing ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
+              stories.map((story) => (
+                <View key={story.id} style={[styles.storyRow, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
+                  <View style={styles.storyInfo}>
+                    <Text style={[styles.storyTitle, { color: isDarkMode ? Colors.white : Colors.primary }]} numberOfLines={1}>{story.title}</Text>
+                    <Text style={styles.storyMeta}>{story.genre} • {story.readingTime} min</Text>
+                  </View>
+                  <View style={styles.storyActions}>
+                    <TouchableOpacity onPress={() => startEdit(story)} style={styles.actionBtn}>
+                      <Edit2 size={18} color={isDarkMode ? Colors.accent : Colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDelete(story.id)} style={styles.actionBtn}>
+                      <Trash2 size={18} color="red" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={styles.storyActions}>
-                  <TouchableOpacity onPress={() => startEdit(story)} style={styles.actionBtn}>
-                    <Edit2 size={18} color={isDarkMode ? Colors.accent : Colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(story.id)} style={styles.actionBtn}>
-                    <Trash2 size={18} color="red" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-          {!loading && stories.length === 0 && <Text style={styles.emptyText}>No stories found.</Text>}
-        </ScrollView>
-      </View>
+              ))
+            )}
+            {!loading && stories.length === 0 && <Text style={styles.emptyText}>No stories found.</Text>}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };

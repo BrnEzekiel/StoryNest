@@ -11,11 +11,11 @@ interface TextFieldProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  style?: any; // Changed to any to allow textAlignVertical
+  style?: any; 
   labelStyle?: TextStyle;
   multiline?: boolean;
   icon?: "mail" | "lock" | "user";
-  variant?: "dark" | "light"; // Added missing prop
+  variant?: "dark" | "light"; 
 }
 
 export const TextField: React.FC<TextFieldProps> = ({ 
@@ -30,7 +30,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   icon,
   variant
 }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, fonts, theme } = useTheme();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const focusAnim = React.useRef(new Animated.Value(0)).current;
@@ -53,7 +53,7 @@ export const TextField: React.FC<TextFieldProps> = ({
 
   const renderIcon = () => {
     const iconSize = 20;
-    const iconColor = isFocused ? Colors.primary : Colors.mutedTeal;
+    const iconColor = isFocused ? theme.primary : Colors.mutedTeal;
     let iconComp = null;
     if (icon === "mail") iconComp = <Mail size={iconSize} color={iconColor} />;
     if (icon === "lock") iconComp = <Lock size={iconSize} color={iconColor} />;
@@ -70,25 +70,25 @@ export const TextField: React.FC<TextFieldProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, labelStyle]}>{label}</Text>
+      <Text style={[styles.label, { fontFamily: fonts.body, color: theme.primary }, labelStyle]}>{label}</Text>
       
       <View style={styles.inputWrapper}>
         <View style={styles.iconBox}>{renderIcon()}</View>
         
         <TextInput
-          style={[styles.input, style]}
+          style={[styles.input, { fontFamily: fonts.body, color: theme.black }, style]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(0, 54, 49, 0.3)"
+          placeholderTextColor={isDarkMode ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 54, 49, 0.3)"}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           multiline={multiline}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           underlineColorAndroid="transparent"
-          selectionColor={Colors.primary}
-          cursorColor={Colors.primary}
-          selectionHandleColor={Colors.primary}
+          selectionColor={theme.primary}
+          cursorColor={theme.primary}
+          selectionHandleColor={theme.primary}
         />
 
         {secureTextEntry && (
@@ -106,7 +106,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         )}
       </View>
 
-      <View style={styles.underlineBase}>
+      <View style={[styles.underlineBase, { backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 54, 49, 0.1)" }]}>
         <Animated.View style={[
           styles.underlineActive,
           {
@@ -114,7 +114,7 @@ export const TextField: React.FC<TextFieldProps> = ({
               inputRange: [0, 1],
               outputRange: ["0%", "100%"]
             }),
-            backgroundColor: Colors.primary
+            backgroundColor: theme.primary
           }
         ]} />
       </View>
@@ -128,9 +128,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   label: {
-    fontFamily: Fonts.body,
     fontSize: 13,
-    color: Colors.primary,
     marginBottom: 4,
     fontWeight: "600",
   },
@@ -144,9 +142,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontFamily: Fonts.body,
     fontSize: 16,
-    color: Colors.primary,
     padding: 0,
     ...Platform.select({
       web: { outlineStyle: 'none' } as any,
@@ -155,7 +151,6 @@ const styles = StyleSheet.create({
   },
   underlineBase: {
     height: 1,
-    backgroundColor: "rgba(0, 54, 49, 0.1)",
     width: "100%",
   },
   underlineActive: {

@@ -7,10 +7,13 @@ import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { Selection } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dimensions } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Screens
+import { WalkthroughScreen } from "../screens/WalkthroughScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { SignupScreen } from "../screens/SignupScreen";
 import { OTPScreen } from "../screens/OTPScreen";
@@ -38,6 +41,11 @@ const TabNavigator = () => {
   return (
     <Tab.Navigator
       tabBarPosition="bottom"
+      screenListeners={{
+        state: (e) => {
+          Selection();
+        },
+      }}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color }: any) => {
           const size = 22;
@@ -85,19 +93,34 @@ const TabNavigator = () => {
 export const MainNavigator = () => {
   const { user, loading } = useAuth();
   const { isDarkMode } = useTheme();
+  const [showWalkthrough, setShowWalkthrough] = useState<boolean | null>(null);
 
-  if (loading) return null;
+  useEffect(() => {
+    checkWalkthrough();
+  }, []);
+
+  const checkWalkthrough = async () => {
+    const hasSeen = await AsyncStorage.getItem("hasSeenWalkthrough");
+    setShowWalkthrough(hasSeen !== "true");
+  };
+
+  if (loading || showWalkthrough === null) return null;
 
   return (
     <Stack.Navigator 
       screenOptions={{ 
         headerShown: false, 
         contentStyle: { backgroundColor: isDarkMode ? "#121212" : Colors.primary },
-        animation: 'slide_from_right'
+        animation: 'slide_from_right',
+        animationDuration: 400,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
       }}
+      initialRouteName={!user && showWalkthrough ? "Walkthrough" : (!user ? "Login" : "Main")}
     >
       {!user ? (
         <>
+          {showWalkthrough && <Stack.Screen name="Walkthrough" component={WalkthroughScreen} />}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
           <Stack.Screen name="OTP" component={OTPScreen} />

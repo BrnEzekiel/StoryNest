@@ -2,6 +2,9 @@ import React, { useRef } from "react";
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, Animated, Platform } from "react-native";
 import { Colors, Radii, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
+import { Impact } from "../utils/haptics";
+
+import { useTheme } from "../context/ThemeContext";
 
 interface ButtonProps {
   title: string;
@@ -13,6 +16,7 @@ interface ButtonProps {
 }
 
 export const Button: React.FC<ButtonProps> = ({ title, onPress, type = "primary", style, textStyle, disabled }) => {
+  const { fonts } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -53,17 +57,22 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, type = "primary"
     }
   };
 
+  const handlePress = () => {
+    Impact.light();
+    onPress();
+  };
+
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity 
-        onPress={onPress} 
+        onPress={handlePress} 
         onPressIn={handlePressIn} 
         onPressOut={handlePressOut}
         disabled={disabled}
         activeOpacity={0.9}
         style={[styles.base, getButtonStyle(), style, disabled && { opacity: 0.5 }]}
       >
-        <Text style={[styles.text, getTextStyle(), textStyle]}>{title}</Text>
+        <Text style={[styles.text, { fontFamily: fonts.heading }, getTextStyle(), textStyle]}>{title}</Text>
       </TouchableOpacity>
     </Animated.View>
   );

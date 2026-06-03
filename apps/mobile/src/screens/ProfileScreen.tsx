@@ -18,7 +18,7 @@ const { width } = Dimensions.get("window");
 export const ProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, logout, refreshUser } = useAuth();
-  const { theme, isDarkMode } = useTheme();
+  const { theme, fonts, isDarkMode } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [finishedCount, setFinishedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -96,8 +96,8 @@ export const ProfileScreen = ({ navigation }: any) => {
       <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
         <Icon size={22} color={color} />
       </View>
-      <Text style={[styles.statValue, { color: isDarkMode ? Colors.accent : Colors.primary }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>{value}</Text>
+      <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>{label}</Text>
     </View>
   );
 
@@ -116,7 +116,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             />
             
             <View style={styles.headerTop}>
-              <Text style={styles.headerTitle}>YOUR SANCTUARY</Text>
+              <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>YOUR SANCTUARY</Text>
               <TouchableOpacity style={styles.settingsBtn} onPress={() => navigation.navigate("Settings")}>
                 <Settings size={22} color={Colors.accent} />
               </TouchableOpacity>
@@ -129,7 +129,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
                   ) : (
                     <View style={styles.avatarPlaceholder}>
-                      <Text style={styles.avatarText}>{user?.username?.substring(0, 2).toUpperCase()}</Text>
+                      <Text style={[styles.avatarText, { fontFamily: fonts.heading }]}>{user?.username?.substring(0, 2).toUpperCase()}</Text>
                     </View>
                   )}
                   <View style={styles.editBadge}>
@@ -141,20 +141,20 @@ export const ProfileScreen = ({ navigation }: any) => {
               
               <View style={styles.userDetails}>
                 <View style={styles.nameRow}>
-                    <Text style={styles.username}>{user?.username || "Story Reader"}</Text>
+                    <Text style={[styles.username, { fontFamily: fonts.heading }]}>{user?.username || "Story Reader"}</Text>
                     {user?.role === "ADMIN" && <ShieldCheck size={18} color={Colors.accent} style={{ marginLeft: 8 }} />}
                 </View>
-                <Text style={styles.email}>{user?.email}</Text>
+                <Text style={[styles.email, { fontFamily: fonts.body }]}>{user?.email}</Text>
                 
                 {user?.role === "ADMIN" && (
                     <TouchableOpacity style={styles.adminBadge} onPress={() => navigation.navigate("Admin")}>
                        <Zap size={12} color={Colors.primary} style={{ marginRight: 4 }} />
-                       <Text style={styles.adminBadgeText}>SUPER ADMIN DASHBOARD</Text>
+                       <Text style={[styles.adminBadgeText, { fontFamily: fonts.heading }]}>SUPER ADMIN DASHBOARD</Text>
                     </TouchableOpacity>
                 )}
               </View>
             </View>
-            <HeaderWave color={isDarkMode ? "#121212" : theme.white} />
+            <HeaderWave color={isDarkMode ? theme.white : theme.white} />
         </ImageBackground>
       </View>
 
@@ -166,17 +166,17 @@ export const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionHeader, { color: isDarkMode ? Colors.accent : Colors.primary }]}>ACCOUNT SETTINGS</Text>
+          <Text style={[styles.sectionHeader, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>ACCOUNT SETTINGS</Text>
           
           <TouchableOpacity 
             style={[styles.menuItem, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
             onPress={() => navigation.navigate("EditProfile")}
           >
             <View style={styles.menuLeft}>
-              <View style={[styles.menuIcon, { backgroundColor: Colors.primary + '10' }]}><Edit3 size={20} color={Colors.primary} /></View>
+              <View style={[styles.menuIcon, { backgroundColor: theme.primary + '10' }]}><Edit3 size={20} color={theme.primary} /></View>
               <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : Colors.primary }]}>Profile Identity</Text>
-                <Text style={styles.menuSubtext}>Update your bio and handle</Text>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Profile Identity</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>Update your bio and handle</Text>
               </View>
             </View>
             <ChevronRight size={18} color={Colors.mutedTeal} />
@@ -189,8 +189,8 @@ export const ProfileScreen = ({ navigation }: any) => {
             <View style={styles.menuLeft}>
               <View style={[styles.menuIcon, { backgroundColor: '#FF950015' }]}><Award size={20} color="#FF9500" /></View>
               <View>
-                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : Colors.primary }]}>Reader Achievements</Text>
-                <Text style={styles.menuSubtext}>View your unlocked badges</Text>
+                <Text style={[styles.menuText, { color: isDarkMode ? Colors.white : theme.primary, fontFamily: fonts.heading }]}>Reader Achievements</Text>
+                <Text style={[styles.menuSubtext, { fontFamily: fonts.body }]}>View your unlocked badges</Text>
               </View>
             </View>
             <ChevronRight size={18} color={Colors.mutedTeal} />
@@ -199,28 +199,28 @@ export const ProfileScreen = ({ navigation }: any) => {
           <TouchableOpacity style={[styles.menuItem, { borderLeftColor: Colors.error, borderLeftWidth: 4 }]} onPress={handleLogout}>
             <View style={styles.menuLeft}>
               <View style={[styles.menuIcon, { backgroundColor: Colors.error + '10' }]}><LogOut size={20} color={Colors.error} /></View>
-              <Text style={[styles.menuText, { color: Colors.error, fontWeight: '700' }]}>Sign Out of the Nest</Text>
+              <Text style={[styles.menuText, { color: Colors.error, fontWeight: '700', fontFamily: fonts.heading }]}>Sign Out of the Nest</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={[styles.proCard, Shadows.m]}>
           <LinearGradient
-            colors={[Colors.primary, "#004D46"]}
+            colors={[theme.primary, "#004D46"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.proGradient}
           >
             <View style={styles.proContent}>
-               <Text style={styles.proTitle}>Elevate to Premium</Text>
-               <Text style={styles.proDesc}>Access high-fidelity audio stories and exclusive author notes.</Text>
-               <View style={styles.proBadge}><Text style={styles.proBadgeText}>EARLY BIRD 50% OFF</Text></View>
+               <Text style={[styles.proTitle, { fontFamily: fonts.heading }]}>Elevate to Premium</Text>
+               <Text style={[styles.proDesc, { fontFamily: fonts.body }]}>Access high-fidelity audio stories and exclusive author notes.</Text>
+               <View style={styles.proBadge}><Text style={[styles.proBadgeText, { fontFamily: fonts.heading }]}>EARLY BIRD 50% OFF</Text></View>
             </View>
             <Image source={require("../../assets/icon.png")} style={styles.proIcon} />
           </LinearGradient>
         </TouchableOpacity>
         
-        <Text style={styles.footerVersion}>StoryNest v1.0.4 • Crafted with passion</Text>
+        <Text style={[styles.footerVersion, { fontFamily: fonts.body }]}>StoryNest v1.0.4 • Crafted with passion</Text>
       </ScrollView>
     </View>
   );
@@ -231,42 +231,42 @@ const styles = StyleSheet.create({
   headerWrapper: { overflow: 'hidden' },
   headerBg: { paddingBottom: 60 },
   headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 24, marginBottom: 32 },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.accent, letterSpacing: 2, opacity: 0.9 },
+  headerTitle: { fontSize: 14, color: Colors.accent, letterSpacing: 2, opacity: 0.9 },
   settingsBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
   profileInfo: { flexDirection: 'row', alignItems: "center", paddingHorizontal: 24 },
   avatarWrapper: { marginRight: 20 },
   avatarContainer: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: Colors.accent, padding: 4 },
   avatar: { width: "100%", height: "100%", borderRadius: 40 },
   avatarPlaceholder: { width: "100%", height: "100%", borderRadius: 40, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontFamily: Fonts.heading, fontSize: 32, color: Colors.primary },
+  avatarText: { fontSize: 32, color: Colors.primary },
   editBadge: { position: "absolute", bottom: -2, right: -2, backgroundColor: Colors.accent, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#003631" },
   statusDot: { position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34C759', borderWidth: 2, borderColor: '#003631' },
   userDetails: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
-  username: { fontFamily: Fonts.heading, fontSize: 28, color: Colors.white },
-  email: { fontFamily: Fonts.body, fontSize: 14, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
+  username: { fontSize: 28, color: Colors.white },
+  email: { fontSize: 14, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
   adminBadge: { backgroundColor: Colors.accent, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  adminBadgeText: { fontFamily: Fonts.heading, fontSize: 9, color: Colors.primary, letterSpacing: 0.5 },
+  adminBadgeText: { fontSize: 9, color: Colors.primary, letterSpacing: 0.5 },
   content: { flex: 1, padding: 20 },
   statsGrid: { flexDirection: "row", justifyContent: "space-between", marginBottom: 32, marginTop: 10 },
   statItem: { width: (width - 60) / 3, padding: 16, borderRadius: 24, alignItems: "center" },
   statIcon: { width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 10 },
-  statValue: { fontFamily: Fonts.heading, fontSize: 20, marginBottom: 2 },
-  statLabel: { fontFamily: Fonts.body, fontSize: 10, color: Colors.mutedTeal, textTransform: "uppercase", letterSpacing: 0.5 },
+  statValue: { fontSize: 20, marginBottom: 2 },
+  statLabel: { fontSize: 10, color: Colors.mutedTeal, textTransform: "uppercase", letterSpacing: 0.5 },
   section: { marginBottom: 32 },
-  sectionHeader: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
+  sectionHeader: { fontSize: 12, letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
   menuItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderRadius: 20, marginBottom: 12 },
   menuLeft: { flexDirection: "row", alignItems: "center" },
   menuIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 16 },
-  menuText: { fontFamily: Fonts.heading, fontSize: 15 },
-  menuSubtext: { fontFamily: Fonts.body, fontSize: 12, color: Colors.mutedTeal, marginTop: 1 },
+  menuText: { fontSize: 15 },
+  menuSubtext: { fontSize: 12, color: Colors.mutedTeal, marginTop: 1 },
   proCard: { borderRadius: 28, overflow: "hidden" },
   proGradient: { padding: 24, flexDirection: "row", alignItems: "center" },
   proContent: { flex: 1, zIndex: 1 },
-  proTitle: { fontFamily: Fonts.heading, fontSize: 22, color: Colors.accent, marginBottom: 4 },
-  proDesc: { fontFamily: Fonts.body, fontSize: 13, color: Colors.paleGreen, marginBottom: 16, lineHeight: 18, opacity: 0.9 },
+  proTitle: { fontSize: 22, color: Colors.accent, marginBottom: 4 },
+  proDesc: { fontSize: 13, color: Colors.paleGreen, marginBottom: 16, lineHeight: 18, opacity: 0.9 },
   proBadge: { backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
-  proBadgeText: { fontFamily: Fonts.heading, fontSize: 9, color: Colors.white, letterSpacing: 1 },
+  proBadgeText: { fontSize: 9, color: Colors.white, letterSpacing: 1 },
   proIcon: { width: 120, height: 120, opacity: 0.08, position: "absolute", right: -20, bottom: -20, transform: [{ rotate: '-15deg' }] },
-  footerVersion: { textAlign: "center", marginTop: 10, marginBottom: 20, fontFamily: Fonts.body, fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 },
+  footerVersion: { textAlign: "center", marginTop: 10, marginBottom: 20, fontSize: 11, color: Colors.mutedTeal, opacity: 0.6 },
 });

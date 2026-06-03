@@ -18,7 +18,7 @@ const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
 export const HomeScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { theme, isDarkMode, recsEnabled } = useTheme();
+  const { theme, fonts, isDarkMode, recsEnabled } = useTheme();
   
   const [stories, setStories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,11 +112,11 @@ export const HomeScreen = ({ navigation, route }: any) => {
       )}
 
       <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
+        <Text style={[styles.sectionTitle, { color: isDarkMode ? theme.primary : theme.primary, fontFamily: fonts.heading }]}>
           {searchQuery ? "SEARCH RESULTS" : "GENRES"}
         </Text>
         {searchQuery && (
-            <TouchableOpacity onPress={resetHome}><Text style={[styles.clearText, { color: Colors.mutedTeal }]}>Clear</Text></TouchableOpacity>
+            <TouchableOpacity onPress={resetHome}><Text style={[styles.clearText, { color: Colors.mutedTeal, fontFamily: fonts.body }]}>Clear</Text></TouchableOpacity>
         )}
       </View>
       
@@ -126,9 +126,9 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <TouchableOpacity 
               key={genre} 
               onPress={() => setActiveGenre(genre)} 
-              style={[styles.genreChip, activeGenre === genre ? styles.activeChip : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+              style={[styles.genreChip, activeGenre === genre ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
             >
-              <Text style={[styles.genreText, activeGenre === genre ? styles.activeGenreText : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
+              <Text style={[styles.genreText, { fontFamily: fonts.body }, activeGenre === genre ? { color: theme.white, fontWeight: "600" } : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
                 {genre}
               </Text>
             </TouchableOpacity>
@@ -139,7 +139,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
       {/* New Releases Infinite Carousel */}
       {!searchQuery && newReleases.length > 0 && (
         <View style={styles.carouselSection}>
-          <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>NEW RELEASES</Text>
+          <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, fontFamily: fonts.heading }]}>NEW RELEASES</Text>
           <FlatList
             data={newReleases}
             horizontal
@@ -161,7 +161,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
       {recsEnabled && !searchQuery && (
         <View style={{ marginBottom: Spacing.xl }}>
-            <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>RECOMMENDED FOR YOU</Text>
+            <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, fontFamily: fonts.heading }]}>RECOMMENDED FOR YOU</Text>
             {stories.slice(0, 3).map((s, idx) => (
               <StoryCard 
                 key={s.id + '_rec'} 
@@ -173,7 +173,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
         </View>
       )}
 
-      <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginTop: Spacing.m }]}>ALL STORIES</Text>
+      <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginTop: Spacing.m, fontFamily: fonts.heading }]}>ALL STORIES</Text>
     </>
   );
 
@@ -183,8 +183,8 @@ export const HomeScreen = ({ navigation, route }: any) => {
       <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 10 }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={resetHome} activeOpacity={0.7}>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.username}>StoryNest</Text>
+            <Text style={[styles.greeting, { fontFamily: fonts.body }]}>{greeting}</Text>
+            <Text style={[styles.username, { fontFamily: fonts.heading }]}>StoryNest</Text>
           </TouchableOpacity>
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.iconCircle} onPress={() => {}}>
@@ -197,7 +197,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
               ) : (
-                <Text style={styles.avatarText}>{user?.username?.substring(0, 2).toUpperCase() || "SN"}</Text>
+                <Text style={[styles.avatarText, { fontFamily: fonts.heading }]}>{user?.username?.substring(0, 2).toUpperCase() || "SN"}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -211,7 +211,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
               ref={searchInputRef}
               placeholder="Search stories..." 
               placeholderTextColor="rgba(255, 255, 255, 0.4)" 
-              style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
+              style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={handleSearch}
@@ -260,7 +260,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-          ListEmptyComponent={<Text style={styles.emptyText}>No stories found in the nest.</Text>}
+          ListEmptyComponent={<Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories found in the nest.</Text>}
         />
       )}
     </View>
@@ -271,31 +271,29 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingBottom: Spacing.l },
   headerContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: Spacing.l },
-  greeting: { fontFamily: Fonts.body, fontSize: 13, color: Colors.paleGreen, opacity: 0.8 },
-  username: { fontFamily: Fonts.heading, fontSize: 24, color: Colors.accent, marginTop: 2 },
+  greeting: { fontSize: 13, color: Colors.paleGreen, opacity: 0.8 },
+  username: { fontSize: 24, color: Colors.accent, marginTop: 2 },
   headerIcons: { flexDirection: "row", alignItems: "center" },
   iconCircle: { width: 40, height: 40, borderRadius: Radii.round, backgroundColor: "rgba(255, 255, 255, 0.05)", alignItems: "center", justifyContent: "center", marginRight: 12 },
   avatarCircle: { width: 40, height: 40, borderRadius: Radii.round, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center", overflow: 'hidden', ...Shadows.s },
   avatar: { width: "100%", height: "100%" },
-  avatarText: { fontFamily: Fonts.heading, fontSize: 14, color: Colors.primary },
+  avatarText: { fontSize: 14, color: Colors.primary },
   searchWrapper: { marginHorizontal: Spacing.l, marginTop: 24 },
   searchUnderlineRow: { flexDirection: "row", alignItems: "center" },
   searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontFamily: Fonts.body, fontSize: 16, color: Colors.white, paddingVertical: 12 },
+  searchInput: { flex: 1, fontSize: 16, color: Colors.white, paddingVertical: 12 },
   underlineBar: { height: 1.5, opacity: 0.6 },
   body: { flex: 1, paddingHorizontal: Spacing.l, paddingTop: Spacing.l },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.m },
-  sectionTitle: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.08, textTransform: "uppercase" },
-  subSectionTitle: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 0.1, marginBottom: Spacing.m, textTransform: "uppercase" },
-  clearText: { fontFamily: Fonts.body, fontSize: 13, textDecorationLine: "underline" },
+  sectionTitle: { fontSize: 14, letterSpacing: 0.08, textTransform: "uppercase" },
+  subSectionTitle: { fontSize: 12, letterSpacing: 0.1, marginBottom: Spacing.m, textTransform: "uppercase" },
+  clearText: { fontSize: 13, textDecorationLine: "underline" },
   genreScroll: { marginBottom: Spacing.xl },
   genreChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radii.round, marginRight: 10, borderWidth: 1 },
-  activeChip: { backgroundColor: Colors.primary, borderColor: Colors.primary, ...Shadows.s },
-  genreText: { fontFamily: Fonts.body, fontSize: 13, letterSpacing: 0.02 },
-  activeGenreText: { color: Colors.accent, fontWeight: "600" },
+  genreText: { fontSize: 13, letterSpacing: 0.02 },
   carouselSection: { marginBottom: Spacing.xl },
   carouselContent: { paddingLeft: 2 },
   carouselItem: { marginRight: Spacing.m },
   storiesList: { marginBottom: 40 },
-  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 40 },
+  emptyText: { fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 40 },
 });

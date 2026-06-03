@@ -9,9 +9,17 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts, Oswald_500Medium } from "@expo-google-fonts/oswald";
 import { Urbanist_400Regular, Urbanist_700Bold } from "@expo-google-fonts/urbanist";
 import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
+import { Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
+import { Lora_400Regular, Lora_700Bold } from "@expo-google-fonts/lora";
+import { Montserrat_700Bold } from "@expo-google-fonts/montserrat";
+import { OpenSans_400Regular, OpenSans_700Bold } from "@expo-google-fonts/open-sans";
+import { Merriweather_400Regular, Merriweather_700Bold } from "@expo-google-fonts/merriweather";
+import { Bitter_700Bold } from "@expo-google-fonts/bitter";
+import { Arvo_700Bold } from "@expo-google-fonts/arvo";
 import { View } from "react-native";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BiometricGate } from "./src/components/BiometricGate";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -23,6 +31,17 @@ export default function App() {
     Urbanist_400Regular,
     Urbanist_700Bold,
     PlayfairDisplay_700Bold,
+    Inter_400Regular,
+    Inter_700Bold,
+    Lora_400Regular,
+    Lora_700Bold,
+    Montserrat_700Bold,
+    OpenSans_400Regular,
+    OpenSans_700Bold,
+    Merriweather_400Regular,
+    Merriweather_700Bold,
+    Bitter_700Bold,
+    Arvo_700Bold,
   });
 
   useEffect(() => {
@@ -43,10 +62,12 @@ export default function App() {
     <SafeAreaProvider onLayout={onLayoutRootView}>
       <ThemeProvider>
         <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="light" translucent backgroundColor="transparent" />
-            <MainNavigator />
-          </NavigationContainer>
+          <BiometricGate>
+            <NavigationContainer>
+              <StatusBar style="light" translucent backgroundColor="transparent" />
+              <MainNavigator />
+            </NavigationContainer>
+          </BiometricGate>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -8,11 +8,13 @@ import { Fonts } from "../theme/fonts";
 import {
   ArrowLeft, Bell, Moon, Shield, Info, LogOut,
   ChevronRight, Globe, Lock, Sparkles, RefreshCw,
-  CheckCircle, AlertCircle,
+  CheckCircle, AlertCircle, Palette, Fingerprint, Type
 } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme, ThemeMode } from "../context/ThemeContext";
 import * as Updates from "expo-updates";
+import * as LocalAuthentication from "expo-local-authentication";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import apiClient from "../api/apiClient";
@@ -22,10 +24,15 @@ type UpdateStatus = "idle" | "checking" | "available" | "upToDate" | "error";
 export const SettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { logout, user, refreshUser } = useAuth();
-  const { isDarkMode, toggleDarkMode, recsEnabled, setRecsEnabled, theme } = useTheme();
+  const { 
+    themeMode, setThemeMode, 
+    fontPreference, setFontPreference,
+    isDarkMode, recsEnabled, setRecsEnabled, theme 
+  } = useTheme();
 
   const [notifications, setNotifications] = React.useState(user?.notificationsOn || false);
   const [updatingNotifs, setUpdatingNotifs] = React.useState(false);
+  const [biometricEnabled, setBiometricEnabled] = React.useState(false);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [isUpdating, setIsUpdating] = React.useState(false);
   
@@ -35,7 +42,64 @@ export const SettingsScreen = ({ navigation }: any) => {
   // Auto-check on mount
   React.useEffect(() => {
     checkForUpdates();
+    loadBiometricSetting();
   }, []);
+
+  const loadBiometricSetting = async () => {
+    const val = await AsyncStorage.getItem("biometricEnabled");
+    setBiometricEnabled(val === "true");
+  };
+
+  const handleToggleBiometric = async (value: boolean) => {
+    if (value) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!hasHardware || !isEnrolled) {
+            Alert.alert("Not Supported", "Biometric authentication is not set up on this device.");
+            return;
+        }
+        
+        const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Confirm identity to enable lock",
+            fallbackLabel: "Use Passcode"
+        });
+        
+        if (!result.success) return;
+    }
+    
+    setBiometricEnabled(value);
+    await AsyncStorage.setItem("biometricEnabled", value.toString());
+  };
+
+  const handleThemePress = () => {
+    Alert.alert(
+      "Theme Library",
+      "Choose your preferred app appearance:",
+      [
+        { text: "Light", onPress: () => setThemeMode("light") },
+        { text: "Dark", onPress: () => setThemeMode("dark") },
+        { text: "Sepia (Classic)", onPress: () => setThemeMode("sepia") },
+        { text: "Solarized (Comfort)", onPress: () => setThemeMode("solarized") },
+        { text: "OLED Black", onPress: () => setThemeMode("oled") },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const handleFontPress = () => {
+    Alert.alert(
+      "Typography",
+      "Choose your preferred reading font:",
+      [
+        { text: "Default (Urbanist)", onPress: () => setFontPreference("default") },
+        { text: "Serif (Lora)", onPress: () => setFontPreference("serif") },
+        { text: "Modern (Inter)", onPress: () => setFontPreference("modern") },
+        { text: "Classic (Merriweather)", onPress: () => setFontPreference("classic") },
+        { text: "Open Sans (Accessible)", onPress: () => setFontPreference("dyslexic") },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
 
   const handleToggleNotifications = async (value: boolean) => {
     setNotifications(value);
@@ -179,15 +243,27 @@ export const SettingsScreen = ({ navigation }: any) => {
         {/* ── Preferences ── */}
         <Text style={styles.sectionTitle}>PREFERENCES</Text>
         <SettingItem
+          icon={<Palette size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="App Theme"
+          value={themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}
+          onPress={handleThemePress}
+        />
+        <SettingItem
+          icon={<Type size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="Typography"
+          value={fontPreference.charAt(0).toUpperCase() + fontPreference.slice(1)}
+          onPress={handleFontPress}
+        />
+        <SettingItem
           icon={<Bell size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Email Notifications"
           isSwitch switchValue={notifications} onValueChange={handleToggleNotifications}
           loading={updatingNotifs}
         />
         <SettingItem
-          icon={<Moon size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
-          title="App-wide Dark Mode"
-          isSwitch switchValue={isDarkMode} onValueChange={toggleDarkMode}
+          icon={<Fingerprint size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="Biometric Lock"
+          isSwitch switchValue={biometricEnabled} onValueChange={handleToggleBiometric}
         />
         <SettingItem
           icon={<Sparkles size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}

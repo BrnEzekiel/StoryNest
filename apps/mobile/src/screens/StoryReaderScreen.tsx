@@ -10,10 +10,31 @@ import {
   Alert, 
   Dimensions, 
   Modal, 
-  Image 
+  Image,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl
 } from "react-native";
 import { Colors, Shadows } from "../theme/colors";
-import { ArrowLeft, Bookmark, Heart, MessageSquare, StickyNote, X, AlertTriangle, Lock, Book, Globe, ChevronLeft, ChevronRight, List, Star } from "lucide-react-native";
+import { 
+  ArrowLeft, 
+  Bookmark, 
+  Heart, 
+  MessageSquare, 
+  X, 
+  AlertTriangle, 
+  Lock, 
+  Book, 
+  Globe, 
+  ChevronLeft, 
+  ChevronRight, 
+  List, 
+  Star, 
+  Moon, 
+  Sun, 
+  Send 
+} from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -23,14 +44,13 @@ import { StatusBar } from "expo-status-bar";
 import axios from "axios";
 
 const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
-
 const FONT_SIZES = { small: 15, medium: 18, large: 22 };
 
 export const StoryReaderScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { storyId } = route.params;
   const { user } = useAuth();
-  const { theme, fonts, isDarkMode } = useTheme();
+  const { theme, fonts, isDarkMode, setThemeMode } = useTheme();
   
   const [story, setStory] = useState<any>(null);
   const [chapters, setChapters] = useState<any[]>([]);
@@ -43,23 +63,22 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   
-  const [showReviews, setShowReviews] = useState(false);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewContent, setReviewContent] = useState("");
-  const [reviewsLoading, setReviewsLoading] = useState(false);
+  // Modals
+  const [showTOC, setShowTOC] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  
+  // Comments logic
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewNote] = useState("");
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
-  // Feature 16-17: Dictionary/Translate
+  // Dictionary/Translate
   const [showDictionary, setShowDictionary] = useState(false);
   const [lookupWord, setLookupWord] = useState("");
   const [definition, setDefinition] = useState<any>(null);
   const [dictLoading, setDictLoading] = useState(false);
   const [showTranslate, setShowTranslate] = useState(false);
-  const [currentLang, setCurrentLang] = useState("English");
-
-  // Feature 24-25: TOC / Warnings
-  const [showTOC, setShowTOC] = useState(false);
-  const [showWarning, setShowWarning] = useState(false);
 
   const progressBarWidth = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -126,21 +145,21 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       }
   };
 
-  const fetchReviews = async () => {
-      setReviewsLoading(true);
+  const fetchComments = async () => {
+      setCommentsLoading(true);
       try {
-          const res = await apiClient.get(`/stories/${storyId}/reviews`);
-          setReviews(res.data);
+          const res = await apiClient.get(`/stories/${storyId}/comments`);
+          setComments(res.data);
       } catch (e) { console.log(e); }
-      finally { setReviewsLoading(false); }
+      finally { setCommentsLoading(false); }
   };
 
-  const handlePostReview = async () => {
-      if (!reviewContent.trim()) return;
+  const handlePostComment = async () => {
+      if (!newComment.trim()) return;
       try {
-          await apiClient.post(`/stories/${storyId}/reviews`, { rating: reviewRating, content: reviewContent });
-          setReviewContent("");
-          fetchReviews();
+          await apiClient.post(`/stories/${storyId}/comments`, { content: newComment });
+          setNewNote("");
+          fetchComments();
       } catch (e) { console.log(e); }
   };
 
@@ -155,12 +174,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   };
 
   const handleTranslate = async (lang: string) => {
-      if (lang === "Original") { setCurrentChapter({ ...currentChapter, body: originalBody }); setCurrentLang("English"); setShowTranslate(false); return; }
+      if (lang === "Original") { setCurrentChapter({ ...currentChapter, body: originalBody }); setShowTranslate(false); return; }
       setShowTranslate(false);
       try {
           const res = await apiClient.post("/ai/translate", { text: originalBody, targetLanguage: lang });
           setCurrentChapter({ ...currentChapter, body: res.data.result });
-          setCurrentLang(lang);
       } catch (e) { Alert.alert("Error", "Translation failed."); }
   };
 
@@ -198,6 +216,8 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
       <StatusBar style={isDarkMode ? "light" : "dark"} animated={true} />
+      
+      {/* Top Bar */}
       <View style={[styles.topBar, { backgroundColor: theme.white, paddingTop: insets.top }]}>
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={theme.black} /></TouchableOpacity>
@@ -233,10 +253,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
               <Text style={[styles.chapterLabel, { color: Colors.mutedTeal, fontFamily: fonts.heading }]}>
                   {currentChapter?.title ? currentChapter.title.toUpperCase() : "CHAPTER 1"}
               </Text>
-              <TouchableOpacity onPress={() => { setShowReviews(true); fetchReviews(); }} style={styles.ratingBox}>
-                  <Star size={14} color="#FFD700" fill="#FFD700" />
-                  <Text style={[styles.ratingText, { fontFamily: fonts.heading }]}>{story?._count?.reviews || 0} reviews</Text>
-              </TouchableOpacity>
           </View>
         </View>
         
@@ -257,7 +273,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* Modals: Warning, TOC */}
+      {/* Modals: Warning, TOC, Comments */}
       <Modal visible={showWarning} animationType="fade" transparent>
           <View style={styles.centeredOverlay}>
               <View style={[styles.warningContent, { backgroundColor: theme.white }]}>
@@ -278,10 +294,38 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           </View>
       </Modal>
 
+      <Modal visible={showComments} animationType="slide" transparent>
+          <View style={[styles.modalOverlay, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
+              <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: theme.black, fontFamily: fonts.heading }]}>COMMENTS</Text><TouchableOpacity onPress={() => setShowComments(false)}><X size={24} color={theme.black} /></TouchableOpacity></View>
+              <ScrollView style={{ padding: 24 }} refreshControl={<RefreshControl refreshing={commentsLoading} onRefresh={fetchComments} />}>
+                  {comments.map(c => (
+                      <View key={c.id} style={styles.commentItem}>
+                          <Text style={[styles.commentUser, { fontFamily: fonts.heading, color: theme.primary }]}>{c.user?.username}</Text>
+                          <Text style={[styles.commentText, { fontFamily: fonts.body, color: theme.black }]}>{c.content}</Text>
+                      </View>
+                  ))}
+                  {comments.length === 0 && !commentsLoading && <Text style={{ textAlign: 'center', marginTop: 40, opacity: 0.5 }}>No comments yet.</Text>}
+              </ScrollView>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
+                  <View style={[styles.commentInputRow, { borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 20 }]}>
+                      <TextInput style={[styles.commentInput, { fontFamily: fonts.body, color: theme.black, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]} placeholder="Add a comment..." value={newComment} onChangeText={setNewNote} />
+                      <TouchableOpacity onPress={handlePostComment} style={[styles.sendBtn, { backgroundColor: theme.primary }]}><Send size={18} color={theme.white} /></TouchableOpacity>
+                  </View>
+              </KeyboardAvoidingView>
+          </View>
+      </Modal>
+
+      {/* Bottom Bar */}
       <View style={[styles.bottomBar, { backgroundColor: theme.white, borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
-          <TouchableOpacity onPress={handleLike} style={styles.actionBtn}><Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} /><Text style={styles.actionCount}>{likeCount}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn}><MessageSquare size={22} color={theme.black} /><Text style={styles.actionCount}>{story?._count?.comments || 0}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
+            <Heart size={22} color={isLiked ? "red" : theme.black} fill={isLiked ? "red" : "none"} />
+            <Text style={[styles.actionCount, { color: theme.black, fontFamily: fonts.body }]}>{likeCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setShowComments(true); fetchComments(); }} style={styles.actionBtn}>
+            <MessageSquare size={22} color={theme.black} />
+            <Text style={[styles.actionCount, { color: theme.black, fontFamily: fonts.body }]}>{story?._count?.comments || 0}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -302,8 +346,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, lineHeight: 42, marginBottom: 12 },
   chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chapterLabel: { fontSize: 14, letterSpacing: 2 },
-  ratingBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,215,0,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  ratingText: { fontSize: 11, marginLeft: 6, color: '#8B6508' },
   bodyContainer: { paddingHorizontal: 24, marginBottom: 40 },
   bodyText: { fontSize: 18 },
   chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginBottom: 100 },
@@ -325,4 +367,10 @@ const styles = StyleSheet.create({
   tocItem: { flexDirection: 'row', alignItems: 'center', padding: 20, justifyContent: 'space-between' },
   tocOrder: { fontSize: 20, width: 40, opacity: 0.3 },
   tocTitle: { fontSize: 16 },
+  commentItem: { marginBottom: 24 },
+  commentUser: { fontSize: 12, marginBottom: 4 },
+  commentText: { fontSize: 14, lineHeight: 20 },
+  commentInputRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1 },
+  commentInput: { flex: 1, height: 44, borderRadius: 22, paddingHorizontal: 16, fontSize: 14 },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, marginLeft: 12, justifyContent: 'center', alignItems: 'center' }
 });

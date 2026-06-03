@@ -23,7 +23,7 @@ interface StoryCardProps {
   index?: number; 
 }
 
-const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=1000&auto=format&fit=crop";
+const FALLBACK_IMAGE = "https://images.pexels.com/photos/1111368/pexels-photo-1111368.jpeg?auto=compress&cs=tinysrgb&w=800"; // Subtle dark forest/neutral
 
 export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }: StoryCardProps) => {
   const { theme, fonts, isDarkMode } = useTheme();

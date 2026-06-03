@@ -30,9 +30,7 @@ export const AdminScreen = ({ navigation }: any) => {
   // Editor State
   const [availableGenres, setAvailableGenres] = useState(["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"]);
   const [showGenreDropdown, setShowGenreDropdown] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-
-  // Version History & Collaboration
+  
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -44,21 +42,10 @@ export const AdminScreen = ({ navigation }: any) => {
   const [genre, setGenre] = useState("Fiction");
   const [body, setBody] = useState("");
   const [authorName, setAuthorName] = useState("");
-  const [image, setImage] = useState<string | null>(null);
-  const [fetchingPexels, setFetchingPexels] = useState(false);
 
   useEffect(() => {
     fetchAdminData();
-    loadUniqueGenres();
   }, []);
-
-  const loadUniqueGenres = async () => {
-    try {
-        const res = await apiClient.get("/stories");
-        const unique = [...new Set([...availableGenres, ...res.data.map((s: any) => s.genre)])];
-        setAvailableGenres(unique);
-    } catch (e) {}
-  };
 
   const fetchAdminData = async () => {
     try {
@@ -79,34 +66,24 @@ export const AdminScreen = ({ navigation }: any) => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchAdminData();
-    loadUniqueGenres();
   }, []);
 
-  const handleFetchPexelsCover = async () => {
-    const query = title.trim() || genre;
-    if (!query) return;
-    
-    setFetchingPexels(true);
+  const fetchPexelsUrl = async (query: string, storyGenre: string) => {
     try {
         const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query + " cinematic book cover")}&per_page=1&orientation=portrait`, {
             headers: { Authorization: PEXELS_API_KEY }
         });
-        if (res.data.photos?.length > 0) {
-            setImage(res.data.photos[0].src.large2x);
-        } else {
-            // Fallback search with just genre
-            const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(genre + " aesthetic")}&per_page=1&orientation=portrait`, {
-                headers: { Authorization: PEXELS_API_KEY }
-            });
-            if (fallback.data.photos?.length > 0) {
-                setImage(fallback.data.photos[0].src.large2x);
-            }
-        }
+        if (res.data.photos?.length > 0) return res.data.photos[0].src.large2x;
+        
+        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " aesthetic backdrop")}&per_page=1&orientation=portrait`, {
+            headers: { Authorization: PEXELS_API_KEY }
+        });
+        if (fallback.data.photos?.length > 0) return fallback.data.photos[0].src.large2x;
+        
+        return null;
     } catch (e) {
-        console.log("[Pexels] Fetch failed", e);
-        Alert.alert("Cover error", "Could not fetch automated cover from Pexels.");
-    } finally {
-        setFetchingPexels(false);
+        console.log("[Pexels] Error:", e);
+        return null;
     }
   };
 
@@ -117,8 +94,11 @@ export const AdminScreen = ({ navigation }: any) => {
     }
     setSubmitLoading(true);
     try {
+      // SILENTLY FETCH COVER FROM PEXELS
+      const coverUrl = await fetchPexelsUrl(title, genre);
+      
       const payload: any = { title, genre, authorName, summary: "" };
-      if (image) payload.coverUrl = image;
+      if (coverUrl) payload.coverUrl = coverUrl;
       if (body) payload.body = body;
 
       if (isEditing && editingId) {
@@ -133,7 +113,7 @@ export const AdminScreen = ({ navigation }: any) => {
       resetForm();
       fetchAdminData();
     } catch (error: any) {
-      Alert.alert("Error", "Action failed. Please check your connection.");
+      Alert.alert("Error", "Action failed. Check your connection.");
     } finally { setSubmitLoading(false); }
   };
 
@@ -141,14 +121,13 @@ export const AdminScreen = ({ navigation }: any) => {
     setTitle(story.title);
     setGenre(story.genre);
     setAuthorName(story.authorName);
-    setImage(story.coverUrl);
     setEditingId(story.id);
     setIsEditing(true);
     setIsAdding(true);
   };
 
   const resetForm = () => {
-    setTitle(""); setGenre("Fiction"); setBody(""); setAuthorName(""); setImage(null); setEditingId(null); setIsEditing(false);
+    setTitle(""); setGenre("Fiction"); setBody(""); setAuthorName(""); setEditingId(null); setIsEditing(false);
   };
 
   const handleDelete = (id: string) => {
@@ -160,15 +139,37 @@ export const AdminScreen = ({ navigation }: any) => {
     ]);
   };
 
-  const handleAiAssist = async (type: "continue" | "twist") => {
-      if (!body.trim()) return;
-      setAiLoading(true);
+  const fetchVersions = async (storyId: string) => {
+      setVersionsLoading(true);
+      setShowVersionHistory(true);
       try {
-          const res = await apiClient.post("/ai/assist", { text: body, type });
-          if (type === "continue") setBody(prev => prev + "\n\n" + res.data.result);
-          else Alert.alert("AI Plot Twist", res.data.result);
-      } catch (e) { Alert.alert("AI Error", "Failed to get AI assistance."); }
-      finally { setAiLoading(false); }
+          const res = await apiClient.get(`/stories/${storyId}/versions`);
+          setVersions(res.data);
+          setEditingId(storyId);
+      } catch (e) { console.log(e); }
+      finally { setVersionsLoading(false); }
+  };
+
+  const handleRestoreVersion = async (version: any) => {
+      try {
+          await apiClient.post(`/versions/${version.id}/restore`);
+          Alert.alert("Restored", "Content reverted.");
+          setShowVersionHistory(false);
+          fetchAdminData();
+      } catch (e) { Alert.alert("Error", "Failed."); }
+  };
+
+  const handleAddCollaborator = async () => {
+      if (!collabUsername.trim()) return;
+      setCollabLoading(true);
+      try {
+          await apiClient.post(`/stories/${editingId}/collaborators`, { username: collabUsername });
+          Alert.alert("Added", `${collabUsername} is now a co-author.`);
+          setCollabUsername("");
+          setShowCollabModal(false);
+          fetchAdminData();
+      } catch (e) { Alert.alert("Error", "Failed."); }
+      finally { setCollabLoading(false); }
   };
 
   if (isAdding) {
@@ -184,25 +185,10 @@ export const AdminScreen = ({ navigation }: any) => {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-                <View style={styles.imageContainer}>
-                    <View style={[styles.imagePicker, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.mutedTeal }]}>
-                        {image ? <Image source={{ uri: image }} style={styles.previewImage} resizeMode="cover" /> : (
-                        <View style={styles.imagePlaceholder}>
-                            <ImageIcon size={40} color={Colors.mutedTeal} />
-                            <Text style={[styles.imagePlaceholderText, { fontFamily: fonts.body }]}>Pexels Automated Cover</Text>
-                        </View>
-                        )}
-                        {fetchingPexels && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' }]}><ActivityIndicator color={Colors.accent} /></View>}
-                    </View>
-                    <TouchableOpacity style={[styles.aiGenBtn, { backgroundColor: theme.primary }]} onPress={handleFetchPexelsCover}>
-                        <RefreshCw size={18} color={theme.white} />
-                    </TouchableOpacity>
-                </View>
-                
-                <TextField label="Story Title" value={title} onChangeText={setTitle} placeholder="Enter title" onBlur={() => { if (!image) handleFetchPexelsCover(); }} />
+                <TextField label="Story Title" value={title} onChangeText={setTitle} placeholder="Enter title" />
                 <TextField label="Author Name" value={authorName} onChangeText={setAuthorName} placeholder="Author name" />
                 
-                <Text style={[styles.dropdownLabel, { color: theme.primary, fontFamily: fonts.heading }]}>GENRE</Text>
+                <Text style={[styles.dropdownLabel, { color: theme.primary, fontFamily: fonts.heading, marginTop: 10 }]}>GENRE</Text>
                 <TouchableOpacity style={[styles.dropdown, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.lightForest }]} onPress={() => setShowGenreDropdown(!showGenreDropdown)}>
                     <Text style={[styles.dropdownText, { color: theme.black, fontFamily: fonts.body }]}>{genre}</Text>
                     <ChevronDown size={20} color={theme.primary} />
@@ -211,7 +197,7 @@ export const AdminScreen = ({ navigation }: any) => {
                 {showGenreDropdown && (
                     <View style={[styles.dropdownMenu, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
                     {availableGenres.map((g) => (
-                        <TouchableOpacity key={g} style={styles.dropdownItem} onPress={() => { setGenre(g); setShowGenreDropdown(false); handleFetchPexelsCover(); }}>
+                        <TouchableOpacity key={g} style={styles.dropdownItem} onPress={() => { setGenre(g); setShowGenreDropdown(false); }}>
                         <Text style={[styles.dropdownItemText, { color: theme.black, fontFamily: fonts.body }, g === genre && { color: Colors.accent, fontWeight: "700" }]}>{g}</Text>
                         </TouchableOpacity>
                     ))}
@@ -219,10 +205,15 @@ export const AdminScreen = ({ navigation }: any) => {
                 )}
 
                 {!isEditing && (
-                    <TextField label="First Chapter Content" value={body} onChangeText={setBody} placeholder="Once upon a time..." multiline style={{ height: 200, textAlignVertical: "top", marginTop: 20 }} />
+                    <TextField label="First Chapter Content" value={body} onChangeText={setBody} placeholder="Once upon a time..." multiline style={{ height: 250, textAlignVertical: "top", marginTop: 20 }} />
                 )}
 
-            {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginVertical: 20 }} /> : (
+            {submitLoading ? (
+                <View style={{ marginVertical: 30, alignItems: 'center' }}>
+                    <ActivityIndicator color={Colors.primary} size="large" />
+                    <Text style={{ marginTop: 12, fontFamily: fonts.body, color: theme.primary }}>Optimizing & Publishing...</Text>
+                </View>
+            ) : (
                 <View style={{ marginTop: 20, marginBottom: 40 }}>
                 <Button title={isEditing ? "UPDATE STORY" : "PUBLISH TO NEST"} onPress={handleSave} type="primary" />
                 <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
@@ -286,6 +277,25 @@ export const AdminScreen = ({ navigation }: any) => {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={showVersionHistory} animationType="slide" transparent>
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.8)' }]}>
+              <View style={[styles.modalContent, { backgroundColor: theme.white, maxHeight: '80%' }]}>
+                  <View style={styles.modalHeader}><Text style={[styles.modalTitle, { fontFamily: fonts.heading, color: theme.black }]}>VERSION HISTORY</Text><TouchableOpacity onPress={() => setShowVersionHistory(false)}><X size={20} color={theme.black} /></TouchableOpacity></View>
+                  <ScrollView style={{ marginTop: 20 }}>{versions.map(v => (<View key={v.id} style={styles.versionItem}><View style={{ flex: 1 }}><Text style={styles.versionDate}>{new Date(v.createdAt).toLocaleString()}</Text><Text style={styles.versionSnippet} numberOfLines={2}>{v.body}</Text></View><TouchableOpacity style={styles.restoreBtn} onPress={() => handleRestoreVersion(v)}><RotateCcw size={18} color={theme.primary} /></TouchableOpacity></View>))}</ScrollView>
+              </View>
+          </View>
+      </Modal>
+
+      <Modal visible={showCollabModal} animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.white }]}>
+                  <View style={styles.modalHeader}><Text style={[styles.modalTitle, { fontFamily: fonts.heading, color: theme.black }]}>ADD CO-AUTHOR</Text><TouchableOpacity onPress={() => setShowCollabModal(false)}><X size={20} color={theme.black} /></TouchableOpacity></View>
+                  <TextInput style={styles.modalInput} placeholder="Username" placeholderTextColor={Colors.mutedTeal} value={collabUsername} onChangeText={setCollabUsername} autoCapitalize="none" />
+                  <Button title={collabLoading ? "ADDING..." : "INVITE"} onPress={handleAddCollaborator} disabled={collabLoading} type="primary" style={{ backgroundColor: theme.primary }} />
+              </View>
+          </View>
+      </Modal>
     </View>
   );
 };
@@ -297,12 +307,6 @@ const styles = StyleSheet.create({
   backBtnHeader: { position: "absolute", left: 24 },
   analyticsBtn: { position: 'absolute', right: 24, top: 45 },
   content: { padding: 24 },
-  imageContainer: { width: '100%', marginBottom: 24, position: 'relative' },
-  imagePicker: { width: "100%", aspectRatio: 1.5, borderRadius: 16, overflow: "hidden", justifyContent: "center", alignItems: "center", borderBottomWidth: 2, borderBottomColor: Colors.accent },
-  previewImage: { width: "100%", height: "100%" },
-  imagePlaceholder: { alignItems: "center" },
-  imagePlaceholderText: { fontSize: 12, color: Colors.mutedTeal, marginTop: 8 },
-  aiGenBtn: { position: 'absolute', right: 12, bottom: 12, width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', ...Shadows.m },
   dropdownLabel: { fontSize: 12, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.05 },
   dropdown: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderRadius: 8, marginBottom: 20, borderWidth: 0.5 },
   dropdownText: { fontSize: 14 },

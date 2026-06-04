@@ -123,9 +123,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   };
 
   const fetchStory = async () => {
+    const url = `/stories/${storyId}`;
     try {
       setLoading(true);
-      const res = await apiClient.get(`/stories/${storyId}`);
+      const res = await apiClient.get(url);
       setStory(res.data);
       setChapters(res.data.chapters || []);
       setLikeCount(res.data._count?.likes || 0);
@@ -140,30 +141,45 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setShowWarning(true);
       }
 
+      // Use pre-fetched chapter bodies if available
       if (res.data.chapters?.length > 0) {
-          await loadChapter(res.data.chapters[0].id);
+          const firstChapter = res.data.chapters[0];
+          if (firstChapter.body) {
+              setCurrentChapter(firstChapter);
+              setOriginalBody(firstChapter.body);
+          } else {
+              await loadChapter(firstChapter.id);
+          }
       }
       
-      await apiClient.post(`/stories/${storyId}/read`);
-    } catch (error) { 
-        console.log("[Reader] Fetch error:", error); 
+      apiClient.post(`/stories/${storyId}/read`).catch(() => {});
+    } catch (error: any) { 
+        console.log("[Reader] Fetch error:", error.response?.status, error.message); 
+        Alert.alert("Connection Error", "We couldn't load this story. Please try again.", [
+            { text: "Retry", onPress: fetchStory },
+            { text: "Go Back", onPress: () => navigation.goBack() }
+        ]);
     } finally { 
         setLoading(false); 
     }
   };
 
   const loadChapter = async (chapterId: string) => {
+      const url = `/chapters/${chapterId}`;
       setLoading(true);
       try {
-          const res = await apiClient.get(`/chapters/${chapterId}`);
-          setCurrentChapter(res.data);
-          setOriginalBody(res.data.body);
+          const res = await apiClient.get(url);
+          if (res.data) {
+            setCurrentChapter(res.data);
+            setOriginalBody(res.data.body);
+            setHasResumed(false);
+          }
           scrollViewRef.current?.scrollTo({ y: 0, animated: false });
           setScrollProgress(0);
-          setHasResumed(false); // Reset resume flag for new chapter
           setShowTOC(false);
-      } catch (e) { 
-          console.log("[Reader] Load chapter error:", e); 
+      } catch (e: any) { 
+          console.log("[Reader] Load chapter error:", e.response?.status, e.message); 
+          Alert.alert("Chapter error", "Failed to load content.");
       } finally { 
           setLoading(false); 
       }
@@ -211,7 +227,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       } catch (e) { console.log("Failed to sync preference"); }
   };
 
-  // Comments, Translation, Lookup methods... (rest unchanged)
   const fetchComments = async () => {
       setCommentsLoading(true);
       try {
@@ -268,12 +283,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       );
   }
 
-  const paragraphs = currentChapter?.body ? currentChapter.body.split('\n\n') : [];
+  const paragraphs = currentChapter?.body ? currentChapter.body.replace(/\r\n/g, '\n').split('\n\n') : [];
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
 
   return (
     <View style={[styles.container, { backgroundColor: readerTheme.bg }]}>
-      {/* SOLID STATUS BAR FIX */}
       <View style={{ height: insets.top, backgroundColor: readerTheme.bg }} />
       <StatusBar 
         style={isReaderDark ? "light" : "dark"} 
@@ -324,7 +338,10 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           {paragraphs.length > 0 ? paragraphs.map((para, idx) => (
             <Text key={idx} style={[styles.bodyText, { color: readerTheme.text, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
           )) : (
-            <Text style={[styles.bodyText, { color: readerTheme.text, opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 40 }]}>No content found for this chapter.</Text>
+            <View style={{ alignItems: 'center', marginTop: 100 }}>
+                <ActivityIndicator color={readerTheme.primary} />
+                <Text style={[styles.bodyText, { color: readerTheme.text, opacity: 0.5, fontStyle: 'italic', textAlign: 'center', marginTop: 20 }]}>Restoring story content...</Text>
+            </View>
           )}
         </View>
         
@@ -358,7 +375,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      {/* Modals... */}
+      {/* Modals: Warning, TOC, Comments, Theme Picker */}
       <Modal visible={showThemePicker} animationType="slide" transparent>
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }]}>
               <View style={[styles.modalContent, { backgroundColor: appTheme.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: insets.bottom + 40 }]}>

@@ -236,6 +236,7 @@ app.get("/stories", async (req, res) => {
 });
 
 app.get("/stories/:id", async (req, res) => {
+  console.log("[Stories] Fetching ID:", req.params.id);
   const authHeader = req.headers.authorization;
   let userId = null;
   if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -251,7 +252,7 @@ app.get("/stories/:id", async (req, res) => {
           chapters: { 
               where: { isDraft: false }, 
               orderBy: { order: "asc" }, 
-              select: { id: true, title: true, order: true } 
+              select: { id: true, title: true, body: true, order: true } 
           },
           polls: { where: { isActive: true }, include: { options: { include: { _count: { select: { votes: true } } } } } }
       }
@@ -572,6 +573,17 @@ app.get("/users/me", authenticate, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { bookmarks: true, achievements: true } });
         res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/users/me/bookmarks", authenticate, async (req, res) => {
+    try {
+        const bookmarks = await prisma.bookmark.findMany({
+            where: { userId: req.user.id },
+            include: { story: { include: { _count: { select: { likes: true, comments: true } } } } },
+            orderBy: { createdAt: "desc" }
+        });
+        res.json(bookmarks);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

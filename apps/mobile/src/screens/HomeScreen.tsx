@@ -49,6 +49,8 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
   useFocusEffect(
     useCallback(() => {
+      fetchData();
+      fetchRecommendations();
       if (route.params?.reset) {
         resetHome();
         navigation.setParams({ reset: undefined });

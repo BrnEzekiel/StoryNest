@@ -255,11 +255,16 @@ app.get("/stories/:id", async (req, res) => {
     if (!story) return res.status(404).json({ error: "Not found" });
     
     let isLiked = false;
+    let bookmarkProgress = 0;
     if (userId) {
-        const like = await prisma.like.findUnique({ where: { userId_storyId: { userId, storyId: req.params.id } } });
+        const [like, bookmark] = await Promise.all([
+            prisma.like.findUnique({ where: { userId_storyId: { userId, storyId: req.params.id } } }),
+            prisma.bookmark.findUnique({ where: { userId_storyId: { userId, storyId: req.params.id } } })
+        ]);
         isLiked = !!like;
+        bookmarkProgress = bookmark ? bookmark.progress : 0;
     }
-    res.json({ ...story, isUnlocked: true, isLiked });
+    res.json({ ...story, isUnlocked: true, isLiked, bookmarkProgress });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 

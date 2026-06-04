@@ -72,6 +72,8 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [likeCount, setLikeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [targetProgress, setTargetProgress] = useState(0);
+  const [hasResumed, setHasResumed] = useState(false);
   
   // Reader Theme
   const [readerThemeMode, setReaderThemeMode] = useState<string>(user?.readerTheme || "light");
@@ -98,6 +100,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   const progressBarWidth = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
+  const contentHeight = useRef(0);
 
   const fontSize = FONT_SIZES[fontSizeMode];
 
@@ -114,7 +117,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     const savedFont = await AsyncStorage.getItem("readerFontSize");
     if (savedFont) setFontSizeMode(savedFont as any);
     
-    // Sync reader theme from backend preference
     if (user?.readerTheme) {
         setReaderThemeMode(user.readerTheme);
     }
@@ -128,7 +130,12 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       setChapters(res.data.chapters || []);
       setLikeCount(res.data._count?.likes || 0);
       setIsLiked(res.data.isLiked);
+      setTargetProgress(res.data.bookmarkProgress || 0);
       
+      const bookmarksRes = await apiClient.get("/users/me/bookmarks");
+      const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
+      setIsBookmarked(!!bookmark);
+
       if (res.data.contentWarnings || res.data.isAdult) {
           setShowWarning(true);
       }
@@ -137,10 +144,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           await loadChapter(res.data.chapters[0].id);
       }
       
-      const bookmarksRes = await apiClient.get("/users/me/bookmarks");
-      const bookmark = bookmarksRes.data.find((b: any) => b.storyId === storyId);
-      setIsBookmarked(!!bookmark);
-
       await apiClient.post(`/stories/${storyId}/read`);
     } catch (error) { 
         console.log("[Reader] Fetch error:", error); 
@@ -157,6 +160,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           setOriginalBody(res.data.body);
           scrollViewRef.current?.scrollTo({ y: 0, animated: false });
           setScrollProgress(0);
+          setHasResumed(false); // Reset resume flag for new chapter
           setShowTOC(false);
       } catch (e) { 
           console.log("[Reader] Load chapter error:", e); 
@@ -165,6 +169,49 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       }
   };
 
+  const onContentSizeChange = (w: number, h: number) => {
+      contentHeight.current = h;
+      if (targetProgress > 0 && !hasResumed) {
+          const y = (targetProgress / 100) * (h - WINDOW_HEIGHT);
+          if (y > 0) {
+            scrollViewRef.current?.scrollTo({ y, animated: true });
+            setHasResumed(true);
+          }
+      }
+  };
+
+  const handleBookmark = async () => {
+    const wasBookmarked = isBookmarked;
+    setIsBookmarked(!wasBookmarked);
+    try {
+      const progress = wasBookmarked ? -1 : Math.round(scrollProgress * 100);
+      await apiClient.post(`/stories/${storyId}/bookmark`, { progress });
+      if (!wasBookmarked) Alert.alert("Saved", "Story added to your library.");
+    } catch (error) { setIsBookmarked(wasBookmarked); }
+  };
+
+  const updateProgress = async () => {
+      if (!isBookmarked) return;
+      try {
+          await apiClient.post(`/stories/${storyId}/bookmark`, { progress: Math.round(scrollProgress * 100) });
+      } catch (e) {}
+  };
+
+  useEffect(() => {
+      const timer = setTimeout(updateProgress, 2000); // Debounced progress update
+      return () => clearTimeout(timer);
+  }, [scrollProgress]);
+
+  const updateReaderTheme = async (mode: string) => {
+      setReaderThemeMode(mode);
+      setShowThemePicker(false);
+      try {
+          await apiClient.post("/users/me/preferences", { readerTheme: mode });
+          refreshUser();
+      } catch (e) { console.log("Failed to sync preference"); }
+  };
+
+  // Comments, Translation, Lookup methods... (rest unchanged)
   const fetchComments = async () => {
       setCommentsLoading(true);
       try {
@@ -213,24 +260,6 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsLiked(wasLiked); }
   };
 
-  const handleBookmark = async () => {
-    const wasBookmarked = isBookmarked;
-    setIsBookmarked(!wasBookmarked);
-    try {
-      const progress = wasBookmarked ? -1 : Math.round(scrollProgress * 100);
-      await apiClient.post(`/stories/${storyId}/bookmark`, { progress });
-    } catch (error) { setIsBookmarked(wasBookmarked); }
-  };
-
-  const updateReaderTheme = async (mode: string) => {
-      setReaderThemeMode(mode);
-      setShowThemePicker(false);
-      try {
-          await apiClient.post("/users/me/preferences", { readerTheme: mode });
-          refreshUser();
-      } catch (e) { console.log("Failed to sync preference"); }
-  };
-
   if (loading && !currentChapter) {
       return (
           <View style={[styles.container, { backgroundColor: appTheme.white, justifyContent: 'center' }]}>
@@ -244,14 +273,16 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={[styles.container, { backgroundColor: readerTheme.bg }]}>
+      {/* SOLID STATUS BAR FIX */}
+      <View style={{ height: insets.top, backgroundColor: readerTheme.bg }} />
       <StatusBar 
         style={isReaderDark ? "light" : "dark"} 
-        backgroundColor="transparent" 
-        translucent={true}
+        backgroundColor={readerTheme.bg}
+        translucent={false}
       />
       
-      {/* Top Bar - Manually applying insets.top for translucent status bar */}
-      <View style={[styles.topBar, { backgroundColor: readerTheme.bg, paddingTop: insets.top, borderBottomColor: isReaderDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+      {/* Top Bar */}
+      <View style={[styles.topBar, { backgroundColor: readerTheme.bg, borderBottomColor: isReaderDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
         <View style={styles.topBarContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}><ArrowLeft size={24} color={readerTheme.text} /></TouchableOpacity>
           <View style={styles.topBarIcons}>
@@ -275,6 +306,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           const totalHeight = contentSize.height - layoutMeasurement.height;
           setScrollProgress(totalHeight > 0 ? contentOffset.y / totalHeight : 0);
         }} 
+        onContentSizeChange={onContentSizeChange}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
@@ -305,7 +337,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* Bottom Bar - Manually applying insets.bottom for proper alignment above nav bar */}
+      {/* Bottom Bar */}
       <View style={[styles.bottomBar, { backgroundColor: readerTheme.bg, borderTopColor: isReaderDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.bottomBarContent}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
@@ -326,7 +358,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      {/* Modals: Warning, TOC, Comments, Theme Picker */}
+      {/* Modals... */}
       <Modal visible={showThemePicker} animationType="slide" transparent>
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }]}>
               <View style={[styles.modalContent, { backgroundColor: appTheme.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: insets.bottom + 40 }]}>
@@ -388,11 +420,11 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: { borderBottomWidth: 1 },
-  topBarContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
+  topBar: { borderBottomWidth: 1, paddingVertical: 12 },
+  topBarContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20 },
   topBarIcons: { flexDirection: "row", alignItems: "center" },
   iconBtn: { marginLeft: 16 },
-  progressContainer: { height: 2, width: "100%" },
+  progressContainer: { height: 2, width: "100%", marginTop: 12 },
   progressBar: { height: "100%" },
   content: { flex: 1 },
   header: { paddingHorizontal: 24, marginTop: 40, marginBottom: 40 },

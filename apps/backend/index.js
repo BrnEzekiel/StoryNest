@@ -248,7 +248,11 @@ app.get("/stories/:id", async (req, res) => {
       include: { 
           _count: { select: { likes: true, comments: true, reviews: true } },
           characters: true, worldEntries: true,
-          chapters: { where: { isDraft: false, OR: [{ publishedAt: null }, { publishedAt: { lte: now } }] }, orderBy: { order: "asc" }, select: { id: true, title: true, order: true } },
+          chapters: { 
+              where: { isDraft: false }, 
+              orderBy: { order: "asc" }, 
+              select: { id: true, title: true, order: true } 
+          },
           polls: { where: { isActive: true }, include: { options: { include: { _count: { select: { votes: true } } } } } }
       }
     });

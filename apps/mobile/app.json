@@ -41,10 +41,6 @@
     },
     "owner": "brnezekiel",
     "plugins": [
-      "expo-secure-store",
-      "expo-web-browser",
-      "@react-native-community/datetimepicker",
-      "expo-sqlite",
       [
         "expo-build-properties",
         {

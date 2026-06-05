@@ -36,9 +36,6 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363"
-    },
     "owner": "brnezekiel",
     "plugins": [
       [

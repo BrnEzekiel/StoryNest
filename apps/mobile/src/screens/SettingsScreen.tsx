@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useTheme, ThemeMode } from "../context/ThemeContext";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -33,15 +34,18 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [notifications, setNotifications] = React.useState(user?.notificationsOn || false);
   const [updatingNotifs, setUpdatingNotifs] = React.useState(false);
   const [biometricEnabled, setBiometricEnabled] = React.useState(false);
-  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("upToDate");
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   
   const spinAnim = React.useRef(new Animated.Value(0)).current;
+  const flickerAnim = React.useRef(new Animated.Value(1)).current;
   const spinLoop = React.useRef<Animated.CompositeAnimation | null>(null);
+  const flickerLoop = React.useRef<Animated.CompositeAnimation | null>(null);
 
   // Auto-check on mount
   React.useEffect(() => {
+    checkForUpdates(true);
     loadBiometricSetting();
   }, []);
 
@@ -165,27 +169,77 @@ export const SettingsScreen = ({ navigation }: any) => {
     spinAnim.setValue(0);
   };
 
-  const checkForUpdates = async () => {
-    setUpdateStatus("upToDate");
+  const startFlicker = () => {
+      flickerLoop.current = Animated.loop(
+          Animated.sequence([
+              Animated.timing(flickerAnim, { toValue: 0.3, duration: 500, useNativeDriver: true }),
+              Animated.timing(flickerAnim, { toValue: 1, duration: 500, useNativeDriver: true })
+          ])
+      );
+      flickerLoop.current.start();
+  };
+
+  const stopFlicker = () => {
+      flickerLoop.current?.stop();
+      flickerAnim.setValue(1);
+  };
+
+  const checkForUpdates = async (isAuto = false) => {
+    if (__DEV__ || !Updates.isEnabled) {
+      setUpdateStatus("upToDate");
+      return;
+    }
+    setUpdateStatus("checking");
+    if (!isAuto) startSpin();
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      stopSpin();
+      if (result.isAvailable) {
+          setUpdateStatus("available");
+          startFlicker();
+      } else {
+          setUpdateStatus("upToDate");
+      }
+    } catch {
+      stopSpin();
+      setUpdateStatus("error");
+    }
   };
 
   const applyUpdate = async () => {
-    // No-op
+    if (isUpdating) return;
+    setIsUpdating(true);
+    startSpin();
+    stopFlicker();
+    try {
+      await Updates.fetchUpdateAsync();
+      stopSpin();
+      Alert.alert(
+        "Update Ready 🎉",
+        "The latest code from GitHub has been downloaded. The app will restart to apply it.",
+        [{ text: "Restart Now", onPress: () => Updates.reloadAsync() }]
+      );
+    } catch {
+      stopSpin();
+      setIsUpdating(false);
+      Alert.alert("Update Failed", "Could not download the update. Please try again later.");
+    }
   };
 
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   const cfgMap: Record<UpdateStatus, { color: string; label: string; bg: string; sub: string }> = {
-    idle:      { color: Colors.mutedTeal, label: "Check for Updates",            bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Tap to check for new releases." },
-    checking:  { color: Colors.mutedTeal, label: "Checking…",                   bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Looking for new releases…" },
-    available: { color: "#FF4444",        label: "Update Available – Tap to Install", bg: isDarkMode ? "rgba(255,68,68,0.15)" : "#FFF0F0",    sub: "A new version is ready to install." },
-    upToDate:  { color: "#27AE60",        label: "Up to Date",                  bg: isDarkMode ? "rgba(39,174,96,0.15)"  : "#F0FFF4",         sub: "You're running the latest version." },
+    idle:      { color: Colors.mutedTeal, label: "Check for Updates",            bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Tap to check for GitHub fixes." },
+    checking:  { color: Colors.mutedTeal, label: "Checking…",                   bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Looking for new code…" },
+    available: { color: "#FF4444",        label: "Update Available – Tap to Install", bg: isDarkMode ? "rgba(255,68,68,0.15)" : "#FFF0F0",    sub: "New code is ready to apply." },
+    upToDate:  { color: "#27AE60",        label: "Up to Date",                  bg: isDarkMode ? "rgba(39,174,96,0.15)"  : "#F0FFF4",         sub: "You're running the latest code." },
     error:     { color: Colors.mutedTeal, label: "Could Not Check – Retry",     bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Tap to try again." },
   };
   const cfg = cfgMap[updateStatus];
 
   const handleUpdatePress = () => {
-    checkForUpdates();
+    if (updateStatus === "available") applyUpdate();
+    else checkForUpdates();
   };
 
   const UpdateIcon = () => {
@@ -312,25 +366,27 @@ export const SettingsScreen = ({ navigation }: any) => {
 
         {/* ── App Updates ── */}
         <Text style={styles.sectionTitle}>APP UPDATES</Text>
-        <TouchableOpacity
-          style={[styles.updateCard, { backgroundColor: cfg.bg, borderColor: cfg.color }]}
-          onPress={handleUpdatePress}
-          activeOpacity={0.8}
-          disabled={isUpdating || updateStatus === "checking"}
-        >
-          <View style={styles.updateLeft}>
-            <UpdateIcon />
-            <View style={{ marginLeft: 14, flex: 1 }}>
-              <Text style={[styles.updateLabel, { color: cfg.color }]}>{cfg.label}</Text>
-              <Text style={[styles.updateSub, { color: isDarkMode ? "rgba(255,255,255,0.4)" : Colors.mutedTeal }]}>
-                {cfg.sub}
-              </Text>
-            </View>
-          </View>
-          {updateStatus !== "checking" && !isUpdating && (
-            <ChevronRight size={18} color={cfg.color} />
-          )}
-        </TouchableOpacity>
+        <Animated.View style={{ opacity: updateStatus === 'available' ? flickerAnim : 1 }}>
+            <TouchableOpacity
+                style={[styles.updateCard, { backgroundColor: cfg.bg, borderColor: cfg.color }]}
+                onPress={handleUpdatePress}
+                activeOpacity={0.8}
+                disabled={isUpdating || updateStatus === "checking"}
+            >
+                <View style={styles.updateLeft}>
+                    <UpdateIcon />
+                    <View style={{ marginLeft: 14, flex: 1 }}>
+                    <Text style={[styles.updateLabel, { color: cfg.color }]}>{cfg.label}</Text>
+                    <Text style={[styles.updateSub, { color: isDarkMode ? "rgba(255,255,255,0.4)" : Colors.mutedTeal }]}>
+                        {cfg.sub}
+                    </Text>
+                    </View>
+                </View>
+                {updateStatus !== "checking" && !isUpdating && (
+                    <ChevronRight size={18} color={cfg.color} />
+                )}
+            </TouchableOpacity>
+        </Animated.View>
 
         {/* ── Logout ── */}
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>

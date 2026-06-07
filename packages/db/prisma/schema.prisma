@@ -17,6 +17,10 @@ model User {
   avatarUrl        String?
   bio              String?      @default("Avid reader and story lover.")
   role             Role         @default(READER)
+  coins            Int          @default(0)
+  dateOfBirth      DateTime?
+  otpCode          String?
+  otpExpiry        DateTime?
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
   referrerId       String?

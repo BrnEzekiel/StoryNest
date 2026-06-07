@@ -16,7 +16,7 @@ import {
   Platform,
   RefreshControl
 } from "react-native";
-import { Colors, Shadows } from "../theme/colors";
+import { Colors, Shadows, Spacing, Radii } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { 
   ArrowLeft, 
@@ -35,7 +35,8 @@ import {
   Moon, 
   Sun, 
   Send,
-  Palette
+  Palette,
+  Reply
 } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
@@ -90,6 +91,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [replyTo, setReplyTo] = useState<any>(null);
 
   // Dictionary/Translate
   const [showDictionary, setShowDictionary] = useState(false);
@@ -239,10 +241,45 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
   const handlePostComment = async () => {
       if (!newComment.trim()) return;
       try {
-          await apiClient.post(`/stories/${storyId}/comments`, { content: newComment });
+          await apiClient.post(`/stories/${storyId}/comments`, { 
+              content: newComment.trim(),
+              parentId: replyTo?.id || null
+          });
           setNewComment("");
+          setReplyTo(null);
           fetchComments();
       } catch (e) { console.log(e); }
+  };
+
+  const handleUserDM = (targetUser: any) => {
+      if (!targetUser || targetUser.id === user?.id) return;
+      setShowComments(false);
+      navigation.navigate("Messages", { targetUser });
+  };
+
+  const renderComment = (c: any, depth = 0) => {
+      const replies = comments.filter(r => r.parentId === c.id);
+      return (
+          <View key={c.id} style={[styles.commentWrapper, { marginLeft: depth > 0 ? 16 : 0, borderLeftWidth: depth > 0 ? 1 : 0, borderLeftColor: 'rgba(0,0,0,0.05)' }]}>
+              <View style={styles.commentMain}>
+                  <TouchableOpacity onPress={() => handleUserDM(c.user)} style={styles.commentAvatar}>
+                      {c.user?.avatarUrl ? <Image source={{ uri: c.user.avatarUrl }} style={styles.avatarImg} /> : <View style={[styles.avatarInitials, { backgroundColor: appTheme.primary + '15' }]}><Text style={[styles.avatarTextSmall, { color: appTheme.primary }]}>{c.user?.username ? c.user.username[0].toUpperCase() : '?'}</Text></View>}
+                  </TouchableOpacity>
+                  <View style={styles.commentBody}>
+                      <View style={styles.commentHeader}>
+                          <TouchableOpacity onPress={() => handleUserDM(c.user)}><Text style={[styles.commentUser, { fontFamily: fonts.heading, color: appTheme.primary }]}>{c.user?.username}</Text></TouchableOpacity>
+                          <Text style={[styles.commentTime, { color: Colors.mutedTeal }]}>{new Date(c.createdAt).toLocaleDateString()}</Text>
+                      </View>
+                      <Text style={[styles.commentText, { fontFamily: fonts.body, color: appTheme.black }]}>{c.content}</Text>
+                      <TouchableOpacity style={styles.replyBtn} onPress={() => { setReplyTo(c); setNewComment(`@${c.user.username} `); }}>
+                          <Reply size={14} color={appTheme.primary} />
+                          <Text style={[styles.replyBtnText, { color: appTheme.primary, fontFamily: fonts.heading }]}>REPLY</Text>
+                      </TouchableOpacity>
+                  </View>
+              </View>
+              {replies.map(r => renderComment(r, depth + 1))}
+          </View>
+      );
   };
 
   const handleLookup = async () => {
@@ -328,6 +365,9 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           <Text style={[styles.genre, { color: readerTheme.primary, fontFamily: fonts.body }]}>{story?.genre}</Text>
           <Text style={[styles.title, { color: readerTheme.text, fontFamily: fonts.heading }]}>{story?.title}</Text>
           <View style={styles.chapterHeader}>
+              <TouchableOpacity onPress={() => handleUserDM({ id: story?.ownerId, username: story?.authorName })}>
+                  <Text style={[styles.authorName, { color: readerTheme.meta, fontFamily: fonts.body }]}>by {story?.authorName} (Message)</Text>
+              </TouchableOpacity>
               <Text style={[styles.chapterLabel, { color: readerTheme.meta, fontFamily: fonts.heading }]}>
                   {currentChapter?.title ? currentChapter.title.toUpperCase() : "CHAPTER 1"}
               </Text>
@@ -415,17 +455,24 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
           <View style={[styles.modalOverlay, { backgroundColor: appTheme.white, paddingTop: insets.top + 20 }]}>
               <View style={styles.modalHeader}><Text style={[styles.modalTitle, { color: appTheme.black, fontFamily: fonts.heading }]}>COMMENTS</Text><TouchableOpacity onPress={() => setShowComments(false)}><X size={24} color={appTheme.black} /></TouchableOpacity></View>
               <ScrollView style={{ padding: 24 }} refreshControl={<RefreshControl refreshing={commentsLoading} onRefresh={fetchComments} />}>
-                  {comments.map(c => (
-                      <View key={c.id} style={styles.commentItem}>
-                          <Text style={[styles.commentUser, { fontFamily: fonts.heading, color: appTheme.primary }]}>{c.user?.username}</Text>
-                          <Text style={[styles.commentText, { fontFamily: fonts.body, color: appTheme.black }]}>{c.content}</Text>
-                      </View>
-                  ))}
+                  {comments.filter(c => !c.parentId).map(c => renderComment(c))}
                   {comments.length === 0 && !commentsLoading && <Text style={{ textAlign: 'center', marginTop: 40, opacity: 0.5 }}>No comments yet.</Text>}
               </ScrollView>
+              
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
+                  {replyTo && (
+                      <View style={[styles.replyIndicator, { backgroundColor: appTheme.primary + '10' }]}>
+                          <Text style={[styles.replyToText, { color: appTheme.primary }]}>Replying to {replyTo.user.username}</Text>
+                          <TouchableOpacity onPress={() => { setReplyTo(null); setNewComment(""); }}><X size={14} color={appTheme.primary} /></TouchableOpacity>
+                      </View>
+                  )}
                   <View style={[styles.commentInputRow, { borderTopColor: 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 20 }]}>
-                      <TextInput style={[styles.commentInput, { fontFamily: fonts.body, color: appTheme.black, backgroundColor: appIsDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]} placeholder="Add a comment..." value={newComment} onChangeText={setNewComment} />
+                      <TextInput 
+                        style={[styles.commentInput, { fontFamily: fonts.body, color: appTheme.black, backgroundColor: appIsDarkMode ? 'rgba(255,255,255,0.05)' : '#f5f5f5' }]} 
+                        placeholder="Add a comment..." 
+                        value={newComment} 
+                        onChangeText={setNewComment} 
+                      />
                       <TouchableOpacity onPress={handlePostComment} style={[styles.sendBtn, { backgroundColor: appTheme.primary }]}><Send size={18} color={appTheme.white} /></TouchableOpacity>
                   </View>
               </KeyboardAvoidingView>
@@ -449,6 +496,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 36, lineHeight: 42, marginBottom: 12 },
   chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chapterLabel: { fontSize: 14, letterSpacing: 2 },
+  authorName: { fontSize: 12, marginBottom: 8, opacity: 0.8 },
   bodyContainer: { paddingHorizontal: 24, marginBottom: 40 },
   bodyText: { fontSize: 18 },
   chapterNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 40, borderTopWidth: 1, marginBottom: 60 },
@@ -471,9 +519,24 @@ const styles = StyleSheet.create({
   tocItem: { flexDirection: 'row', alignItems: 'center', padding: 20, justifyContent: 'space-between' },
   tocOrder: { fontSize: 20, width: 40, opacity: 0.3 },
   tocTitle: { fontSize: 16 },
-  commentItem: { marginBottom: 24 },
-  commentUser: { fontSize: 12, marginBottom: 4 },
+  
+  // Comments
+  commentWrapper: { marginBottom: 12, paddingVertical: 8 },
+  commentMain: { flexDirection: 'row', paddingRight: 24 },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarInitials: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  avatarTextSmall: { fontSize: 12, fontWeight: '700' },
+  commentBody: { flex: 1, marginLeft: 12 },
+  commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  commentUser: { fontSize: 13 },
+  commentTime: { fontSize: 10, opacity: 0.5 },
   commentText: { fontSize: 14, lineHeight: 20 },
+  replyBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  replyBtnText: { fontSize: 10, marginLeft: 4, letterSpacing: 1 },
+  replyIndicator: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+  replyToText: { fontSize: 12, fontStyle: 'italic' },
+  
   commentInputRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1 },
   commentInput: { flex: 1, height: 44, borderRadius: 22, paddingHorizontal: 16, fontSize: 14 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, marginLeft: 12, justifyContent: 'center', alignItems: 'center' },

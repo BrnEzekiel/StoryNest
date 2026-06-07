@@ -12,7 +12,6 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, ThemeMode } from "../context/ThemeContext";
-import * as Updates from "expo-updates";
 import * as LocalAuthentication from "expo-local-authentication";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,7 +33,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [notifications, setNotifications] = React.useState(user?.notificationsOn || false);
   const [updatingNotifs, setUpdatingNotifs] = React.useState(false);
   const [biometricEnabled, setBiometricEnabled] = React.useState(false);
-  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("upToDate");
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   
@@ -43,7 +42,6 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   // Auto-check on mount
   React.useEffect(() => {
-    checkForUpdates();
     loadBiometricSetting();
   }, []);
 
@@ -168,39 +166,11 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const checkForUpdates = async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      setUpdateStatus("upToDate");
-      return;
-    }
-    setUpdateStatus("checking");
-    startSpin();
-    try {
-      const result = await Updates.checkForUpdateAsync();
-      stopSpin();
-      setUpdateStatus(result.isAvailable ? "available" : "upToDate");
-    } catch {
-      stopSpin();
-      setUpdateStatus("error");
-    }
+    setUpdateStatus("upToDate");
   };
 
   const applyUpdate = async () => {
-    if (isUpdating) return;
-    setIsUpdating(true);
-    startSpin();
-    try {
-      await Updates.fetchUpdateAsync();
-      stopSpin();
-      Alert.alert(
-        "Update Ready 🎉",
-        "The update has been downloaded. The app will restart to apply it.",
-        [{ text: "Restart Now", onPress: () => Updates.reloadAsync() }]
-      );
-    } catch {
-      stopSpin();
-      setIsUpdating(false);
-      Alert.alert("Update Failed", "Could not download the update. Please try again later.");
-    }
+    // No-op
   };
 
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
@@ -215,8 +185,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   const cfg = cfgMap[updateStatus];
 
   const handleUpdatePress = () => {
-    if (updateStatus === "available") applyUpdate();
-    else checkForUpdates();
+    checkForUpdates();
   };
 
   const UpdateIcon = () => {

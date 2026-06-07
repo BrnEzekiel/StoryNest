@@ -50,6 +50,13 @@ export const ProfileScreen = ({ navigation }: any) => {
                 </View>
                 <Text style={[styles.username, { fontFamily: fonts.heading, color: Colors.white }]}>{user?.username}</Text>
                 <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
+                
+                <TouchableOpacity 
+                    style={[styles.editBtn, { borderColor: Colors.accent }]} 
+                    onPress={() => navigation.navigate("EditProfile")}
+                >
+                    <Text style={[styles.editBtnText, { fontFamily: fonts.heading, color: Colors.accent }]}>EDIT PROFILE</Text>
+                </TouchableOpacity>
             </LinearGradient>
         </View>
 
@@ -74,6 +81,8 @@ const styles = StyleSheet.create({
   xpText: { fontSize: 10, color: Colors.primary },
   username: { fontSize: 24, marginBottom: 4 },
   userRole: { fontSize: 12, letterSpacing: 2 },
+  editBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  editBtnText: { fontSize: 11, letterSpacing: 1 },
   menuGrid: { padding: 24, marginTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
   menuIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

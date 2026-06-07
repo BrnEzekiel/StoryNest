@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { Home, Compass, Bookmark, User } from "lucide-react-native";
 import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -9,8 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Selection } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Dimensions } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Dimensions, View } from "react-native";
 
 // Screens
 import { LoginScreen } from "../screens/LoginScreen";
@@ -34,15 +32,15 @@ import { MessagesScreen } from "../screens/MessagesScreen";
 import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
 
 const { width } = Dimensions.get("window");
-const Tab = createMaterialTopTabNavigator();
+const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const TabNavigator = () => {
-  const { isDarkMode, tabOrder } = useTheme();
+  const { isDarkMode, tabOrder, theme, fonts } = useTheme();
   const insets = useSafeAreaInsets();
 
   const renderTabIcon = (name: string, color: string) => {
-    const size = 22;
+    const size = 24;
     if (name === "Home") return <Home color={color} size={size} />;
     if (name === "Explore") return <Compass color={color} size={size} />;
     if (name === "Saved") return <Bookmark color={color} size={size} />;
@@ -60,40 +58,35 @@ const TabNavigator = () => {
 
   return (
     <Tab.Navigator
-      tabBarPosition="bottom"
       screenListeners={{
         state: (e) => {
           Selection();
         },
       }}
       screenOptions={({ route }) => ({
+        headerShown: false,
         tabBarIcon: ({ color }: any) => renderTabIcon(route.name, color),
-        tabBarActiveTintColor: Colors.primary,
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: Colors.mutedTeal,
-        tabBarPressColor: 'transparent',
-        tabBarIndicatorStyle: {
-          top: 0,
-          backgroundColor: Colors.primary,
-          height: 3,
-          width: 40,
-          marginLeft: (width / 4 - 40) / 2,
-          borderRadius: 2,
-        },
         tabBarStyle: {
-          backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white,
-          borderTopColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen,
+          backgroundColor: theme.white,
+          borderTopColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
           height: 65 + insets.bottom,
-          paddingBottom: insets.bottom + 10,
-          elevation: 0,
-          shadowOpacity: 0,
+          paddingBottom: insets.bottom + 5,
+          paddingTop: 10,
+          elevation: 20,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
         },
         tabBarLabelStyle: {
-          fontFamily: Fonts.body,
+          fontFamily: fonts.heading,
           fontSize: 10,
-          textTransform: 'none',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginBottom: 5,
         },
-        tabBarShowIcon: true,
-        swipeEnabled: true,
       })}
     >
       {tabOrder.map(name => (

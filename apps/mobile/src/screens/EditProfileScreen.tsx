@@ -29,7 +29,22 @@ export const EditProfileScreen = ({ navigation }: any) => {
     }
     setLoading(true);
     try {
-      await apiClient.put("/users/me/profile", { username, bio });
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("bio", bio);
+
+      if (image && image !== user?.avatarUrl) {
+          const filename = image.split('/').pop() || 'avatar.jpg';
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image`;
+          // @ts-ignore
+          formData.append("avatar", { uri: image, name: filename, type });
+      }
+
+      await apiClient.put("/users/me/profile", formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       await refreshUser();
       Alert.alert("Success", "Profile identity updated!");
       navigation.goBack();

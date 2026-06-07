@@ -15,6 +15,7 @@ model User {
   firebaseUid      String?      @unique
   refreshToken     String?
   avatarUrl        String?
+  bio              String?      @default("Avid reader and story lover.")
   role             Role         @default(READER)
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
@@ -32,7 +33,22 @@ model User {
   streakCount      Int          @default(0)
   lastReadDate     DateTime?
   totalReadTime    Int          @default(0)
+  readerTheme      String       @default("light")
+  readerFontSize   String       @default("medium")
+  sentMessages     Message[]    @relation("sentMessages")
+  receivedMessages Message[]    @relation("receivedMessages")
   createdAt        DateTime     @default(now())
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String   @db.Text
+  senderId   String
+  receiverId String
+  sender     User     @relation("sentMessages", fields: [senderId], references: [id])
+  receiver   User     @relation("receivedMessages", fields: [receiverId], references: [id])
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }
 
 model Achievement {
@@ -64,25 +80,41 @@ model Follows {
 }
 
 model Story {
-  id             String     @id @default(uuid())
-  title          String
-  body           String     @db.Text
-  summary        String?    @db.Text
-  genre          String
-  coverUrl       String?
-  authorName     String
-  readingTime    Int        @default(0)
-  isFeatured     Boolean    @default(false)
-  isDraft        Boolean    @default(true)
-  isFlagged      Boolean    @default(false)
-  publishedAt    DateTime?
-  versions       Version[]
-  likes          Like[]
-  comments       Comment[]
-  history        History[]
-  bookmarks      Bookmark[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id              String     @id @default(uuid())
+  title           String
+  body            String     @db.Text @default("")
+  summary         String?    @db.Text
+  genre           String
+  mood            String?    @default("Neutral")
+  coverUrl        String?
+  authorName      String
+  readingTime     Int        @default(0)
+  isFeatured      Boolean    @default(false)
+  isDraft         Boolean    @default(true)
+  isFlagged       Boolean    @default(false)
+  isAdult         Boolean    @default(false)
+  contentWarnings String?
+  publishedAt     DateTime?
+  chapters        Chapter[]
+  versions        Version[]
+  likes           Like[]
+  comments        Comment[]
+  history         History[]
+  bookmarks       Bookmark[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Chapter {
+  id          String    @id @default(uuid())
+  storyId     String
+  title       String
+  body        String    @db.Text
+  order       Int       @default(0)
+  isDraft     Boolean   @default(true)
+  publishedAt DateTime?
+  story       Story     @relation(fields: [storyId], references: [id])
+  createdAt   DateTime  @default(now())
 }
 
 model Version {

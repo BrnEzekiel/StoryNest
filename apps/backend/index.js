@@ -79,9 +79,7 @@ const handleMentions = async (content, storyId, senderId) => {
         const username = m.substring(1);
         const target = await prisma.user.findUnique({ where: { username } });
         if (target && target.id !== senderId) {
-            await prisma.activity.create({
-                data: { userId: senderId, targetUserId: target.id, type: "MENTION", storyId, content }
-            });
+            // Placeholder for notification system
         }
     }
 };
@@ -112,9 +110,9 @@ const isAdmin = (req, res, next) => {
 const canEditStory = async (req, res, next) => {
     try {
         const storyId = req.params.id || req.body.storyId;
-        const story = await prisma.story.findUnique({ where: { id: storyId }, include: { coAuthors: true } });
+        const story = await prisma.story.findUnique({ where: { id: storyId } });
         if (!story) return res.status(404).json({ error: "Story not found" });
-        if (story.ownerId === req.user.id || story.coAuthors.some(ca => ca.id === req.user.id) || req.user.role === "ADMIN") next();
+        if (story.ownerId === req.user.id || req.user.role === "ADMIN") next();
         else res.status(403).json({ error: "No edit access" });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
@@ -198,6 +196,18 @@ app.post("/auth/refresh", async (req, res) => {
 
 // --- STORIES ---
 
+app.get("/stories", async (req, res) => {
+  const { genre, mood, q, limit } = req.query;
+  try {
+    const where = { isDraft: false };
+    if (genre && genre !== "All") where.genre = genre;
+    if (mood && mood !== "All") where.mood = mood;
+    if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { authorName: { contains: q, mode: "insensitive" } }];
+    const stories = await prisma.story.findMany({ where, take: limit ? parseInt(limit) : 50, orderBy: { createdAt: "desc" }, include: { _count: { select: { likes: true, comments: true } } } });
+    res.json(stories);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get("/stories/trending", async (req, res) => {
     try {
         const stories = await prisma.story.findMany({
@@ -222,39 +232,18 @@ app.get("/stories/recommendations", authenticate, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/stories", async (req, res) => {
-  const { genre, mood, q, limit } = req.query;
-  const now = new Date();
-  try {
-    const where = { isDraft: false, OR: [{ publishedAt: null }, { publishedAt: { lte: now } }] };
-    if (genre && genre !== "All") where.genre = genre;
-    if (mood && mood !== "All") where.mood = mood;
-    if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { authorName: { contains: q, mode: "insensitive" } }];
-    const stories = await prisma.story.findMany({ where, take: limit ? parseInt(limit) : 50, orderBy: { createdAt: "desc" }, include: { _count: { select: { likes: true, reviews: true } } } });
-    res.json(stories);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
 app.get("/stories/:id", async (req, res) => {
-  console.log("[Stories] Fetching ID:", req.params.id);
   const authHeader = req.headers.authorization;
   let userId = null;
   if (authHeader && authHeader.startsWith("Bearer ")) {
       try { userId = jwt.verify(authHeader.split(" ")[1], config.jwtAccessSecret).id; } catch (e) {}
   }
-  const now = new Date();
   try {
     const story = await prisma.story.findUnique({
       where: { id: req.params.id },
       include: { 
-          _count: { select: { likes: true, comments: true, reviews: true } },
-          characters: true, worldEntries: true,
-          chapters: { 
-              where: { isDraft: false }, 
-              orderBy: { order: "asc" }, 
-              select: { id: true, title: true, body: true, order: true } 
-          },
-          polls: { where: { isActive: true }, include: { options: { include: { _count: { select: { votes: true } } } } } }
+          _count: { select: { likes: true, comments: true } },
+          chapters: { where: { isDraft: false }, orderBy: { order: "asc" } }
       }
     });
     if (!story) return res.status(404).json({ error: "Not found" });
@@ -269,85 +258,36 @@ app.get("/stories/:id", async (req, res) => {
         isLiked = !!like;
         bookmarkProgress = bookmark ? bookmark.progress : 0;
     }
-    res.json({ ...story, isUnlocked: true, isLiked, bookmarkProgress });
+    res.json({ ...story, isLiked, bookmarkProgress });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
-    console.log("[Stories] POST Body:", req.body);
-    console.log("[Stories] POST File:", req.file ? "File Received" : "No File");
-    
-    const { title, genre, authorName, mood, body, summary, coverUrl: bodyCoverUrl, readingTime } = req.body;
+    const { title, genre, authorName, mood, body, summary, readingTime } = req.body;
     try {
         const story = await prisma.story.create({
             data: { 
                 title, genre, authorName, mood, summary, 
                 ownerId: req.user.id, 
                 readingTime: readingTime ? parseInt(readingTime) : 5,
-                coverUrl: req.file ? req.file.path : (bodyCoverUrl || null), 
+                coverUrl: req.file ? req.file.path : null, 
                 isDraft: false,
                 publishedAt: new Date(),
                 chapters: body ? { create: { title: "Chapter 1", body, order: 1 } } : undefined 
             }
         });
         res.status(201).json(story);
-    } catch (e) { 
-        console.error("[Stories] Create Error:", e.message);
-        res.status(500).json({ error: e.message }); 
-    }
-});
-
-app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
-    console.log("[Stories] PUT Body:", req.body);
-    const { title, genre, authorName, mood, summary, coverUrl, readingTime } = req.body;
-    
-    const updateData = {};
-    if (title) updateData.title = title;
-    if (genre) updateData.genre = genre;
-    if (authorName) updateData.authorName = authorName;
-    if (mood) updateData.mood = mood;
-    if (summary) updateData.summary = summary;
-    if (readingTime) updateData.readingTime = parseInt(readingTime);
-
-    if (req.file) {
-        updateData.coverUrl = req.file.path;
-    } else if (coverUrl) {
-        updateData.coverUrl = coverUrl;
-    }
-    
-    try {
-        const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
-        res.json(story);
-    } catch (e) { 
-        console.error("[Stories] Update Error:", e.message);
-        res.status(500).json({ error: e.message }); 
-    }
-});
-
-// --- INTERACTION (LIKE, READ) ---
-
-app.post("/stories/:id/like", authenticate, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const storyId = req.params.id;
-        const existing = await prisma.like.findUnique({ where: { userId_storyId: { userId, storyId } } });
-        if (existing) {
-            await prisma.like.delete({ where: { id: existing.id } });
-            return res.json({ isLiked: false });
-        }
-        await prisma.like.create({ data: { userId, storyId } });
-        await prisma.activity.create({ data: { userId, storyId, type: "LIKE" } });
-        res.json({ isLiked: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/stories/:id/read", authenticate, async (req, res) => {
+app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
+    const { title, genre, authorName, mood, summary, readingTime } = req.body;
+    const updateData = { title, genre, authorName, mood, summary, readingTime: readingTime ? parseInt(readingTime) : undefined };
+    if (req.file) updateData.coverUrl = req.file.path;
     try {
-        await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
-        await prisma.activity.create({ data: { userId: req.user.id, storyId: req.params.id, type: "READ" } });
-        await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
-        res.json({ status: "success" });
-    } catch (e) { res.json({ status: "ok" }); }
+        const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
+        res.json(story);
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- CHAPTERS ---
@@ -360,23 +300,23 @@ app.get("/chapters/:id", async (req, res) => {
 });
 
 app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) => {
-    const { title, body, order, publishedAt } = req.body;
+    const { title, body, order } = req.body;
     try {
         const chapter = await prisma.chapter.create({
-            data: { storyId: req.params.id, title, body, order: parseInt(order) || 0, publishedAt: publishedAt ? new Date(publishedAt) : null }
+            data: { storyId: req.params.id, title, body, order: parseInt(order) || 0 }
         });
         res.status(201).json(chapter);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- SOCIAL (COMMENTS, REVIEWS, POLLS, PLAYLISTS) ---
+// --- SOCIAL (COMMENTS, MESSAGES) ---
 
 app.get("/stories/:id/comments", async (req, res) => {
     try {
         const comments = await prisma.comment.findMany({
-            where: { storyId: req.params.id, parentId: req.query.parentId || null },
-            include: { user: true, _count: { select: { replies: true } } },
-            orderBy: { createdAt: "desc" }
+            where: { storyId: req.params.id },
+            include: { user: { select: { id: true, username: true, avatarUrl: true } } },
+            orderBy: { createdAt: "asc" }
         });
         res.json(comments);
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -385,58 +325,13 @@ app.get("/stories/:id/comments", async (req, res) => {
 app.post("/stories/:id/comments", authenticate, async (req, res) => {
     const { content, parentId } = req.body;
     try {
-        const comment = await prisma.comment.create({ data: { userId: req.user.id, storyId: req.params.id, content, parentId } });
-        await handleMentions(content, req.params.id, req.user.id);
+        const comment = await prisma.comment.create({ 
+            data: { userId: req.user.id, storyId: req.params.id, content, parentId: parentId || null },
+            include: { user: { select: { id: true, username: true, avatarUrl: true } } }
+        });
         res.status(201).json(comment);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
-app.get("/stories/:id/reviews", async (req, res) => {
-    try {
-        const reviews = await prisma.review.findMany({ where: { storyId: req.params.id }, include: { user: true }, orderBy: { createdAt: "desc" } });
-        res.json(reviews);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/stories/:id/reviews", authenticate, async (req, res) => {
-    const { rating, content } = req.body;
-    try {
-        const review = await prisma.review.create({ data: { userId: req.user.id, storyId: req.params.id, rating, content } });
-        res.status(201).json(review);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/polls/:id/vote", authenticate, async (req, res) => {
-    const { optionId } = req.body;
-    try {
-        const vote = await prisma.pollVote.create({ data: { userId: req.user.id, pollId: req.params.id, optionId } });
-        res.status(201).json(vote);
-    } catch (e) { res.status(400).json({ error: "Vote failed" }); }
-});
-
-app.get("/playlists/me", authenticate, async (req, res) => {
-    try {
-        const playlists = await prisma.playlist.findMany({ where: { userId: req.user.id }, include: { stories: { include: { story: true } } } });
-        res.json(playlists);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/playlists", authenticate, async (req, res) => {
-    const { title, description } = req.body;
-    try {
-        const playlist = await prisma.playlist.create({ data: { userId: req.user.id, title, description } });
-        res.status(201).json(playlist);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/playlists/:id/stories", authenticate, async (req, res) => {
-    try {
-        await prisma.playlistStory.create({ data: { playlistId: req.params.id, storyId: req.body.storyId } });
-        res.json({ message: "Added" });
-    } catch (e) { res.status(400).json({ error: "Failed" }); }
-});
-
-// --- MESSAGING ---
 
 app.get("/messages/conversations", authenticate, async (req, res) => {
     try {
@@ -446,132 +341,91 @@ app.get("/messages/conversations", authenticate, async (req, res) => {
             orderBy: { createdAt: "desc" },
             include: { sender: true, receiver: true }
         });
-        const convs = []; const seen = new Set();
-        for (const m of messages) {
-            const other = m.senderId === userId ? m.receiver : m.sender;
-            if (other && !seen.has(other.id)) { convs.push({ user: other, lastMessage: m }); seen.add(other.id); }
-        }
-        res.json(convs);
+
+        const conversationsMap = new Map();
+        messages.forEach(msg => {
+            const otherUser = msg.senderId === userId ? msg.receiver : msg.sender;
+            if (!conversationsMap.has(otherUser.id)) {
+                conversationsMap.set(otherUser.id, { 
+                    user: { id: otherUser.id, username: otherUser.username, avatarUrl: otherUser.avatarUrl }, 
+                    lastMessage: msg 
+                });
+            }
+        });
+
+        res.json(Array.from(conversationsMap.values()));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/messages/:userId", authenticate, async (req, res) => {
+    try {
+        const messages = await prisma.message.findMany({
+            where: {
+                OR: [
+                    { senderId: req.user.id, receiverId: req.params.userId },
+                    { senderId: req.params.userId, receiverId: req.user.id }
+                ]
+            },
+            orderBy: { createdAt: "asc" }
+        });
+        res.json(messages);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/messages", authenticate, async (req, res) => {
-    const { receiverId, content } = req.body;
     try {
-        const msg = await prisma.message.create({ data: { senderId: req.user.id, receiverId, content } });
-        await handleMentions(content, null, req.user.id);
-        res.status(201).json(msg);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- USER TOOLS (NOTES, HIGHLIGHTS, FOLLOWS) ---
-
-app.get("/stories/:id/notes", authenticate, async (req, res) => {
-    try {
-        const notes = await prisma.note.findMany({ where: { storyId: req.params.id, userId: req.user.id } });
-        res.json(notes);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/stories/:id/notes", authenticate, async (req, res) => {
-    try {
-        const note = await prisma.note.create({ data: { userId: req.user.id, storyId: req.params.id, content: req.body.content } });
-        res.status(201).json(note);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/stories/:id/highlights", authenticate, async (req, res) => {
-    try {
-        const highlights = await prisma.highlight.findMany({ where: { storyId: req.params.id, userId: req.user.id } });
-        res.json(highlights);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/stories/:id/highlights", authenticate, async (req, res) => {
-    try {
-        const highlight = await prisma.highlight.create({ data: { userId: req.user.id, storyId: req.params.id, content: req.body.content, color: req.body.color } });
-        res.status(201).json(highlight);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/users/:id/follow", authenticate, async (req, res) => {
-    try {
-        await prisma.follows.create({ data: { followerId: req.user.id, followingId: req.params.id } });
-        res.json({ message: "Followed" });
-    } catch (e) { res.status(400).json({ error: "Already following" }); }
-});
-
-app.post("/users/:id/tip", authenticate, async (req, res) => {
-    const { amount } = req.body;
-    try {
-        const sender = await prisma.user.findUnique({ where: { id: req.user.id } });
-        if (sender.coins < amount) return res.status(400).json({ error: "Insufficient coins" });
-        await prisma.$transaction([
-            prisma.user.update({ where: { id: req.user.id }, data: { coins: { decrement: amount } } }),
-            prisma.user.update({ where: { id: req.params.id }, data: { coins: { increment: amount } } }),
-            prisma.purchase.create({ data: { userId: req.user.id, amount: -amount, type: "TIP" } })
-        ]);
-        res.json({ message: "Tip sent" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- ADMIN & ANALYTICS ---
-
-app.get("/admin/my-stories", authenticate, async (req, res) => {
-    try {
-        const stories = await prisma.story.findMany({
-            where: { OR: [{ ownerId: req.user.id }, { coAuthors: { some: { id: req.user.id } } }] },
-            include: { _count: { select: { likes: true, history: true } }, coAuthors: true },
-            orderBy: { updatedAt: "desc" }
+        const { receiverId, content } = req.body;
+        const message = await prisma.message.create({
+            data: { content, senderId: req.user.id, receiverId }
         });
-        res.json(stories);
+        res.status(201).json(message);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/admin/analytics", authenticate, async (req, res) => {
+// --- INTERACTION (LIKE, READ, BOOKMARK) ---
+
+app.post("/stories/:id/like", authenticate, async (req, res) => {
     try {
-        const stories = await prisma.story.findMany({
-            where: { ownerId: req.user.id },
-            include: { _count: { select: { likes: true, comments: true, history: true, reviews: true } } }
+        const userId = req.user.id;
+        const storyId = req.params.id;
+        const existing = await prisma.like.findUnique({ where: { userId_storyId: { userId, storyId } } });
+        if (existing) {
+            await prisma.like.delete({ where: { id: existing.id } });
+            return res.json({ isLiked: false });
+        }
+        await prisma.like.create({ data: { userId, storyId } });
+        res.json({ isLiked: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/stories/:id/read", authenticate, async (req, res) => {
+    try {
+        await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
+        await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
+        res.json({ status: "success" });
+    } catch (e) { res.json({ status: "ok" }); }
+});
+
+app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
+    const { progress } = req.body;
+    try {
+        const bookmark = await prisma.bookmark.upsert({
+            where: { userId_storyId: { userId: req.user.id, storyId: req.params.id } },
+            update: { progress },
+            create: { userId: req.user.id, storyId: req.params.id, progress }
         });
-        res.json(stories.map(s => ({ id: s.id, title: s.title, reads: s._count.history, likes: s._count.likes, comments: s._count.comments, reviews: s._count.reviews })));
+        res.json(bookmark);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/admin/stats", authenticate, isAdmin, async (req, res) => {
+// --- USER PROFILE & PREFERENCES ---
+
+app.get("/users/me", authenticate, async (req, res) => {  
     try {
-        const [storyCount, totalReads, userCount] = await Promise.all([prisma.story.count(), prisma.history.count(), prisma.user.count()]);
-        res.json({ storyCount, totalReads, userCount });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// --- AI ---
-
-app.post("/ai/assist", authenticate, async (req, res) => {
-    const { text, type } = req.body;
-    if (!config.geminiApiKey) return res.status(500).json({ error: "AI Key missing" });
-    try {
-        const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`,
-            { contents: [{ parts: [{ text: `You are an expert story writer. ${type === "twist" ? "Suggest a plot twist for:" : "Continue this story (150 words):"} \n\n${text}` }] }] }
-        );
-        res.json({ result: response.data.candidates[0].content.parts[0].text });
-    } catch (e) { res.status(500).json({ error: "AI failed" }); }
-});
-
-app.post("/ai/translate", authenticate, async (req, res) => {
-    try {
-        const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiApiKey}`,
-            { contents: [{ parts: [{ text: `Translate this into ${req.body.targetLanguage}: \n\n${req.body.text}` }] }] }
-        );
-        res.json({ result: response.data.candidates[0].content.parts[0].text });
-    } catch (e) { res.status(500).json({ error: "Translation failed" }); }
-});
-
-// --- USER ME ---
-
-app.get("/users/me", authenticate, async (req, res) => {
-    try {
-        const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { bookmarks: true, achievements: true } });
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { id: true, email: true, username: true, avatarUrl: true, role: true, readerTheme: true, readerFontSize: true }
+        });
         res.json(user);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -588,9 +442,29 @@ app.get("/users/me/bookmarks", authenticate, async (req, res) => {
 });
 
 app.post("/users/me/preferences", authenticate, async (req, res) => {
-    const { readerTheme } = req.body;
+    const { readerTheme, readerFontSize } = req.body;
     try {
-        const user = await prisma.user.update({ where: { id: req.user.id }, data: { readerTheme } });
+        const user = await prisma.user.update({ 
+            where: { id: req.user.id }, 
+            data: { readerTheme, readerFontSize } 
+        });
+        res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/users/me/profile", authenticate, upload.single("avatar"), async (req, res) => {
+    try {
+        const { username, bio } = req.body;
+        const updateData = {};
+        if (username) updateData.username = username;
+        if (bio) updateData.bio = bio;
+        if (req.file) updateData.avatarUrl = req.file.path;
+        
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: updateData,
+            select: { id: true, email: true, username: true, avatarUrl: true, bio: true, role: true, readerTheme: true, readerFontSize: true }
+        });
         res.json(user);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -602,4 +476,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.0 (COMPLETE) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.1 (STABLE) running on port ${PORT}`));

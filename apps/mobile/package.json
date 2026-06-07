@@ -55,6 +55,7 @@
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
+    "expo-updates": "^56.0.18",
     "expo-web-browser": "~13.0.3",
     "firebase": "^10.7.1",
     "i18next": "23.7.6",

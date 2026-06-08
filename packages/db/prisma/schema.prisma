@@ -23,6 +23,9 @@ model User {
   otpExpiry        DateTime?
   isPremium        Boolean      @default(false)
   premiumExpiresAt DateTime?
+  tosAccepted      Boolean      @default(false)
+  privacyAccepted  Boolean      @default(false)
+  emailVerified    Boolean      @default(false)
   referrerId       String?
   dailyGoalMinutes Int          @default(30)
   xp               Int          @default(0)

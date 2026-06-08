@@ -119,7 +119,7 @@ const canEditStory = async (req, res, next) => {
 
 // --- ROUTES ---
 
-app.get("/health", (req, res) => res.json({ status: "ok", version: "3.7.0" }));
+app.get("/health", (req, res) => res.json({ status: "ok", version: "3.7.6", schema: "social_master_v2", timestamp: new Date().toISOString() }));
 
 // --- AUTH ---
 
@@ -486,4 +486,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.5 (STABLE) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.6 (STABLE) running on port ${PORT}`));

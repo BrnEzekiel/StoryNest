@@ -169,7 +169,12 @@ app.post("/auth/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const updatedUser = await prisma.user.update({
       where: { email },
-      data: { username, password: hashedPassword, firebaseUid, tosAccepted, privacyAccepted }
+      data: { 
+          username, password: hashedPassword, firebaseUid, 
+          tosAccepted: !!tosAccepted, privacyAccepted: !!privacyAccepted,
+          notificationsOn: true,
+          recsEnabled: true
+      }
     });
     const tokens = generateTokens(updatedUser);
     res.status(201).json({ user: updatedUser, ...tokens });

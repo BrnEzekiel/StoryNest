@@ -476,4 +476,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.1 (STABLE) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.2 (STABLE) running on port ${PORT}`));

@@ -42,6 +42,8 @@ model User {
   totalReadTime    Int          @default(0)
   readerTheme      String       @default("light")
   readerFontSize   String       @default("medium")
+  notificationsOn  Boolean      @default(true)
+  recsEnabled      Boolean      @default(true)
   sentMessages     Message[]    @relation("sentMessages")
   receivedMessages Message[]    @relation("receivedMessages")
   createdAt        DateTime     @default(now())

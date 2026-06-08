@@ -434,7 +434,22 @@ app.get("/users/me", authenticate, async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
-            select: { id: true, email: true, username: true, avatarUrl: true, role: true, readerTheme: true, readerFontSize: true }
+            select: { 
+                id: true, email: true, username: true, avatarUrl: true, bio: true,
+                role: true, readerTheme: true, readerFontSize: true,
+                notificationsOn: true, recsEnabled: true, coins: true
+            }
+        });
+        res.json(user);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/users/me/settings", authenticate, async (req, res) => {
+    const { notificationsOn, recsEnabled } = req.body;
+    try {
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { notificationsOn, recsEnabled }
         });
         res.json(user);
     } catch (e) { res.status(500).json({ error: e.message }); }

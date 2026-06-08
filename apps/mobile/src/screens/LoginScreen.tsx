@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as Updates from "expo-updates";
 import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
@@ -12,6 +13,7 @@ import { useTheme } from "../context/ThemeContext";
 import Svg, { Path } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { HeaderWave } from "../components/HeaderWave";
+import { RefreshCw } from "lucide-react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,7 +37,28 @@ export const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otaStatus, setOtaStatus] = useState<"idle" | "checking" | "applying">("idle");
   const { login, loginWithGoogle } = useAuth();
+
+  useEffect(() => {
+    checkOTAUpdate();
+  }, []);
+
+  const checkOTAUpdate = async () => {
+      if (__DEV__ || !Updates.isEnabled) return;
+      try {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+              setOtaStatus("applying");
+              await Updates.fetchUpdateAsync();
+              Alert.alert("Update Ready", "The latest fixes have been downloaded. Restarting now...", [
+                  { text: "Restart", onPress: () => Updates.reloadAsync() }
+              ]);
+          }
+      } catch (e) {
+          console.log("[Login OTA] No updates or error:", e);
+      }
+  };
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',

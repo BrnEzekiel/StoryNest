@@ -119,7 +119,7 @@ const canEditStory = async (req, res, next) => {
 
 // --- ROUTES ---
 
-app.get("/health", (req, res) => res.json({ status: "ok", version: "3.7.6", schema: "social_master_v2", timestamp: new Date().toISOString() }));
+app.get("/health", (req, res) => res.json({ status: "ok", version: "3.7.10", schema: "social_master_v3_stable", timestamp: new Date().toISOString() }));
 
 // --- AUTH ---
 
@@ -139,11 +139,12 @@ app.post("/auth/otp/initiate", async (req, res) => {
                 otpCode: otp, 
                 otpExpiry: expiry, 
                 dateOfBirth: dob ? new Date(dob) : null,
-                tosAccepted: true, // Auto-accept during initial OTP phase to bypass schema strictness
+                tosAccepted: true, 
                 privacyAccepted: true,
                 emailVerified: false,
                 notificationsOn: true,
-                recsEnabled: true
+                recsEnabled: true,
+                coins: 0
             }
         });
         sendOTPEmail(email, otp).catch(e => console.error(e));
@@ -171,9 +172,11 @@ app.post("/auth/register", async (req, res) => {
       where: { email },
       data: { 
           username, password: hashedPassword, firebaseUid, 
-          tosAccepted: !!tosAccepted, privacyAccepted: !!privacyAccepted,
+          tosAccepted: true, 
+          privacyAccepted: true,
           notificationsOn: true,
-          recsEnabled: true
+          recsEnabled: true,
+          coins: 0
       }
     });
     const tokens = generateTokens(updatedUser);
@@ -197,7 +200,8 @@ app.post("/auth/login", async (req, res) => {
             tosAccepted: true, 
             privacyAccepted: true,
             notificationsOn: true,
-            recsEnabled: true
+            recsEnabled: true,
+            coins: 0
         } });
     } else {
         user = await prisma.user.findUnique({ where: { email } });

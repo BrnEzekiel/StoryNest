@@ -141,7 +141,9 @@ app.post("/auth/otp/initiate", async (req, res) => {
                 dateOfBirth: dob ? new Date(dob) : null,
                 tosAccepted: true, // Auto-accept during initial OTP phase to bypass schema strictness
                 privacyAccepted: true,
-                emailVerified: false
+                emailVerified: false,
+                notificationsOn: true,
+                recsEnabled: true
             }
         });
         sendOTPEmail(email, otp).catch(e => console.error(e));
@@ -182,7 +184,16 @@ app.post("/auth/login", async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const firebaseEmail = decodedToken.email;
         user = await prisma.user.findUnique({ where: { email: firebaseEmail } });
-        if (!user) user = await prisma.user.create({ data: { email: firebaseEmail, username: `nestling_${uuidv4().substring(0, 4)}`, password: "google_auth", emailVerified: true, tosAccepted: true, privacyAccepted: true } });
+        if (!user) user = await prisma.user.create({ data: { 
+            email: firebaseEmail, 
+            username: `nestling_${uuidv4().substring(0, 4)}`, 
+            password: "google_auth", 
+            emailVerified: true, 
+            tosAccepted: true, 
+            privacyAccepted: true,
+            notificationsOn: true,
+            recsEnabled: true
+        } });
     } else {
         user = await prisma.user.findUnique({ where: { email } });
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: "Invalid credentials" });
@@ -501,4 +512,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.6 (STABLE) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.7 (STABLE) running on port ${PORT}`));

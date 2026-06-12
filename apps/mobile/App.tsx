@@ -20,6 +20,7 @@ import { View } from "react-native";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "./src/components/BiometricGate";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -59,17 +60,19 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider onLayout={onLayoutRootView}>
-      <ThemeProvider>
-        <AuthProvider>
-          <BiometricGate>
-            <NavigationContainer>
-              <StatusBar style="light" translucent backgroundColor="transparent" />
-              <MainNavigator />
-            </NavigationContainer>
-          </BiometricGate>
-        </AuthProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider onLayout={onLayoutRootView}>
+        <ThemeProvider>
+          <AuthProvider>
+            <BiometricGate>
+              <NavigationContainer>
+                <StatusBar style="light" translucent backgroundColor="transparent" />
+                <MainNavigator />
+              </NavigationContainer>
+            </BiometricGate>
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

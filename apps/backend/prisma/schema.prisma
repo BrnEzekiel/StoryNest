@@ -31,6 +31,7 @@ model User {
   otpCode          String?
   otpExpiry        DateTime?
   notificationsOn  Boolean      @default(true)
+  recsEnabled      Boolean      @default(true)
 
   referrerId       String?
   dailyGoalMinutes Int          @default(30)

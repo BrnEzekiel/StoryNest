@@ -43,6 +43,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- HELPERS ---
+const handleError = (res, error, customMessage = "Something went wrong on our end. Please try again later.") => {
+    console.error(`[Error] ${new Date().toISOString()}:`, error);
+    res.status(500).json({ error: customMessage });
+};
+
 // --- DEBUG LOGGER ---
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -114,12 +120,20 @@ const canEditStory = async (req, res, next) => {
         if (!story) return res.status(404).json({ error: "Story not found" });
         if (story.ownerId === req.user.id || req.user.role === "ADMIN") next();
         else res.status(403).json({ error: "No edit access" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 };
 
 // --- ROUTES ---
 
 app.get("/health", (req, res) => res.json({ status: "ok", version: "3.7.10", schema: "social_master_v3_stable", timestamp: new Date().toISOString() }));
+
+app.post("/logs/error", (req, res) => {
+    const { error, stack, device, isFatal } = req.body;
+    console.error(`[Client-Side Error] Fatal: ${isFatal} | Device: ${device}`);
+    console.error(`Error: ${error}`);
+    console.error(`Stack: ${stack}`);
+    res.json({ status: "logged" });
+});
 
 // --- AUTH ---
 
@@ -149,7 +163,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
         });
         sendOTPEmail(email, otp).catch(e => console.error(e));
         res.json({ message: "OTP sent" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { handleError(res, error); }
 });
 
 app.post("/auth/otp/verify", async (req, res) => {
@@ -159,7 +173,7 @@ app.post("/auth/otp/verify", async (req, res) => {
         if (!user || user.otpCode !== otp || new Date() > user.otpExpiry) return res.status(400).json({ error: "Invalid or expired code" });
         await prisma.user.update({ where: { email }, data: { emailVerified: true, otpCode: null, otpExpiry: null } });
         res.json({ message: "Verified" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { handleError(res, error); }
 });
 
 app.post("/auth/register", async (req, res) => {
@@ -181,7 +195,7 @@ app.post("/auth/register", async (req, res) => {
     });
     const tokens = generateTokens(updatedUser);
     res.status(201).json({ user: updatedUser, ...tokens });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { handleError(res, error); }
 });
 
 app.post("/auth/login", async (req, res) => {
@@ -209,7 +223,7 @@ app.post("/auth/login", async (req, res) => {
     }
     const tokens = generateTokens(user);
     res.json({ user, ...tokens });
-  } catch (error) { res.status(401).json({ error: "Login failed: " + error.message }); }
+  } catch (error) { handleError(res, error, "Login failed. Please check your credentials."); }
 });
 
 app.post("/auth/refresh", async (req, res) => {
@@ -235,7 +249,7 @@ app.get("/stories", async (req, res) => {
     if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { authorName: { contains: q, mode: "insensitive" } }];
     const stories = await prisma.story.findMany({ where, take: limit ? parseInt(limit) : 50, orderBy: { createdAt: "desc" }, include: { _count: { select: { likes: true, comments: true } } } });
     res.json(stories);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { handleError(res, error); }
 });
 
 app.get("/stories/trending", async (req, res) => {
@@ -247,7 +261,7 @@ app.get("/stories/trending", async (req, res) => {
         });
         const trending = stories.sort((a, b) => ((b._count.likes * 2) + b._count.history) - ((a._count.likes * 2) + a._count.history));
         res.json(trending);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.get("/stories/recommendations", authenticate, async (req, res) => {
@@ -259,7 +273,7 @@ app.get("/stories/recommendations", authenticate, async (req, res) => {
             take: 6, include: { _count: { select: { likes: true } } }
         });
         res.json(recs);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.get("/stories/:id", async (req, res) => {
@@ -289,7 +303,7 @@ app.get("/stories/:id", async (req, res) => {
         bookmarkProgress = bookmark ? bookmark.progress : 0;
     }
     res.json({ ...story, isLiked, bookmarkProgress });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { handleError(res, error); }
 });
 
 app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, res) => {
@@ -307,7 +321,7 @@ app.post("/stories", authenticate, isAdmin, upload.single("cover"), async (req, 
             }
         });
         res.status(201).json(story);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
@@ -317,7 +331,7 @@ app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), asyn
     try {
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         res.json(story);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 // --- CHAPTERS ---
@@ -326,7 +340,7 @@ app.get("/chapters/:id", async (req, res) => {
     try {
         const chapter = await prisma.chapter.findUnique({ where: { id: req.params.id } });
         res.json(chapter);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) => {
@@ -336,7 +350,7 @@ app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) =
             data: { storyId: req.params.id, title, body, order: parseInt(order) || 0 }
         });
         res.status(201).json(chapter);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 // --- SOCIAL (COMMENTS, MESSAGES) ---
@@ -349,7 +363,7 @@ app.get("/stories/:id/comments", async (req, res) => {
             orderBy: { createdAt: "asc" }
         });
         res.json(comments);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/stories/:id/comments", authenticate, async (req, res) => {
@@ -360,7 +374,7 @@ app.post("/stories/:id/comments", authenticate, async (req, res) => {
             include: { user: { select: { id: true, username: true, avatarUrl: true } } }
         });
         res.status(201).json(comment);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.get("/messages/conversations", authenticate, async (req, res) => {
@@ -384,7 +398,7 @@ app.get("/messages/conversations", authenticate, async (req, res) => {
         });
 
         res.json(Array.from(conversationsMap.values()));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.get("/messages/:userId", authenticate, async (req, res) => {
@@ -399,7 +413,7 @@ app.get("/messages/:userId", authenticate, async (req, res) => {
             orderBy: { createdAt: "asc" }
         });
         res.json(messages);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/messages", authenticate, async (req, res) => {
@@ -409,7 +423,7 @@ app.post("/messages", authenticate, async (req, res) => {
             data: { content, senderId: req.user.id, receiverId }
         });
         res.status(201).json(message);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 // --- INTERACTION (LIKE, READ, BOOKMARK) ---
@@ -425,7 +439,7 @@ app.post("/stories/:id/like", authenticate, async (req, res) => {
         }
         await prisma.like.create({ data: { userId, storyId } });
         res.json({ isLiked: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/stories/:id/read", authenticate, async (req, res) => {
@@ -445,7 +459,7 @@ app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
             create: { userId: req.user.id, storyId: req.params.id, progress }
         });
         res.json(bookmark);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 // --- USER PROFILE & PREFERENCES ---
@@ -461,7 +475,7 @@ app.get("/users/me", authenticate, async (req, res) => {
             }
         });
         res.json(user);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/users/me/settings", authenticate, async (req, res) => {
@@ -472,7 +486,7 @@ app.post("/users/me/settings", authenticate, async (req, res) => {
             data: { notificationsOn, recsEnabled }
         });
         res.json(user);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.get("/users/me/bookmarks", authenticate, async (req, res) => {
@@ -483,7 +497,7 @@ app.get("/users/me/bookmarks", authenticate, async (req, res) => {
             orderBy: { createdAt: "desc" }
         });
         res.json(bookmarks);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.post("/users/me/preferences", authenticate, async (req, res) => {
@@ -494,7 +508,7 @@ app.post("/users/me/preferences", authenticate, async (req, res) => {
             data: { readerTheme, readerFontSize } 
         });
         res.json(user);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 app.put("/users/me/profile", authenticate, upload.single("avatar"), async (req, res) => {
@@ -511,7 +525,7 @@ app.put("/users/me/profile", authenticate, upload.single("avatar"), async (req, 
             select: { id: true, email: true, username: true, avatarUrl: true, bio: true, role: true, readerTheme: true, readerFontSize: true }
         });
         res.json(user);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { handleError(res, e); }
 });
 
 // --- 404 ---

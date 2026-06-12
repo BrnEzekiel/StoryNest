@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList, Alert } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, Bell, X, Sparkles, Users } from "lucide-react-native";
@@ -65,8 +65,9 @@ export const HomeScreen = ({ navigation, route }: any) => {
       if (q) url += (url.includes("?") ? "&" : "?") + `q=${q}`;
       const res = await apiClient.get(url);
       setStories(res.data);
-    } catch (error) {
+    } catch (error: any) {
       console.log("Error fetching home data:", error);
+      Alert.alert("Connection Problem", "We had trouble reaching the nest. Please check your internet and try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -78,7 +79,10 @@ export const HomeScreen = ({ navigation, route }: any) => {
       setRecsLoading(true);
       const res = await apiClient.get("/stories/recommendations");
       setRecommendations(res.data);
-    } catch (e) { console.log(e); }
+    } catch (e) { 
+      console.log(e); 
+      // Silently fail for recommendations unless it's a critical error
+    }
     finally { setRecsLoading(false); }
   };
 

@@ -209,10 +209,11 @@ app.post("/auth/login", async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const firebaseEmail = decodedToken.email;
         user = await prisma.user.findUnique({ where: { email: firebaseEmail } });
-        if (!user) user = await prisma.user.create({ data: { 
+        const newUser = await prisma.user.create({ data: { 
             email: firebaseEmail, 
             username: `nestling_${uuidv4().substring(0, 4)}`, 
             password: "google_auth", 
+            avatarUrl: `https://api.dicebear.com/9.x/glass/svg?seed=${firebaseEmail}`,
             emailVerified: true, 
             tosAccepted: true, 
             privacyAccepted: true,
@@ -220,6 +221,7 @@ app.post("/auth/login", async (req, res) => {
             recsEnabled: true,
             coins: 0
         } });
+        user = newUser;
     } else {
         user = await prisma.user.findUnique({ where: { email } });
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: "Invalid credentials" });

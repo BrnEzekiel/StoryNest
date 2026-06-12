@@ -320,7 +320,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
       );
   }
 
-  const paragraphs = currentChapter?.body ? currentChapter.body.replace(/\r\n/g, '\n').split('\n\n') : [];
+  const paragraphs = (currentChapter?.body || story?.body || "").replace(/\r\n/g, '\n').split('\n\n');
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
 
   return (

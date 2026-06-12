@@ -45,6 +45,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import axios from "axios";
+import { SkeletonReader } from "../components/SkeletonReader";
 
 const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get("window");
 const FONT_SIZES = { small: 15, medium: 18, large: 22 };
@@ -312,15 +313,15 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsLiked(wasLiked); }
   };
 
-  if (loading && !currentChapter) {
+  if (loading && !story) {
       return (
-          <View style={[styles.container, { backgroundColor: appTheme.white, justifyContent: 'center' }]}>
-              <ActivityIndicator size="large" color={appTheme.primary} />
+          <View style={[styles.container, { backgroundColor: appTheme.white }]}>
+              <SkeletonReader />
           </View>
       );
   }
 
-  const paragraphs = (currentChapter?.body || story?.body || "").replace(/\r\n/g, '\n').split('\n\n');
+  const paragraphs = (currentChapter?.body || story?.body || "").replace(/\r\n/g, '\n').split('\n\n').filter((p: string) => p.trim().length > 0);
   const currentChapterIdx = chapters.findIndex(c => c.id === currentChapter?.id);
 
   return (

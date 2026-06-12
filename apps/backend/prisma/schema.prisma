@@ -65,6 +65,7 @@ model User {
   lastCommentDate  DateTime?
   lastLikeDate     DateTime?
   readerTheme      String       @default("light")
+  readerFontSize   String       @default("medium")
   createdAt        DateTime     @default(now())
 }
 

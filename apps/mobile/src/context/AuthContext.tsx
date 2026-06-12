@@ -4,6 +4,7 @@ import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
 import { Platform } from "react-native";
 import { Storage } from "../utils/Storage";
+import { Audio } from 'expo-av';
 
 interface User {
   id: string;
@@ -19,6 +20,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  hasUnreadMessages: boolean;
+  setHasUnreadMessages: (val: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -35,6 +38,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null, 
   loading: true, 
+  hasUnreadMessages: false,
+  setHasUnreadMessages: () => {},
   login: async () => {}, 
   loginWithGoogle: async () => {},
   logout: async () => {}, 
@@ -49,11 +54,47 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
 
   // --- PERSISTENCE LOGIC ---
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // --- NOTIFICATION POLLING ---
+  useEffect(() => {
+      let interval: any;
+      if (user) {
+          checkNewMessages();
+          interval = setInterval(checkNewMessages, 30000); // Check every 30s
+      }
+      return () => clearInterval(interval);
+  }, [user]);
+
+  const playNotificationSound = async () => {
+      try {
+          const { sound } = await Audio.Sound.createAsync(
+              require("../../assets/notification.mp3")
+          );
+          await sound.playAsync();
+      } catch (e) {
+          console.log("[Auth] Audio play failed (likely missing asset):", e.message);
+      }
+  };
+
+  const checkNewMessages = async () => {
+      try {
+          const res = await apiClient.get("/messages/conversations");
+          const totalMsgs = res.data.length;
+          
+          if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
+              setHasUnreadMessages(true);
+              playNotificationSound();
+          }
+          setLastMessageCount(totalMsgs);
+      } catch (e) {}
+  };
 
   const restoreSession = async () => {
     console.log("[Auth] restoreSession started...");
@@ -202,7 +243,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ 
-      user, loading, login, loginWithGoogle, logout, refreshUser,
+      user, loading, hasUnreadMessages, setHasUnreadMessages, 
+      login, loginWithGoogle, logout, refreshUser,
       initiateRegistration, verifyOTP, finalizeRegistration,
       forgotPassword, resetPassword
     }}>

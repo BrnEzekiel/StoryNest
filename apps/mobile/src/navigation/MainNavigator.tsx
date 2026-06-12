@@ -9,6 +9,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Selection } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dimensions, View } from "react-native";
+import { NotificationDot } from "../components/NotificationDot";
 
 // Screens
 import { LoginScreen } from "../screens/LoginScreen";
@@ -37,15 +38,20 @@ const Stack = createNativeStackNavigator();
 
 const TabNavigator = () => {
   const { isDarkMode, tabOrder, theme, fonts } = useTheme();
+  const { hasUnreadMessages } = useAuth();
   const insets = useSafeAreaInsets();
 
   const renderTabIcon = (name: string, color: string) => {
     const size = 24;
-    if (name === "Home") return <Home color={color} size={size} />;
-    if (name === "Explore") return <Compass color={color} size={size} />;
-    if (name === "Saved") return <Bookmark color={color} size={size} />;
-    if (name === "Profile") return <User color={color} size={size} />;
-    return null;
+    return (
+        <View>
+            {name === "Home" && <Home color={color} size={size} />}
+            {name === "Explore" && <Compass color={color} size={size} />}
+            {name === "Saved" && <Bookmark color={color} size={size} />}
+            {name === "Profile" && <User color={color} size={size} />}
+            {name === "Profile" && hasUnreadMessages && <NotificationDot />}
+        </View>
+    );
   };
 
   const getScreenComponent = (name: string) => {

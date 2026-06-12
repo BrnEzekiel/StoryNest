@@ -151,7 +151,7 @@ app.post("/auth/otp/initiate", async (req, res) => {
             update: { otpCode: otp, otpExpiry: expiry },
             create: { 
                 email, 
-                username: `nestling_${uuidv4().substring(0, 4)}`, 
+                username: `Nestling_${uuidv4().substring(0, 4)}`, 
                 password: "otp_pending", 
                 otpCode: otp, 
                 otpExpiry: expiry, 
@@ -212,7 +212,7 @@ app.post("/auth/login", async (req, res) => {
         if (!user) {
             user = await prisma.user.create({ data: { 
                 email: firebaseEmail, 
-                username: `nestling_${uuidv4().substring(0, 4)}`, 
+                username: `Nestling_${uuidv4().substring(0, 4)}`, 
                 password: "google_auth", 
                 avatarUrl: `https://api.dicebear.com/9.x/glass/svg?seed=${firebaseEmail}`,
                 emailVerified: true, 

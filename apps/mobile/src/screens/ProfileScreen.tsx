@@ -22,10 +22,16 @@ export const ProfileScreen = ({ navigation }: any) => {
   }, []);
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Logout", onPress: logout }
-    ]);
+    if (Platform.OS === 'web') {
+        if (window.confirm("Are you sure you want to logout?")) {
+            logout();
+        }
+    } else {
+        Alert.alert("Logout", "Are you sure?", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Logout", onPress: logout }
+        ]);
+    }
   };
 
   const MenuOption = ({ icon: Icon, title, subtitle, onPress, color = theme.primary }: any) => (

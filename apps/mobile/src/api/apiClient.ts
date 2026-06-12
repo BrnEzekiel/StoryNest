@@ -8,7 +8,7 @@ console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000, // 15 seconds
+  timeout: 30000, // 30 seconds for production resilience
   headers: {
     "Content-Type": "application/json",
   },

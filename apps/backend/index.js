@@ -241,10 +241,14 @@ app.post("/auth/refresh", async (req, res) => {
         if (!user) throw new Error();
         const tokens = generateTokens(user);
         res.json(tokens);
-    } catch (e) { res.status(401).json({ error: "Invalid refresh token" }); }
-});
+    } catch (e) { res.status(401).json({ error: \"Invalid refresh token\" }); }
+    });
 
-// --- STORIES ---
+    app.post("/auth/logout", (req, res) => {
+    res.json({ message: "Logged out successfully" });
+    });
+
+    // --- STORIES ---
 
 app.get("/stories", async (req, res) => {
   const { genre, mood, q, limit } = req.query;

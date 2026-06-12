@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
@@ -45,8 +46,16 @@ export const SignupScreen = ({ navigation }: any) => {
   const [error, setError] = useState("");
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web / Default
+    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com',
+    iosClientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Placeholder
   });
+
+  useEffect(() => {
+    if (request) {
+      console.log("[Google Auth] Redirect URI:", request.redirectUri);
+    }
+  }, [request]);
 
   useEffect(() => {
     if (response?.type === 'success') {

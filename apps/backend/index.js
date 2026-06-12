@@ -241,7 +241,7 @@ app.post("/auth/refresh", async (req, res) => {
         if (!user) throw new Error();
         const tokens = generateTokens(user);
         res.json(tokens);
-    } catch (e) { res.status(401).json({ error: \"Invalid refresh token\" }); }
+    } catch (e) { res.status(401).json({ error: "Invalid refresh token" }); }
     });
 
     app.post("/auth/logout", (req, res) => {

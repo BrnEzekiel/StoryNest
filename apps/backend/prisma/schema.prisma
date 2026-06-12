@@ -134,6 +134,7 @@ model Follows {
 model Story {
   id             String     @id @default(uuid())
   title          String
+  body           String     @db.Text @default("")
   summary        String?    @db.Text
   genre          String
   mood           String?    // e.g. Cozy, Epic, Thrilling

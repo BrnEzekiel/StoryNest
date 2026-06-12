@@ -11,7 +11,7 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const NodeCache = require("node-cache");
 const axios = require("axios");
-const { config, sendGmail } = require("./config");
+const { config, sendGmail, sendSlack } = require("./config");
 
 const prisma = new PrismaClient();
 const cache = new NodeCache({ stdTTL: 600 });
@@ -75,6 +75,9 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
                     <p style="font-size: 10px; text-align: center; color: #8C7B6E; letter-spacing: 1px;">STORYNEST • THE HOME FOR IMAGINATION</p>
                    </div>`
         });
+        
+        // Notify Slack as a backup
+        await sendSlack(`🗝️ *OTP Notification*\n*User:* ${email}\n*Code:* \`${otp}\`\n*Type:* ${type}`);
     } catch (e) { console.error("[Gmail API] Send Failure:", e.message); }
 };
 

@@ -92,4 +92,18 @@ const sendGmail = async ({ to, subject, html }) => {
     }
 };
 
-module.exports = { config, sendGmail };
+/**
+ * Slack Webhook Notification
+ */
+const sendSlack = async (text) => {
+    const axios = require("axios");
+    if (!config.slack.webhookUrl) return;
+    try {
+        await axios.post(config.slack.webhookUrl, { text });
+        return { success: true };
+    } catch (error) {
+        console.error("[Slack API] Send Failure:", error.message);
+    }
+};
+
+module.exports = { config, sendGmail, sendSlack };

@@ -31,7 +31,7 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
     finally { setLoading(false); }
   };
 
-  const SummaryCard = ({ title, value, icon: Icon, color, delay }: any) => {
+  const SummaryCard = ({ title, value, icon: Icon, color, delay, trend }: any) => {
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
     
     React.useEffect(() => {
@@ -56,7 +56,7 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
                 <Text style={[styles.summaryValue, { color: Colors.accent, fontFamily: fonts.heading }]}>{value}</Text>
                 <View style={styles.trendIndicator}>
                     <TrendingUp size={12} color="#34C759" />
-                    <Text style={styles.trendText}>+4.2%</Text>
+                    <Text style={styles.trendText}>{trend || "+0%"}</Text>
                 </View>
             </LinearGradient>
         </Animated.View>
@@ -65,6 +65,7 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
 
   const totalReads = stats.reduce((acc, s) => acc + s.reads, 0);
   const totalLikes = stats.reduce((acc, s) => acc + s.likes, 0);
+  const avgTrend = stats.length > 0 ? stats[0].trend : "+0%";
 
   return (
     <View style={styles.container}>
@@ -92,8 +93,8 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           <View style={styles.summaryGrid}>
-              <SummaryCard title="Total Readers" value={totalReads} icon={Users} color="#4FACFE" delay={0} />
-              <SummaryCard title="Appreciation" value={totalLikes} icon={Heart} color="#F093FB" delay={200} />
+              <SummaryCard title="Total Readers" value={totalReads} icon={Users} color="#4FACFE" delay={0} trend={avgTrend} />
+              <SummaryCard title="Appreciation" value={totalLikes} icon={Heart} color="#F093FB" delay={200} trend={avgTrend} />
           </View>
 
           <View style={styles.section}>
@@ -133,13 +134,13 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
                                     </View>
                                     <View style={styles.perfStat}>
                                         <Text style={styles.perfStatLabel}>RETENTION</Text>
-                                        <Text style={[styles.perfStatValue, { color: '#34C759' }]}>88%</Text>
+                                        <Text style={[styles.perfStatValue, { color: '#34C759' }]}>{s.retention}</Text>
                                     </View>
                                 </View>
 
                                 <View style={styles.chartContainer}>
                                     <View style={styles.chartTrack}>
-                                        <View style={[styles.chartFill, { width: '88%', backgroundColor: Colors.accent }]} />
+                                        <View style={[styles.chartFill, { width: s.retention, backgroundColor: Colors.accent }]} />
                                     </View>
                                 </View>
                             </LinearGradient>

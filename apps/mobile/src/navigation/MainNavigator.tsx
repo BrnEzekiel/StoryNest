@@ -32,6 +32,8 @@ import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
 
+import * as SplashScreen from "expo-splash-screen";
+
 const { width } = Dimensions.get("window");
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -104,17 +106,26 @@ const TabNavigator = () => {
   );
 };
 
-export const MainNavigator = () => {
+export const MainNavigator = ({ onReady }: { onReady: () => void }) => {
   const { user, loading } = useAuth();
   const { isDarkMode } = useTheme();
 
-  if (loading) return null;
+  useEffect(() => {
+    if (!loading) {
+      onReady?.();
+      SplashScreen.hideAsync();
+    }
+  }, [loading]);
+
+  if (loading) {
+      return <View style={{ flex: 1, backgroundColor: '#003631' }} />;
+  }
 
   return (
     <Stack.Navigator 
       screenOptions={{ 
         headerShown: false, 
-        contentStyle: { backgroundColor: isDarkMode ? "#121212" : Colors.primary },
+        contentStyle: { backgroundColor: isDarkMode ? "#121212" : "#003631" },
         animation: 'slide_from_right',
         animationDuration: 400,
         gestureEnabled: true,

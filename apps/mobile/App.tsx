@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { AuthProvider } from "./src/context/AuthContext";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import { MainNavigator } from "./src/navigation/MainNavigator";
@@ -63,7 +63,8 @@ export default function App() {
 
   const onLayoutRootView = React.useCallback(async () => {
     if (fontsLoaded) {
-      await SplashScreen.hideAsync();
+      // The splash screen is hidden by the MainNavigator when auth is ready, 
+      // or we can hide it here if we're not using Auth loading state.
     }
   }, [fontsLoaded]);
 
@@ -73,13 +74,19 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <SafeAreaProvider onLayout={onLayoutRootView}>
+      <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
             <BiometricGate>
-              <NavigationContainer>
+              <NavigationContainer theme={{
+                ...DefaultTheme,
+                colors: {
+                  ...DefaultTheme.colors,
+                  background: '#003631', // Force Forest Green background globally
+                }
+              }}>
                 <StatusBar style="light" translucent backgroundColor="transparent" />
-                <MainNavigator />
+                <MainNavigator onReady={onLayoutRootView} />
               </NavigationContainer>
             </BiometricGate>
           </AuthProvider>

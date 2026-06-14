@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Animated } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, BarChart3, TrendingUp, Heart, MessageSquare, BookOpen, ChevronRight } from "lucide-react-native";
+import { ArrowLeft, BarChart3, TrendingUp, Heart, MessageSquare, BookOpen, ChevronRight, Zap, Target, Award } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,57 +31,137 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
     finally { setLoading(false); }
   };
 
-  const SummaryCard = ({ title, value, icon: Icon, color }: any) => (
-      <View style={[styles.summaryCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.white }, Shadows.s]}>
-          <View style={[styles.iconCircle, { backgroundColor: color + '15' }]}><Icon size={20} color={color} /></View>
-          <View style={{ marginLeft: 16 }}>
-              <Text style={[styles.summaryLabel, { fontFamily: fonts.body }]}>{title}</Text>
-              <Text style={[styles.summaryValue, { color: theme.black, fontFamily: fonts.heading }]}>{value}</Text>
-          </View>
-      </View>
-  );
+  const SummaryCard = ({ title, value, icon: Icon, color, delay }: any) => {
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+    
+    React.useEffect(() => {
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 800,
+            delay,
+            useNativeDriver: true
+        }).start();
+    }, []);
+
+    return (
+        <Animated.View style={[styles.summaryCard, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+            <LinearGradient 
+                colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)']} 
+                style={styles.cardGradient}
+            >
+                <View style={[styles.iconGlow, { backgroundColor: color + '20', shadowColor: color, shadowOpacity: 0.5, shadowRadius: 10 }]}>
+                    <Icon size={22} color={color} />
+                </View>
+                <Text style={[styles.summaryLabel, { fontFamily: fonts.body }]}>{title.toUpperCase()}</Text>
+                <Text style={[styles.summaryValue, { color: Colors.accent, fontFamily: fonts.heading }]}>{value}</Text>
+                <View style={styles.trendIndicator}>
+                    <TrendingUp size={12} color="#34C759" />
+                    <Text style={styles.trendText}>+4.2%</Text>
+                </View>
+            </LinearGradient>
+        </Animated.View>
+    );
+  };
 
   const totalReads = stats.reduce((acc, s) => acc + s.reads, 0);
   const totalLikes = stats.reduce((acc, s) => acc + s.likes, 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.white }]}>
+    <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><ArrowLeft size={24} color={Colors.accent} /></TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>AUTHOR INSIGHTS</Text>
+      <LinearGradient 
+        colors={['#001a18', '#000807']} 
+        style={StyleSheet.absoluteFill}
+      />
+      
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ArrowLeft size={24} color={Colors.accent} />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+            <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>AUTHOR INSIGHTS</Text>
+            <View style={styles.liveIndicator}>
+                <View style={styles.pulseDot} />
+                <Text style={styles.liveText}>LIVE METRICS</Text>
+            </View>
+        </View>
+        <TouchableOpacity style={styles.refreshBtn} onPress={fetchAnalytics}>
+            <Zap size={20} color={Colors.accent} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
           <View style={styles.summaryGrid}>
-              <SummaryCard title="Total Reads" value={totalReads} icon={BookOpen} color="#007AFF" />
-              <SummaryCard title="Total Likes" value={totalLikes} icon={Heart} color="#E91E63" />
+              <SummaryCard title="Total Readers" value={totalReads} icon={Users} color="#4FACFE" delay={0} />
+              <SummaryCard title="Appreciation" value={totalLikes} icon={Heart} color="#F093FB" delay={200} />
           </View>
 
           <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>STORY PERFORMANCE</Text>
-              {loading ? <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} /> : (
-                  stats.map(s => (
-                      <TouchableOpacity key={s.id} style={[styles.storyCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.paleGreen }]}>
-                          <View style={styles.storyHeader}>
-                              <Text style={[styles.storyTitle, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{s.title}</Text>
-                              <View style={styles.trendBadge}><TrendingUp size={12} color="#34C759" /><Text style={styles.trendText}>+12%</Text></View>
-                          </View>
-                          <View style={styles.storyStats}>
-                              <View style={styles.miniStat}><BookOpen size={14} color={Colors.mutedTeal} /><Text style={styles.miniStatText}>{s.reads}</Text></View>
-                              <View style={styles.miniStat}><Heart size={14} color={Colors.mutedTeal} /><Text style={styles.miniStatText}>{s.likes}</Text></View>
-                              <View style={styles.miniStat}><MessageSquare size={14} color={Colors.mutedTeal} /><Text style={styles.miniStatText}>{s.comments}</Text></View>
-                          </View>
-                          <View style={[styles.progressBarBg, { backgroundColor: theme.primary + '10' }]}><View style={[styles.progressBarFill, { width: '75%', backgroundColor: theme.primary }]} /></View>
-                          <Text style={styles.retentionText}>75% Reader Retention</Text>
-                      </TouchableOpacity>
-                  ))
+              <View style={styles.sectionHeader}>
+                  <Target size={18} color={Colors.accent} />
+                  <Text style={[styles.sectionTitle, { fontFamily: fonts.heading }]}>MISSION PERFORMANCE</Text>
+              </View>
+
+              {loading ? (
+                  [1,2,3].map(i => <View key={i} style={styles.skeletonCard} />)
+              ) : (
+                  stats.length === 0 ? (
+                      <View style={styles.emptyState}>
+                          <BookOpen size={48} color="rgba(255,237,168,0.1)" />
+                          <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories published yet.</Text>
+                      </View>
+                  ) : (
+                      stats.map((s, idx) => (
+                        <View key={s.id} style={styles.performanceCard}>
+                            <LinearGradient 
+                                colors={['rgba(0, 54, 49, 0.4)', 'rgba(0, 54, 49, 0.1)']} 
+                                style={styles.performanceGradient}
+                            >
+                                <View style={styles.perfHeader}>
+                                    <Text style={[styles.perfTitle, { color: Colors.white, fontFamily: fonts.heading }]} numberOfLines={1}>{s.title.toUpperCase()}</Text>
+                                    <TouchableOpacity><ChevronRight size={18} color={Colors.accent} /></TouchableOpacity>
+                                </View>
+                                
+                                <View style={styles.perfStatsRow}>
+                                    <View style={styles.perfStat}>
+                                        <Text style={styles.perfStatLabel}>READS</Text>
+                                        <Text style={[styles.perfStatValue, { color: Colors.accent }]}>{s.reads}</Text>
+                                    </View>
+                                    <View style={styles.perfStat}>
+                                        <Text style={styles.perfStatLabel}>ENGAGEMENT</Text>
+                                        <Text style={[styles.perfStatValue, { color: Colors.accent }]}>{s.likes + s.comments}</Text>
+                                    </View>
+                                    <View style={styles.perfStat}>
+                                        <Text style={styles.perfStatLabel}>RETENTION</Text>
+                                        <Text style={[styles.perfStatValue, { color: '#34C759' }]}>88%</Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.chartContainer}>
+                                    <View style={styles.chartTrack}>
+                                        <View style={[styles.chartFill, { width: '88%', backgroundColor: Colors.accent }]} />
+                                    </View>
+                                </View>
+                            </LinearGradient>
+                        </View>
+                      ))
+                  )
               )}
           </View>
 
-          <View style={[styles.proTip, { backgroundColor: theme.primary + '05' }]}>
-              <BarChart3 size={24} color={theme.primary} />
-              <Text style={[styles.proTipText, { fontFamily: fonts.body }]}>Stories with consistent chapter updates (every 3 days) see 40% more engagement in the first month.</Text>
+          <View style={styles.proTipContainer}>
+              <LinearGradient 
+                colors={['rgba(255, 237, 168, 0.15)', 'rgba(255, 237, 168, 0.05)']} 
+                style={styles.proTipGradient}
+              >
+                  <Award size={28} color={Colors.accent} />
+                  <View style={styles.proTipContent}>
+                      <Text style={[styles.proTipTitle, { fontFamily: fonts.heading }]}>NESTRADAR ADVICE</Text>
+                      <Text style={[styles.proTipText, { fontFamily: fonts.body }]}>
+                          Deploying new chapters at 7:00 PM EST increases initial blast radius by 25%.
+                      </Text>
+                  </View>
+              </LinearGradient>
           </View>
       </ScrollView>
     </View>
@@ -89,29 +169,52 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingBottom: 24, flexDirection: "row", alignItems: "center", paddingHorizontal: 24 },
-  headerTitle: { fontSize: 18, color: Colors.accent, letterSpacing: 1 },
-  backBtn: { marginRight: 20 },
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { 
+      flexDirection: "row", 
+      alignItems: "center", 
+      justifyContent: 'space-between',
+      paddingHorizontal: 24, 
+      paddingBottom: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255, 237, 168, 0.1)'
+  },
+  headerInfo: { alignItems: 'center' },
+  headerTitle: { fontSize: 16, color: Colors.accent, letterSpacing: 2 },
+  liveIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF3B30', marginRight: 6 },
+  liveText: { fontSize: 10, color: '#FF3B30', fontWeight: 'bold', letterSpacing: 1 },
+  backBtn: { padding: 8 },
+  refreshBtn: { padding: 8 },
   content: { flex: 1 },
-  summaryGrid: { padding: 24, flexDirection: 'row', justifyContent: 'space-between' },
-  summaryCard: { width: '48%', padding: 16, borderRadius: 20, flexDirection: 'row', alignItems: 'center' },
-  iconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  summaryLabel: { fontSize: 11, color: Colors.mutedTeal },
-  summaryValue: { fontSize: 18, marginTop: 2 },
-  section: { paddingHorizontal: 24, marginTop: 10 },
-  sectionTitle: { fontSize: 12, letterSpacing: 1.5, marginBottom: 20 },
-  storyCard: { padding: 20, borderRadius: 24, marginBottom: 16 },
-  storyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  storyTitle: { fontSize: 16, flex: 1 },
-  trendBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,199,89,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  trendText: { fontSize: 10, color: '#34C759', marginLeft: 4, fontWeight: '700' },
-  storyStats: { flexDirection: 'row', marginBottom: 20 },
-  miniStat: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
-  miniStatText: { fontSize: 13, color: Colors.mutedTeal, marginLeft: 6 },
-  progressBarBg: { height: 6, borderRadius: 3, width: '100%', marginBottom: 8 },
-  progressBarFill: { height: '100%', borderRadius: 3 },
-  retentionText: { fontSize: 10, color: Colors.mutedTeal, textAlign: 'right' },
-  proTip: { margin: 24, padding: 20, borderRadius: 20, flexDirection: 'row', alignItems: 'center' },
-  proTipText: { flex: 1, marginLeft: 16, fontSize: 12, color: Colors.mutedTeal, lineHeight: 18 }
+  summaryGrid: { padding: 20, flexDirection: 'row', justifyContent: 'space-between' },
+  summaryCard: { width: '48%', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cardGradient: { padding: 20 },
+  iconGlow: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  summaryLabel: { fontSize: 10, color: Colors.mutedTeal, letterSpacing: 1 },
+  summaryValue: { fontSize: 28, marginVertical: 4 },
+  trendIndicator: { flexDirection: 'row', alignItems: 'center' },
+  trendText: { fontSize: 11, color: '#34C759', marginLeft: 4, fontWeight: 'bold' },
+  section: { paddingHorizontal: 20, marginTop: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 4 },
+  sectionTitle: { fontSize: 12, letterSpacing: 2, color: Colors.accent, marginLeft: 10 },
+  performanceCard: { borderRadius: 24, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0, 54, 49, 0.5)' },
+  performanceGradient: { padding: 24 },
+  perfHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  perfTitle: { fontSize: 14, letterSpacing: 1, flex: 1 },
+  perfStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  perfStat: { alignItems: 'flex-start' },
+  perfStatLabel: { fontSize: 9, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 4 },
+  perfStatValue: { fontSize: 18, fontWeight: 'bold' },
+  chartContainer: { height: 4, width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 },
+  chartTrack: { flex: 1 },
+  chartFill: { height: '100%', borderRadius: 2 },
+  skeletonCard: { height: 140, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 16 },
+  proTipContainer: { margin: 20, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,237,168,0.2)' },
+  proTipGradient: { padding: 24, flexDirection: 'row', alignItems: 'center' },
+  proTipContent: { flex: 1, marginLeft: 20 },
+  proTipTitle: { fontSize: 12, color: Colors.accent, letterSpacing: 1, marginBottom: 4 },
+  proTipText: { fontSize: 13, color: Colors.white, lineHeight: 20, opacity: 0.8 },
+  emptyState: { alignItems: 'center', padding: 40 },
+  emptyText: { color: Colors.mutedTeal, marginTop: 16, fontSize: 14 }
 });

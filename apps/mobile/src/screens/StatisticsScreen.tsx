@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, TrendingUp, Calendar, Clock, BarChart2, Zap, Target } from "lucide-react-native";
+import { ArrowLeft, TrendingUp, Calendar, Clock, BarChart2, Zap, Target, Award, Rocket } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { HeaderWave } from "../components/HeaderWave";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
@@ -17,30 +16,52 @@ export const StatisticsScreen = ({ navigation }: any) => {
   const { theme, fonts, isDarkMode } = useTheme();
   const { user } = useAuth();
 
-  const currentBg = isDarkMode ? theme.white : Colors.paleCream;
+  const StatCard = ({ icon: Icon, title, value, sub, color, delay }: any) => {
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+    
+    useEffect(() => {
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 800,
+            delay,
+            useNativeDriver: true
+        }).start();
+    }, []);
 
-  const StatCard = ({ icon: Icon, title, value, sub, color }: any) => (
-    <View style={[styles.statCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }, Shadows.s]}>
-        <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
-            <Icon size={24} color={color} />
-        </View>
-        <View style={styles.statInfo}>
-            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>{title}</Text>
-            <Text style={[styles.statValue, { color: theme.black, fontFamily: fonts.heading }]}>{value}</Text>
-            <Text style={[styles.statSub, { fontFamily: fonts.body }]}>{sub}</Text>
-        </View>
-    </View>
-  );
+    return (
+        <Animated.View style={[styles.statCard, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+            <LinearGradient 
+                colors={['rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.02)']} 
+                style={styles.cardGradient}
+            >
+                <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
+                    <Icon size={20} color={color} />
+                </View>
+                <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>{title}</Text>
+                <Text style={[styles.statValue, { color: Colors.accent, fontFamily: fonts.heading }]}>{value}</Text>
+                <Text style={[styles.statSub, { fontFamily: fonts.body }]}>{sub}</Text>
+            </LinearGradient>
+        </Animated.View>
+    );
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: currentBg }]}>
+    <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.headerSection, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
+      <LinearGradient colors={['#001a18', '#000807']} style={StyleSheet.absoluteFill} />
+
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>READING INSIGHTS</Text>
-        <HeaderWave color={currentBg} />
+        <View style={styles.headerInfo}>
+            <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>READING INSIGHTS</Text>
+            <View style={styles.liveIndicator}>
+                <View style={styles.pulseDot} />
+                <Text style={styles.liveText}>SYSTEM STATUS: ACTIVE</Text>
+            </View>
+        </View>
+        <TouchableOpacity style={styles.refreshBtn}><Rocket size={20} color={Colors.accent} /></TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
@@ -51,7 +72,8 @@ export const StatisticsScreen = ({ navigation }: any) => {
                 title="TIME INVESTED" 
                 value={`${user?.totalReadTime || 0}m`} 
                 sub="Total story time"
-                color="#007AFF"
+                color="#4FACFE"
+                delay={0}
             />
             <StatCard 
                 icon={Target} 
@@ -59,13 +81,15 @@ export const StatisticsScreen = ({ navigation }: any) => {
                 value={`${Math.round(((user?.todayReadTime || 0) / (user?.dailyGoalMinutes || 30)) * 100)}%`} 
                 sub={`${user?.todayReadTime || 0}m of ${user?.dailyGoalMinutes || 30}m`}
                 color="#34C759"
+                delay={100}
             />
             <StatCard 
                 icon={Zap} 
                 title="WISDOM EARNED" 
                 value={`${user?.xp || 0}`} 
                 sub="Total experience points"
-                color="#FF9500"
+                color="#F093FB"
+                delay={200}
             />
             <StatCard 
                 icon={Calendar} 
@@ -73,37 +97,48 @@ export const StatisticsScreen = ({ navigation }: any) => {
                 value={`${user?.streakCount || 0} Days`} 
                 sub="Consecutive reading"
                 color="#FF2D55"
+                delay={300}
             />
         </View>
 
-        <View style={[styles.chartContainer, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}>
-            <View style={styles.chartHeader}>
-                <BarChart2 size={18} color={theme.primary} />
-                <Text style={[styles.chartTitle, { fontFamily: fonts.heading, color: theme.black }]}>WEEKLY ACTIVITY</Text>
-            </View>
-            
-            <View style={styles.barsRow}>
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                    const h = Math.random() * 100 + 20; // Simulated data
-                    return (
-                        <View key={i} style={styles.barCol}>
-                            <View style={[styles.barBg, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : Colors.paleGreen }]}>
-                                <LinearGradient
-                                    colors={[theme.primary, theme.primary + '80']}
-                                    style={[styles.barFill, { height: i === 2 ? 80 : h }]} // Highlight Wednesday as today
-                                />
+        <View style={styles.chartWrapper}>
+            <LinearGradient 
+                colors={['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.01)']} 
+                style={styles.chartGradient}
+            >
+                <View style={styles.chartHeader}>
+                    <BarChart2 size={18} color={Colors.accent} />
+                    <Text style={[styles.chartTitle, { fontFamily: fonts.heading, color: Colors.accent }]}>NEURAL ACTIVITY LOG</Text>
+                </View>
+                
+                <View style={styles.barsRow}>
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+                        const h = Math.random() * 100 + 20;
+                        return (
+                            <View key={i} style={styles.barCol}>
+                                <View style={styles.barBg}>
+                                    <LinearGradient
+                                        colors={[Colors.accent, Colors.accent + '20']}
+                                        style={[styles.barFill, { height: i === 2 ? 80 : h }]}
+                                    />
+                                </View>
+                                <Text style={[styles.barDay, { fontFamily: fonts.body }]}>{day}</Text>
                             </View>
-                            <Text style={[styles.barDay, { fontFamily: fonts.body }]}>{day}</Text>
-                        </View>
-                    );
-                })}
-            </View>
+                        );
+                    })}
+                </View>
+            </LinearGradient>
         </View>
 
-        <View style={[styles.quoteCard, { backgroundColor: theme.primary }]}>
-            <TrendingUp size={32} color={Colors.accent} opacity={0.3} style={styles.quoteIcon} />
-            <Text style={[styles.quoteText, { fontFamily: fonts.body }]}>"A reader lives a thousand lives before he dies. The man who never reads lives only one."</Text>
-            <Text style={[styles.quoteAuthor, { fontFamily: fonts.heading }]}>— GEORGE R.R. MARTIN</Text>
+        <View style={styles.quoteWrapper}>
+            <LinearGradient 
+                colors={['rgba(255, 237, 168, 0.12)', 'rgba(255, 237, 168, 0.04)']} 
+                style={styles.quoteGradient}
+            >
+                <Award size={32} color={Colors.accent} opacity={0.3} style={styles.quoteIcon} />
+                <Text style={[styles.quoteText, { fontFamily: fonts.body }]}>"A reader lives a thousand lives before he dies. The man who never reads lives only one."</Text>
+                <Text style={[styles.quoteAuthor, { fontFamily: fonts.heading }]}>— GEORGE R.R. MARTIN</Text>
+            </LinearGradient>
         </View>
 
       </ScrollView>
@@ -112,28 +147,35 @@ export const StatisticsScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerSection: { paddingBottom: 60, alignItems: 'center' },
-  backBtn: { position: 'absolute', left: 24, top: 60, zIndex: 10 },
-  headerTitle: { fontSize: 16, color: Colors.accent, letterSpacing: 2 },
-  content: { flex: 1, padding: 24 },
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,237,168,0.1)' },
+  backBtn: { padding: 8 },
+  refreshBtn: { padding: 8 },
+  headerInfo: { alignItems: 'center' },
+  headerTitle: { fontSize: 14, color: Colors.accent, letterSpacing: 3 },
+  liveIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34C759', marginRight: 6 },
+  liveText: { fontSize: 9, color: '#34C759', fontWeight: 'bold', letterSpacing: 1 },
+  content: { flex: 1, padding: 20 },
   mainGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  statCard: { width: (width - 64) / 2, padding: 20, borderRadius: 24, marginBottom: 16, flexDirection: 'column' },
-  statIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  statInfo: {},
-  statLabel: { fontSize: 10, color: Colors.mutedTeal, letterSpacing: 0.5, marginBottom: 4 },
+  statCard: { width: (width - 56) / 2, borderRadius: 24, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cardGradient: { padding: 20 },
+  statIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  statLabel: { fontSize: 9, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 4 },
   statValue: { fontSize: 24, marginBottom: 2 },
-  statSub: { fontSize: 10, color: Colors.mutedTeal, opacity: 0.8 },
-  chartContainer: { padding: 24, borderRadius: 28, marginTop: 16, marginBottom: 24 },
+  statSub: { fontSize: 9, color: Colors.mutedTeal, opacity: 0.6 },
+  chartWrapper: { borderRadius: 28, marginTop: 8, marginBottom: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  chartGradient: { padding: 24 },
   chartHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
-  chartTitle: { fontSize: 14, marginLeft: 12, letterSpacing: 1 },
-  barsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 150 },
-  barCol: { alignItems: 'center', width: 20 },
-  barBg: { width: 8, height: 120, borderRadius: 4, overflow: 'hidden', justifyContent: 'flex-end' },
-  barFill: { width: '100%', borderRadius: 4 },
-  barDay: { fontSize: 10, color: Colors.mutedTeal, marginTop: 12 },
-  quoteCard: { padding: 32, borderRadius: 32, marginTop: 8 },
+  chartTitle: { fontSize: 12, marginLeft: 12, letterSpacing: 2 },
+  barsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 140 },
+  barCol: { alignItems: 'center', width: 24 },
+  barBg: { width: 6, height: 110, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden', justifyContent: 'flex-end' },
+  barFill: { width: '100%', borderRadius: 3 },
+  barDay: { fontSize: 9, color: Colors.mutedTeal, marginTop: 12, fontWeight: 'bold' },
+  quoteWrapper: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,237,168,0.1)' },
+  quoteGradient: { padding: 32, alignItems: 'center' },
   quoteIcon: { position: 'absolute', top: 20, left: 20 },
-  quoteText: { color: Colors.white, fontSize: 16, fontStyle: 'italic', lineHeight: 24, textAlign: 'center' },
-  quoteAuthor: { color: Colors.accent, fontSize: 12, textAlign: 'center', marginTop: 16, letterSpacing: 1 }
+  quoteText: { color: Colors.white, fontSize: 15, fontStyle: 'italic', lineHeight: 22, textAlign: 'center', opacity: 0.9 },
+  quoteAuthor: { color: Colors.accent, fontSize: 11, textAlign: 'center', marginTop: 16, letterSpacing: 2 }
 });

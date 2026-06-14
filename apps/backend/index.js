@@ -587,6 +587,32 @@ app.put("/users/me/profile", authenticate, upload.single("avatar"), async (req, 
     } catch (e) { handleError(res, e); }
 });
 
+// --- ANALYTICS ---
+
+app.get("/admin/analytics", authenticate, async (req, res) => {
+    try {
+        const stories = await prisma.story.findMany({
+            where: { ownerId: req.user.id },
+            include: {
+                _count: {
+                    select: { likes: true, comments: true, history: true }
+                }
+            }
+        });
+
+        const stats = stories.map(s => ({
+            id: s.id,
+            title: s.title,
+            reads: s._count.history,
+            likes: s._count.likes,
+            comments: s._count.comments,
+            publishedAt: s.publishedAt
+        }));
+
+        res.json(stats);
+    } catch (e) { handleError(res, e); }
+});
+
 // --- 404 ---
 app.use((req, res) => {
     console.log(`[404] Unhandled: ${req.method} ${req.url}`);

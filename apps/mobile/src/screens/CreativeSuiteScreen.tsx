@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, Modal, Dimensions, Animated } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Users, Globe, Plus, X, Trash2, Camera, User, MapPin, Book } from "lucide-react-native";
+import { ArrowLeft, Users, Globe, Plus, X, Trash2, Camera, User, MapPin, Book, Sparkles, ChevronRight, Zap } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { Button } from "../components/Button";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width } = Dimensions.get("window");
 
 export const CreativeSuiteScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -127,88 +129,101 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.white }]}>
+    <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.header, { backgroundColor: Colors.primary, paddingTop: insets.top + 20 }]}>
+      <LinearGradient colors={['#001a18', '#000807']} style={StyleSheet.absoluteFill} />
+
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
             <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>CREATIVE SUITE</Text>
-            <Text style={[styles.headerSubtitle, { fontFamily: fonts.body }]}>{storyTitle}</Text>
+            <Text style={[styles.headerSubtitle, { fontFamily: fonts.body }]} numberOfLines={1}>{storyTitle?.toUpperCase()}</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={fetchData}><Zap size={20} color={Colors.accent} /></TouchableOpacity>
       </View>
 
       <View style={styles.tabContainer}>
           <TouchableOpacity 
-            style={[styles.tab, tab === "characters" && { borderBottomColor: Colors.accent }]}
+            style={[styles.tab, tab === "characters" && styles.activeTab]}
             onPress={() => setTab("characters")}
           >
-              <Users size={18} color={tab === "characters" ? Colors.accent : Colors.mutedTeal} />
-              <Text style={[styles.tabText, { fontFamily: fonts.heading, color: tab === "characters" ? Colors.accent : Colors.mutedTeal }]}>CHARACTERS</Text>
+              <Users size={16} color={tab === "characters" ? Colors.accent : "rgba(255,237,168,0.4)"} />
+              <Text style={[styles.tabText, { fontFamily: fonts.heading, color: tab === "characters" ? Colors.accent : "rgba(255,237,168,0.4)" }]}>DESIGN LAB</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.tab, tab === "world" && { borderBottomColor: Colors.accent }]}
+            style={[styles.tab, tab === "world" && styles.activeTab]}
             onPress={() => setTab("world")}
           >
-              <Globe size={18} color={tab === "world" ? Colors.accent : Colors.mutedTeal} />
-              <Text style={[styles.tabText, { fontFamily: fonts.heading, color: tab === "world" ? Colors.accent : Colors.mutedTeal }]}>WORLD WIKI</Text>
+              <Globe size={16} color={tab === "world" ? Colors.accent : "rgba(255,237,168,0.4)"} />
+              <Text style={[styles.tabText, { fontFamily: fonts.heading, color: tab === "world" ? Colors.accent : "rgba(255,237,168,0.4)" }]}>WORLD ENGINE</Text>
           </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        {loading ? <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} /> : (
+        {loading ? <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} /> : (
             tab === "characters" ? (
                 <View style={styles.list}>
-                    <TouchableOpacity style={[styles.addCard, { borderColor: theme.primary + '30' }]} onPress={() => setShowCharModal(true)}>
-                        <Plus size={24} color={theme.primary} />
-                        <Text style={[styles.addText, { fontFamily: fonts.heading, color: theme.primary }]}>NEW CHARACTER</Text>
+                    <TouchableOpacity style={styles.addCard} onPress={() => setShowCharModal(true)}>
+                        <LinearGradient colors={['rgba(255,237,168,0.1)', 'rgba(255,237,168,0.02)']} style={styles.addCardGradient}>
+                            <Plus size={28} color={Colors.accent} />
+                            <Text style={[styles.addText, { fontFamily: fonts.heading, color: Colors.accent }]}>INITIALIZE NEW ENTITY</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
 
                     {characters.map(char => (
-                        <View key={char.id} style={[styles.card, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
-                            <View style={styles.cardHeader}>
-                                <Image source={{ uri: char.avatarUrl || 'https://via.placeholder.com/60' }} style={styles.cardAvatar} />
-                                <View style={styles.cardInfo}>
-                                    <Text style={[styles.cardName, { fontFamily: fonts.heading, color: theme.black }]}>{char.name}</Text>
-                                    <Text style={[styles.cardRole, { fontFamily: fonts.body }]}>{char.role || "Supporting"}</Text>
+                        <View key={char.id} style={styles.card}>
+                            <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.cardGradient}>
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.avatarWrapper}>
+                                        <Image source={{ uri: char.avatarUrl || 'https://via.placeholder.com/60' }} style={styles.cardAvatar} />
+                                        <View style={styles.statusDot} />
+                                    </View>
+                                    <View style={styles.cardInfo}>
+                                        <Text style={[styles.cardName, { fontFamily: fonts.heading, color: Colors.white }]}>{char.name.toUpperCase()}</Text>
+                                        <Text style={[styles.cardRole, { fontFamily: fonts.body, color: Colors.accent }]}>{char.role || "NEURAL ENTITY"}</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => handleDeleteCharacter(char.id)} style={styles.deleteBtn}><Trash2 size={16} color="#FF6B6B" /></TouchableOpacity>
                                 </View>
-                                <TouchableOpacity onPress={() => handleDeleteCharacter(char.id)}><Trash2 size={18} color={Colors.error} /></TouchableOpacity>
-                            </View>
-                            <Text style={[styles.cardDesc, { fontFamily: fonts.body, color: theme.black }]} numberOfLines={3}>{char.description}</Text>
-                            {char.traits && (
-                                <View style={styles.traitRow}>
-                                    {char.traits.split(',').map((t: string) => (
-                                        <View key={t} style={[styles.traitBadge, { backgroundColor: theme.primary + '10' }]}>
-                                            <Text style={[styles.traitText, { color: theme.primary, fontFamily: fonts.body }]}>{t.trim()}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
+                                <Text style={[styles.cardDesc, { fontFamily: fonts.body, color: Colors.white, opacity: 0.7 }]} numberOfLines={3}>{char.description}</Text>
+                                {char.traits && (
+                                    <View style={styles.traitRow}>
+                                        {char.traits.split(',').map((t: string) => (
+                                            <View key={t} style={styles.traitBadge}>
+                                                <Text style={[styles.traitText, { color: Colors.accent, fontFamily: fonts.body }]}>{t.trim().toUpperCase()}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </LinearGradient>
                         </View>
                     ))}
                 </View>
             ) : (
                 <View style={styles.list}>
-                    <TouchableOpacity style={[styles.addCard, { borderColor: theme.primary + '30' }]} onPress={() => setShowWorldModal(true)}>
-                        <Plus size={24} color={theme.primary} />
-                        <Text style={[styles.addText, { fontFamily: fonts.heading, color: theme.primary }]}>NEW LORE ENTRY</Text>
+                    <TouchableOpacity style={styles.addCard} onPress={() => setShowWorldModal(true)}>
+                        <LinearGradient colors={['rgba(255,237,168,0.1)', 'rgba(255,237,168,0.02)']} style={styles.addCardGradient}>
+                            <Plus size={28} color={Colors.accent} />
+                            <Text style={[styles.addText, { fontFamily: fonts.heading, color: Colors.accent }]}>GENERATE WORLD DATA</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
 
                     {worldEntries.map(entry => (
-                        <View key={entry.id} style={[styles.card, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
-                            <View style={styles.cardHeader}>
-                                <View style={[styles.typeIcon, { backgroundColor: theme.primary + '15' }]}>
-                                    {entry.type === 'LOCATION' ? <MapPin size={18} color={theme.primary} /> : <Book size={18} color={theme.primary} />}
+                        <View key={entry.id} style={styles.card}>
+                            <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.cardGradient}>
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.typeIcon}>
+                                        {entry.type === 'LOCATION' ? <MapPin size={20} color={Colors.accent} /> : <Book size={20} color={Colors.accent} />}
+                                    </View>
+                                    <View style={styles.cardInfo}>
+                                        <Text style={[styles.cardName, { fontFamily: fonts.heading, color: Colors.white }]}>{entry.title.toUpperCase()}</Text>
+                                        <Text style={[styles.cardRole, { fontFamily: fonts.body, color: Colors.accent }]}>{entry.type} CORE</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => handleDeleteWorld(entry.id)} style={styles.deleteBtn}><Trash2 size={16} color="#FF6B6B" /></TouchableOpacity>
                                 </View>
-                                <View style={styles.cardInfo}>
-                                    <Text style={[styles.cardName, { fontFamily: fonts.heading, color: theme.black }]}>{entry.title}</Text>
-                                    <Text style={[styles.cardRole, { fontFamily: fonts.body }]}>{entry.type}</Text>
-                                </View>
-                                <TouchableOpacity onPress={() => handleDeleteWorld(entry.id)}><Trash2 size={18} color={Colors.error} /></TouchableOpacity>
-                            </View>
-                            <Text style={[styles.cardDesc, { fontFamily: fonts.body, color: theme.black }]}>{entry.content}</Text>
+                                <Text style={[styles.cardDesc, { fontFamily: fonts.body, color: Colors.white, opacity: 0.7 }]}>{entry.content}</Text>
+                            </LinearGradient>
                         </View>
                     ))}
                 </View>
@@ -216,101 +231,115 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
         )}
       </ScrollView>
 
-      {/* Character Modal */}
-      <Modal visible={showCharModal} animationType="slide">
-          <View style={[styles.modalContainer, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { fontFamily: fonts.heading, color: theme.black }]}>CHARACTER DESIGN</Text>
-                  <TouchableOpacity onPress={() => setShowCharModal(false)}><X size={24} color={theme.black} /></TouchableOpacity>
-              </View>
-              <ScrollView style={{ flex: 1, padding: 24 }}>
-                  <TouchableOpacity style={styles.avatarPicker} onPress={pickCharAvatar}>
-                      {charAvatar ? <Image source={{ uri: charAvatar }} style={styles.pickedAvatar} /> : (
-                          <View style={styles.avatarPlaceholderLarge}>
-                              <Camera size={32} color={Colors.mutedTeal} />
-                          </View>
-                      )}
-                  </TouchableOpacity>
-
-                  <TextInput style={[styles.input, { fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Name" value={charName} onChangeText={setCharName} placeholderTextColor={Colors.mutedTeal} />
-                  <TextInput style={[styles.input, { fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Role (e.g. Hero, Villain)" value={charRole} onChangeText={setCharRole} placeholderTextColor={Colors.mutedTeal} />
-                  <TextInput style={[styles.input, { fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Traits (comma separated)" value={charTraits} onChangeText={setCharTraits} placeholderTextColor={Colors.mutedTeal} />
-                  <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top', fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Description / Bio" value={charDesc} onChangeText={setCharDesc} multiline placeholderTextColor={Colors.mutedTeal} />
-                  
-                  {submitting ? <ActivityIndicator color={theme.primary} /> : (
-                      <Button title="SAVE CHARACTER" onPress={handleAddCharacter} />
-                  )}
-              </ScrollView>
-          </View>
-      </Modal>
-
-      {/* World Modal */}
-      <Modal visible={showWorldModal} animationType="slide">
-          <View style={[styles.modalContainer, { backgroundColor: theme.white, paddingTop: insets.top + 20 }]}>
-              <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { fontFamily: fonts.heading, color: theme.black }]}>WORLD LORE</Text>
-                  <TouchableOpacity onPress={() => setShowWorldModal(false)}><X size={24} color={theme.black} /></TouchableOpacity>
-              </View>
-              <ScrollView style={{ flex: 1, padding: 24 }}>
-                  <View style={styles.typeSelector}>
-                      {['LOCATION', 'LORE', 'SYSTEM'].map(t => (
-                          <TouchableOpacity 
-                            key={t} 
-                            style={[styles.typeBtn, worldType === t && { backgroundColor: theme.primary }]}
-                            onPress={() => setWorldType(t)}
-                          >
-                              <Text style={[styles.typeBtnText, { color: worldType === t ? theme.white : theme.primary, fontFamily: fonts.heading }]}>{t}</Text>
-                          </TouchableOpacity>
-                      ))}
+      {/* Futuristic Modal Overlay */}
+      <Modal visible={showCharModal || showWorldModal} animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+              <View style={[styles.modalHUD, { backgroundColor: '#001a18', borderColor: 'rgba(255,237,168,0.2)' }]}>
+                  <View style={styles.hudHeader}>
+                      <Sparkles size={16} color={Colors.accent} />
+                      <Text style={[styles.hudTitle, { fontFamily: fonts.heading }]}>{showCharModal ? "ENTITY DESIGNER" : "CORE ENGINE"}</Text>
+                      <TouchableOpacity onPress={() => { setShowCharModal(false); setShowWorldModal(false); }}><X size={20} color={Colors.white} /></TouchableOpacity>
                   </View>
 
-                  <TextInput style={[styles.input, { fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Title (e.g. The Kingdom of Eldoria)" value={worldTitle} onChangeText={setWorldTitle} placeholderTextColor={Colors.mutedTeal} />
-                  <TextInput style={[styles.input, { height: 250, textAlignVertical: 'top', fontFamily: fonts.body, color: theme.black, borderColor: theme.primary + '20' }]} placeholder="Details..." value={worldContent} onChangeText={setWorldContent} multiline placeholderTextColor={Colors.mutedTeal} />
-                  
-                  {submitting ? <ActivityIndicator color={theme.primary} /> : (
-                      <Button title="SAVE ENTRY" onPress={handleAddWorld} />
-                  )}
-              </ScrollView>
+                  <ScrollView style={styles.hudBody} showsVerticalScrollIndicator={false}>
+                      {showCharModal ? (
+                          <>
+                            <TouchableOpacity style={styles.hudAvatarPicker} onPress={pickCharAvatar}>
+                                {charAvatar ? <Image source={{ uri: charAvatar }} style={styles.hudPickedAvatar} /> : (
+                                    <View style={styles.hudAvatarPlaceholder}>
+                                        <Camera size={24} color={Colors.accent} />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                            <HUDInput placeholder="ENTITY IDENTIFIER" value={charName} onChangeText={setCharName} />
+                            <HUDInput placeholder="SYSTEM ROLE" value={charRole} onChangeText={setCharRole} />
+                            <HUDInput placeholder="NEURAL TRAITS (COMMA SEP)" value={charTraits} onChangeText={setCharTraits} />
+                            <HUDInput placeholder="DATABASE ENTRY / BIO" value={charDesc} onChangeText={setCharDesc} multiline height={100} />
+                            <TouchableOpacity style={styles.hudActionBtn} onPress={handleAddCharacter}>
+                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>INITIALIZE ENTITY</Text>
+                            </TouchableOpacity>
+                          </>
+                      ) : (
+                          <>
+                            <View style={styles.hudTypeRow}>
+                                {['LOCATION', 'LORE', 'SYSTEM'].map(t => (
+                                    <TouchableOpacity key={t} style={[styles.hudTypeBtn, worldType === t && styles.hudTypeActive]} onPress={() => setWorldType(t)}>
+                                        <Text style={[styles.hudTypeText, { color: worldType === t ? Colors.primary : Colors.accent, fontFamily: fonts.heading }]}>{t}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            <HUDInput placeholder="DATA TITLE" value={worldTitle} onChangeText={setWorldTitle} />
+                            <HUDInput placeholder="SYSTEM DETAILS..." value={worldContent} onChangeText={setWorldContent} multiline height={180} />
+                            <TouchableOpacity style={styles.hudActionBtn} onPress={handleAddWorld}>
+                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>COMMIT DATA</Text>
+                            </TouchableOpacity>
+                          </>
+                      )}
+                  </ScrollView>
+              </View>
           </View>
       </Modal>
-
     </View>
   );
 };
 
+const HUDInput = ({ ...props }: any) => (
+    <View style={styles.hudInputWrapper}>
+        <TextInput 
+            {...props} 
+            placeholderTextColor="rgba(255,237,168,0.3)" 
+            style={[styles.hudInput, { fontFamily: Fonts.body, height: props.height || 54 }, props.style, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} 
+        />
+        <View style={styles.hudInputLine} />
+    </View>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 24 },
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,237,168,0.1)' },
   backBtn: { padding: 8 },
   headerInfo: { alignItems: 'center' },
-  headerTitle: { fontSize: 16, color: Colors.accent, letterSpacing: 2 },
-  headerSubtitle: { fontSize: 12, color: Colors.paleGreen, opacity: 0.8, marginTop: 2 },
-  tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: 'rgba(0,54,49,0.05)' },
-  tab: { flex: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 12, marginLeft: 8, letterSpacing: 1 },
+  headerTitle: { fontSize: 14, color: Colors.accent, letterSpacing: 3 },
+  headerSubtitle: { fontSize: 10, color: Colors.white, opacity: 0.6, marginTop: 4, letterSpacing: 1 },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 24, paddingTop: 16 },
+  tab: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: 'transparent', opacity: 0.6 },
+  activeTab: { borderBottomColor: Colors.accent, opacity: 1 },
+  tabText: { fontSize: 10, marginLeft: 10, letterSpacing: 2 },
   body: { flex: 1 },
-  list: { padding: 24 },
-  addCard: { height: 100, borderRadius: 20, borderStyle: 'dashed', borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  addText: { fontSize: 13, marginTop: 8, letterSpacing: 1 },
-  card: { padding: 20, borderRadius: 24, marginBottom: 16 },
+  list: { padding: 20 },
+  addCard: { height: 80, borderRadius: 20, overflow: 'hidden', marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,237,168,0.2)', borderStyle: 'dashed' },
+  addCardGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  addText: { fontSize: 11, marginLeft: 12, letterSpacing: 1.5 },
+  card: { borderRadius: 24, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cardGradient: { padding: 20 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  cardAvatar: { width: 50, height: 50, borderRadius: 25 },
-  typeIcon: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  avatarWrapper: { width: 50, height: 50, borderRadius: 25, position: 'relative' },
+  cardAvatar: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: Colors.accent },
+  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 10, height: 10, borderRadius: 5, backgroundColor: '#34C759', borderWidth: 2, borderColor: '#001a18' },
+  typeIcon: { width: 50, height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,237,168,0.1)', borderWidth: 1, borderColor: 'rgba(255,237,168,0.2)' },
   cardInfo: { flex: 1, marginLeft: 16 },
-  cardName: { fontSize: 16 },
-  cardRole: { fontSize: 12, color: Colors.mutedTeal, marginTop: 2 },
-  cardDesc: { fontSize: 14, lineHeight: 22, opacity: 0.8 },
-  traitRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 },
-  traitBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 8, marginBottom: 8 },
-  traitText: { fontSize: 10 },
-  modalContainer: { flex: 1 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(0,54,49,0.05)' },
-  modalTitle: { fontSize: 16, letterSpacing: 2 },
-  avatarPicker: { alignSelf: 'center', marginBottom: 32 },
-  avatarPlaceholderLarge: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(0,54,49,0.05)', alignItems: 'center', justifyContent: 'center' },
-  pickedAvatar: { width: 100, height: 100, borderRadius: 50 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 16, marginBottom: 20, fontSize: 16 },
-  typeSelector: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  typeBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,54,49,0.1)' },
-  typeBtnText: { fontSize: 11, letterSpacing: 1 }
+  cardName: { fontSize: 15, letterSpacing: 1 },
+  cardRole: { fontSize: 10, letterSpacing: 1, marginTop: 2 },
+  deleteBtn: { padding: 8, backgroundColor: 'rgba(255,107,107,0.05)', borderRadius: 10 },
+  cardDesc: { fontSize: 13, lineHeight: 20 },
+  traitRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 16 },
+  traitBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginRight: 8, marginBottom: 8, backgroundColor: 'rgba(255,237,168,0.1)', borderWidth: 1, borderColor: 'rgba(255,237,168,0.1)' },
+  traitText: { fontSize: 9, letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+  modalHUD: { width: width - 40, height: '80%', borderRadius: 32, borderWidth: 1, overflow: 'hidden' },
+  hudHeader: { flexDirection: 'row', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,237,168,0.1)' },
+  hudTitle: { flex: 1, color: Colors.accent, fontSize: 13, letterSpacing: 3, marginLeft: 12 },
+  hudBody: { padding: 24 },
+  hudAvatarPicker: { alignSelf: 'center', marginBottom: 32 },
+  hudAvatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,237,168,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,237,168,0.2)' },
+  hudPickedAvatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: Colors.accent },
+  hudInputWrapper: { marginBottom: 24 },
+  hudInput: { color: Colors.white, fontSize: 14, letterSpacing: 1, paddingVertical: 12 },
+  hudInputLine: { height: 1, backgroundColor: 'rgba(255,237,168,0.2)', width: '100%' },
+  hudActionBtn: { backgroundColor: Colors.accent, paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginTop: 10 },
+  hudActionText: { color: Colors.primary, fontSize: 12, letterSpacing: 2, fontWeight: 'bold' },
+  hudTypeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
+  hudTypeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', marginHorizontal: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,237,168,0.3)' },
+  hudTypeActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  hudTypeText: { fontSize: 10, letterSpacing: 1 }
 });

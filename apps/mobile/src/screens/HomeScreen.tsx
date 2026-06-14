@@ -7,6 +7,7 @@ import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { NotificationDot } from "../components/NotificationDot";
 import apiClient from "../api/apiClient";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,7 +17,7 @@ const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
 
 export const HomeScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, hasUnreadMessages } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
   
   const [stories, setStories] = useState<any[]>([]);
@@ -209,8 +210,12 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <Text style={[styles.username, { fontFamily: fonts.heading }]}>StoryNest</Text>
           </TouchableOpacity>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconCircle} onPress={() => {}}>
+            <TouchableOpacity 
+                style={styles.iconCircle} 
+                onPress={() => navigation.navigate("ActivityFeed")}
+            >
               <Bell size={20} color={Colors.accent} />
+              {hasUnreadMessages && <NotificationDot />}
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.avatarCircle}

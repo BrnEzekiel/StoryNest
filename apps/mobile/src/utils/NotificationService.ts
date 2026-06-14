@@ -18,10 +18,13 @@ export const initNotifications = async () => {
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
+      name: "StoryNest Alerts",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#FFEDA8",
+      enableVibrate: true,
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
 };
@@ -33,8 +36,9 @@ export const triggerLocalNotification = async (title: string, body: string) => {
         content: {
             title,
             body,
-            sound: true, // This tells the OS to use the default notification sound
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            sound: 'default', // Explicitly use default system sound
+            priority: Notifications.AndroidNotificationPriority.MAX,
+            data: { screen: 'ActivityFeed' }
         },
         trigger: null, // Show immediately
     });

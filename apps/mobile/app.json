@@ -46,6 +46,16 @@
     "plugins": [
       "expo-updates",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FFEDA8",
+          "sounds": [
+            "./assets/notification.wav"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

@@ -24,6 +24,7 @@ export const initNotifications = async () => {
       lightColor: "#FFEDA8",
       enableVibrate: true,
       showBadge: true,
+      sound: 'notification.wav', // Reference the bundled sound file
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
@@ -36,7 +37,7 @@ export const triggerLocalNotification = async (title: string, body: string) => {
         content: {
             title,
             body,
-            sound: 'default', // Explicitly use default system sound
+            sound: 'notification.wav', // Use the custom sound
             priority: Notifications.AndroidNotificationPriority.MAX,
             data: { screen: 'ActivityFeed' }
         },

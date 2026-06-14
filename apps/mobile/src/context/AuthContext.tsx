@@ -5,6 +5,7 @@ import apiClient from "../api/apiClient";
 import { Platform } from "react-native";
 import { Storage } from "../utils/Storage";
 import { triggerLocalNotification } from "../utils/NotificationService";
+import { Audio } from 'expo-av';
 
 interface User {
   id: string;
@@ -72,6 +73,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return () => clearInterval(interval);
   }, [user]);
 
+  const playNotificationSound = async () => {
+      try {
+          const { sound } = await Audio.Sound.createAsync(
+              require("../../assets/notification.wav")
+          );
+          await sound.playAsync();
+      } catch (e) {
+          console.log("[Auth] Audio play failed:", e.message);
+      }
+  };
+
   const checkNewMessages = async () => {
       try {
           const res = await apiClient.get("/messages/conversations");
@@ -80,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
               setHasUnreadMessages(true);
               triggerLocalNotification("StoryNest", "You have new messages waiting in the nest!");
+              playNotificationSound();
           }
           setLastMessageCount(totalMsgs);
       } catch (e) {}

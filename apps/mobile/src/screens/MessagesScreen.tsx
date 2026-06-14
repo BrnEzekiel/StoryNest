@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList, Dimensions, Alert, Modal } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, Send, Search, MoreVertical, CheckCheck } from "lucide-react-native";
+import { ArrowLeft, Send, Search, MoreVertical, CheckCheck, Edit2, Trash2, X } from "lucide-react-native";
 import apiClient from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -13,24 +13,30 @@ const { width } = Dimensions.get("window");
 
 export const MessagesScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, setHasUnreadMessages } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
   
-  // If targetUserId is passed, we open that chat directly
   const { targetUser } = route.params || {};
 
   const [conversations, setConversations] = useState<any[]>([]);
-  const [activeChat, setActiveMood] = useState<any>(targetUser || null);
+  const [activeChat, setActiveChat] = useState<any>(targetUser || null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+
+  // CRUD States
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [showOptions, setShowOptions] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
       if (activeChat) {
           fetchMessages(activeChat.id);
+          markAllAsRead(activeChat.id);
       } else {
           fetchConversations();
       }
@@ -50,8 +56,16 @@ export const MessagesScreen = ({ route, navigation }: any) => {
       try {
           const res = await apiClient.get(`/messages/${userId}`);
           setMessages(res.data);
+          setTimeout(() => flatListRef.current?.scrollToEnd(), 200);
       } catch (e) { console.log(e); }
       finally { setLoading(false); }
+  };
+
+  const markAllAsRead = async (userId: string) => {
+      try {
+          await apiClient.patch(`/messages/read-all/${userId}`);
+          setHasUnreadMessages(false);
+      } catch (e) {}
   };
 
   const handleSendMessage = async () => {
@@ -67,6 +81,46 @@ export const MessagesScreen = ({ route, navigation }: any) => {
           setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
       } catch (e) { console.log(e); }
       finally { setSending(false); }
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+      try {
+          await apiClient.delete(`/messages/${id}`);
+          setMessages(messages.filter(m => m.id !== id));
+          setShowOptions(false);
+      } catch (e) { Alert.alert("Error", "Could not delete message."); }
+  };
+
+  const handleUpdateMessage = async () => {
+      if (!editContent.trim()) return;
+      try {
+          const res = await apiClient.put(`/messages/${selectedMessage.id}`, { content: editContent.trim() });
+          setMessages(messages.map(m => m.id === selectedMessage.id ? res.data : m));
+          setIsEditing(false);
+          setSelectedMessage(null);
+      } catch (e) { Alert.alert("Error", "Could not update message."); }
+  };
+
+  const clearConversation = () => {
+      Alert.alert("Clear Chat", "This will delete all messages in this conversation. Continue?", [
+          { text: "Cancel", style: "cancel" },
+          { 
+              text: "Clear", 
+              style: "destructive", 
+              onPress: async () => {
+                  try {
+                      await apiClient.delete(`/messages/conversations/${activeChat.id}`);
+                      setMessages([]);
+                  } catch (e) {}
+              }
+          }
+      ]);
+  };
+
+  const openOptions = (msg: any) => {
+      if (msg.senderId !== user?.id) return; // Only CRUD own messages
+      setSelectedMessage(msg);
+      setShowOptions(true);
   };
 
   if (!activeChat) {
@@ -87,7 +141,7 @@ export const MessagesScreen = ({ route, navigation }: any) => {
                               <TouchableOpacity 
                                 key={conv.user.id} 
                                 style={[styles.convItem, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
-                                onPress={() => setActiveMood(conv.user)}
+                                onPress={() => setActiveChat(conv.user)}
                               >
                                   <View style={styles.avatarLarge}>
                                       {conv.user.avatarUrl ? <Image source={{ uri: conv.user.avatarUrl }} style={styles.img} /> : <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '20' }]}><Text style={styles.avatarText}>{conv.user.username[0].toUpperCase()}</Text></View>}
@@ -97,7 +151,7 @@ export const MessagesScreen = ({ route, navigation }: any) => {
                                           <Text style={[styles.convName, { color: theme.black, fontFamily: fonts.heading }]}>{conv.user.username}</Text>
                                           <Text style={[styles.convTime, { fontFamily: fonts.body }]}>{new Date(conv.lastMessage.createdAt).toLocaleDateString()}</Text>
                                       </View>
-                                      <Text style={[styles.convPreview, { fontFamily: fonts.body }]} numberOfLines={1}>{conv.lastMessage.content}</Text>
+                                      <Text style={[styles.convPreview, { fontFamily: fonts.body, color: conv.lastMessage.isRead || conv.lastMessage.senderId === user?.id ? Colors.mutedTeal : theme.primary, fontWeight: conv.lastMessage.isRead || conv.lastMessage.senderId === user?.id ? "normal" : "bold" }]} numberOfLines={1}>{conv.lastMessage.content}</Text>
                                   </View>
                               </TouchableOpacity>
                           ))
@@ -112,17 +166,17 @@ export const MessagesScreen = ({ route, navigation }: any) => {
     <View style={[styles.container, { backgroundColor: theme.white }]}>
         <StatusBar style="light" />
         <View style={[styles.chatHeader, { backgroundColor: Colors.primary, paddingTop: insets.top + 10 }]}>
-            <TouchableOpacity onPress={() => setActiveMood(null)} style={styles.backBtn}><ArrowLeft size={24} color={Colors.accent} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveChat(null)} style={styles.backBtn}><ArrowLeft size={24} color={Colors.accent} /></TouchableOpacity>
             <View style={styles.headerUser}>
                 <View style={styles.avatarSmall}>
                     {activeChat.avatarUrl ? <Image source={{ uri: activeChat.avatarUrl }} style={styles.img} /> : <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '20' }]}><Text style={styles.avatarTextSmall}>{activeChat.username[0].toUpperCase()}</Text></View>}
                 </View>
                 <View style={{ marginLeft: 12 }}>
                     <Text style={[styles.chatName, { fontFamily: fonts.heading, color: Colors.white }]}>{activeChat.username}</Text>
-                    <Text style={[styles.chatStatus, { fontFamily: fonts.body, color: Colors.accent }]}>Online</Text>
+                    <Text style={[styles.chatStatus, { fontFamily: fonts.body, color: Colors.accent }]}>Active Now</Text>
                 </View>
             </View>
-            <TouchableOpacity><MoreVertical size={20} color={Colors.accent} /></TouchableOpacity>
+            <TouchableOpacity onPress={clearConversation}><MoreVertical size={20} color={Colors.accent} /></TouchableOpacity>
         </View>
 
         <FlatList 
@@ -132,20 +186,72 @@ export const MessagesScreen = ({ route, navigation }: any) => {
             renderItem={({ item }) => {
                 const isMine = item.senderId === user?.id;
                 return (
-                    <View style={[styles.messageWrapper, isMine ? styles.myMessage : styles.theirMessage]}>
+                    <TouchableOpacity 
+                        onLongPress={() => openOptions(item)}
+                        activeOpacity={0.9}
+                        style={[styles.messageWrapper, isMine ? styles.myMessage : styles.theirMessage]}
+                    >
                         <View style={[styles.bubble, { backgroundColor: isMine ? theme.primary : (isDarkMode ? 'rgba(255,255,255,0.1)' : Colors.paleGreen) }]}>
                             <Text style={[styles.messageText, { color: isMine ? theme.white : theme.black, fontFamily: fonts.body }]}>{item.content}</Text>
                             <View style={styles.bubbleFooter}>
                                 <Text style={[styles.messageTime, { color: isMine ? 'rgba(255,255,255,0.6)' : Colors.mutedTeal }]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                                {isMine && <CheckCheck size={12} color="rgba(255,255,255,0.6)" style={{ marginLeft: 4 }} />}
+                                {isMine && <CheckCheck size={12} color={item.isRead ? Colors.accent : "rgba(255,255,255,0.6)"} style={{ marginLeft: 4 }} />}
                             </View>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 );
             }}
             contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
         />
+
+        {/* Edit Modal */}
+        <Modal visible={isEditing} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+                <View style={[styles.editBox, { backgroundColor: theme.white }]}>
+                    <View style={styles.editHeader}>
+                        <Text style={[styles.editTitle, { fontFamily: fonts.heading, color: theme.primary }]}>Edit Message</Text>
+                        <TouchableOpacity onPress={() => setIsEditing(false)}><X size={20} color={theme.black} /></TouchableOpacity>
+                    </View>
+                    <TextInput 
+                        style={[styles.editInput, { color: theme.black, fontFamily: fonts.body }]}
+                        value={editContent}
+                        onChangeText={setEditContent}
+                        multiline
+                        autoFocus
+                    />
+                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primary }]} onPress={handleUpdateMessage}>
+                        <Text style={[styles.saveText, { fontFamily: fonts.heading }]}>Save Changes</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+
+        {/* Options Action Sheet (Simplified) */}
+        <Modal visible={showOptions} transparent animationType="slide">
+            <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowOptions(false)}>
+                <View style={[styles.optionsSheet, { backgroundColor: theme.white }]}>
+                    <TouchableOpacity 
+                        style={styles.optionItem} 
+                        onPress={() => {
+                            setEditContent(selectedMessage.content);
+                            setIsEditing(true);
+                            setShowOptions(false);
+                        }}
+                    >
+                        <Edit2 size={18} color={theme.primary} />
+                        <Text style={[styles.optionText, { color: theme.black, fontFamily: fonts.body }]}>Edit Message</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.optionItem} onPress={() => handleDeleteMessage(selectedMessage.id)}>
+                        <Trash2 size={18} color="#FF3B30" />
+                        <Text style={[styles.optionText, { color: "#FF3B30", fontFamily: fonts.body }]}>Delete Message</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.optionItem, { borderBottomWidth: 0 }]} onPress={() => setShowOptions(false)}>
+                        <Text style={[styles.optionText, { textAlign: 'center', flex: 1, color: Colors.mutedTeal }]}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </TouchableOpacity>
+        </Modal>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
             <View style={[styles.inputArea, { backgroundColor: theme.white, paddingBottom: insets.bottom + 10, borderTopColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
@@ -182,7 +288,7 @@ const styles = StyleSheet.create({
   convHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   convName: { fontSize: 16 },
   convTime: { fontSize: 11, color: Colors.mutedTeal },
-  convPreview: { fontSize: 13, color: Colors.mutedTeal },
+  convPreview: { fontSize: 13 },
   emptyText: { textAlign: 'center', color: Colors.mutedTeal, marginTop: 100 },
   chatHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16 },
   headerUser: { flex: 1, flexDirection: 'row', alignItems: 'center' },
@@ -200,5 +306,15 @@ const styles = StyleSheet.create({
   inputArea: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 24, paddingHorizontal: 16, minHeight: 48 },
   input: { flex: 1, fontSize: 15, paddingVertical: 8, maxHeight: 100 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: 12 }
+  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  editBox: { width: '85%', padding: 24, borderRadius: 20 },
+  editHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  editTitle: { fontSize: 18 },
+  editInput: { minHeight: 100, textAlignVertical: 'top', fontSize: 16, marginBottom: 20 },
+  saveBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  saveText: { color: '#FFFFFF', fontWeight: 'bold' },
+  optionsSheet: { width: '100%', position: 'absolute', bottom: 0, padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  optionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  optionText: { fontSize: 16, marginLeft: 16 }
 });

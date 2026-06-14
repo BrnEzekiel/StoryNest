@@ -399,11 +399,16 @@ app.get("/messages/conversations", authenticate, async (req, res) => {
         const conversationsMap = new Map();
         messages.forEach(msg => {
             const otherUser = msg.senderId === userId ? msg.receiver : msg.sender;
+            const isUnread = !msg.isRead && msg.receiverId === userId;
+            
             if (!conversationsMap.has(otherUser.id)) {
                 conversationsMap.set(otherUser.id, { 
                     user: { id: otherUser.id, username: otherUser.username, avatarUrl: otherUser.avatarUrl }, 
-                    lastMessage: msg 
+                    lastMessage: msg,
+                    hasUnread: isUnread
                 });
+            } else if (isUnread) {
+                conversationsMap.get(otherUser.id).hasUnread = true;
             }
         });
 
@@ -433,6 +438,50 @@ app.post("/messages", authenticate, async (req, res) => {
             data: { content, senderId: req.user.id, receiverId }
         });
         res.status(201).json(message);
+    } catch (e) { handleError(res, e); }
+});
+
+app.put("/messages/:id", authenticate, async (req, res) => {
+    try {
+        const msg = await prisma.message.findUnique({ where: { id: req.params.id } });
+        if (!msg || msg.senderId !== req.user.id) return res.status(403).json({ error: "Unauthorized" });
+        const updated = await prisma.message.update({ where: { id: req.params.id }, data: { content: req.body.content } });
+        res.json(updated);
+    } catch (e) { handleError(res, e); }
+});
+
+app.delete("/messages/:id", authenticate, async (req, res) => {
+    try {
+        const msg = await prisma.message.findUnique({ where: { id: req.params.id } });
+        if (!msg || msg.senderId !== req.user.id) return res.status(403).json({ error: "Unauthorized" });
+        await prisma.message.delete({ where: { id: req.params.id } });
+        res.json({ success: true });
+    } catch (e) { handleError(res, e); }
+});
+
+app.delete("/messages/conversations/:userId", authenticate, async (req, res) => {
+    try {
+        const myId = req.user.id;
+        const otherId = req.params.userId;
+        await prisma.message.deleteMany({
+            where: {
+                OR: [
+                    { senderId: myId, receiverId: otherId },
+                    { senderId: otherId, receiverId: myId }
+                ]
+            }
+        });
+        res.json({ success: true });
+    } catch (e) { handleError(res, e); }
+});
+
+app.patch("/messages/read-all/:userId", authenticate, async (req, res) => {
+    try {
+        await prisma.message.updateMany({
+            where: { senderId: req.params.userId, receiverId: req.user.id, isRead: false },
+            data: { isRead: true }
+        });
+        res.json({ success: true });
     } catch (e) { handleError(res, e); }
 });
 

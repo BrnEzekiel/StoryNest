@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let interval: any;
       if (user) {
           checkNewMessages();
-          interval = setInterval(checkNewMessages, 30000); // Check every 30s
+          interval = setInterval(checkNewMessages, 15000); // Check every 15s
       }
       return () => clearInterval(interval);
   }, [user]);

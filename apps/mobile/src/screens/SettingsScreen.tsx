@@ -14,6 +14,8 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme, ThemeMode } from "../context/ThemeContext";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as Updates from "expo-updates";
+import * as Linking from 'expo-linking';
+import { triggerLocalNotification } from "../utils/NotificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -154,6 +156,29 @@ export const SettingsScreen = ({ navigation }: any) => {
             }
         ]
     );
+  };
+
+  const handleLogout = () => {
+    if (Platform.OS === 'web') {
+        if (window.confirm("Are you sure you want to logout?")) {
+            logout();
+        }
+    } else {
+        Alert.alert("Logout", "Are you sure you want to leave the nest?", [
+            { text: "Stay", style: "cancel" },
+            { text: "Logout", style: "destructive", onPress: logout }
+        ]);
+    }
+  };
+
+  const handleTestNotification = async () => {
+      await triggerLocalNotification("Test Alert 🗝️", "This is how StoryNest sounds on your device!");
+      if (Platform.OS === 'android') {
+          Alert.alert("Did it ring?", "If not, check your 'StoryNest Alerts' channel in System Settings.", [
+              { text: "Settings", onPress: () => Linking.openSettings() },
+              { text: "OK" }
+          ]);
+      }
   };
 
   const startSpin = () => {
@@ -324,6 +349,16 @@ export const SettingsScreen = ({ navigation }: any) => {
         />
         <SettingItem
           icon={<Bell size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="Test Notification Sound"
+          onPress={handleTestNotification}
+        />
+        <SettingItem
+          icon={<Shield size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="System Notification Access"
+          onPress={() => Linking.openSettings()}
+        />
+        <SettingItem
+          icon={<Bell size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Email Notifications"
           isSwitch switchValue={notifications} onValueChange={handleToggleNotifications}
           loading={updatingNotifs}
@@ -389,7 +424,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         </Animated.View>
 
         {/* ── Logout ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <LogOut size={20} color="#FF6B6B" />
           <Text style={styles.logoutText}>LOG OUT</Text>
         </TouchableOpacity>

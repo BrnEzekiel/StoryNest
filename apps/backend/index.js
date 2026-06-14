@@ -77,7 +77,7 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         });
         
         // Notify Slack as a backup
-        await sendSlack(`🗝️ *OTP Notification*\n*User:* ${email}\n*Code:* \`${otp}\`\n*Type:* ${type}`);
+        await sendSlack(`*OTP Notification*\n*User:* ${email}\n*Code:* \`${otp}\`\n*Type:* ${type}`);
     } catch (e) { console.error("[Gmail API] Send Failure:", e.message); }
 };
 
@@ -594,4 +594,4 @@ app.use((req, res) => {
 });
 
 const PORT = config.port;
-app.listen(PORT, () => console.log(`🚀 StoryNest Backend v3.7.12 (STABLE) running on port ${PORT}`));
+app.listen(PORT, () => console.log(`StoryNest Backend v3.7.12 (STABLE) running on port ${PORT}`));

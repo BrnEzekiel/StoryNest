@@ -67,7 +67,7 @@ export const ShopScreen = ({ navigation }: any) => {
     try {
         await apiClient.post("/monetization/subscribe");
         await refreshUser();
-        Alert.alert("Welcome to the Elite! 🎉", "Your Nest Plus subscription is now active.");
+        Alert.alert("Welcome to the Elite!", "Your Nest Plus subscription is now active.");
     } catch (e) {
         Alert.alert("Error", "Subscription failed. Please try again.");
     } finally {

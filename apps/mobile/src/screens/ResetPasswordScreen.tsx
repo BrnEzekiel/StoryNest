@@ -39,7 +39,7 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
     setLoading(true);
     try {
       await resetPassword({ email, otp, newPassword });
-      Alert.alert("Success 🎉", "Your password has been updated. You can now login.", [
+      Alert.alert("Success", "Your password has been updated. You can now login.", [
         { text: "Go to Login", onPress: () => navigation.navigate("Login") }
       ]);
     } catch (err: any) {

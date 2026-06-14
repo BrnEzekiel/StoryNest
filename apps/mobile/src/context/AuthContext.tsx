@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
               setHasUnreadMessages(true);
-              triggerLocalNotification("StoryNest", "You have new messages waiting in the nest! 🗝️");
+              triggerLocalNotification("StoryNest", "You have new messages waiting in the nest!");
           }
           setLastMessageCount(totalMsgs);
       } catch (e) {}

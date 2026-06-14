@@ -137,7 +137,7 @@ export const SettingsScreen = ({ navigation }: any) => {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-        "Delete Account 🗑️",
+        "Delete Account",
         "This is PERMANENT. All your library, streaks, and XP will be gone forever. Are you absolutely sure?",
         [
             { text: "Cancel", style: "cancel" },
@@ -172,7 +172,7 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const handleTestNotification = async () => {
-      await triggerLocalNotification("Test Alert 🗝️", "This is how StoryNest sounds on your device!");
+      await triggerLocalNotification("Test Alert", "This is how StoryNest sounds on your device!");
       if (Platform.OS === 'android') {
           Alert.alert("Did it ring?", "If not, check your 'StoryNest Alerts' channel in System Settings.", [
               { text: "Settings", onPress: () => Linking.openSettings() },
@@ -240,7 +240,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       await Updates.fetchUpdateAsync();
       stopSpin();
       Alert.alert(
-        "Update Ready 🎉",
+        "Update Ready",
         "The latest code from GitHub has been downloaded. The app will restart to apply it.",
         [{ text: "Restart Now", onPress: () => Updates.reloadAsync() }]
       );

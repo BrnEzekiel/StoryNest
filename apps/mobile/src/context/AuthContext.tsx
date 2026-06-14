@@ -4,7 +4,7 @@ import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
 import { Platform } from "react-native";
 import { Storage } from "../utils/Storage";
-import { Audio } from 'expo-av';
+import { triggerLocalNotification } from "../utils/NotificationService";
 
 interface User {
   id: string;
@@ -72,17 +72,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return () => clearInterval(interval);
   }, [user]);
 
-  const playNotificationSound = async () => {
-      try {
-          const { sound } = await Audio.Sound.createAsync(
-              require("../../assets/notification.mp3")
-          );
-          await sound.playAsync();
-      } catch (e) {
-          console.log("[Auth] Audio play failed (likely missing asset):", e.message);
-      }
-  };
-
   const checkNewMessages = async () => {
       try {
           const res = await apiClient.get("/messages/conversations");
@@ -90,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
               setHasUnreadMessages(true);
-              playNotificationSound();
+              triggerLocalNotification("StoryNest", "You have new messages waiting in the nest! 🗝️");
           }
           setLastMessageCount(totalMsgs);
       } catch (e) {}

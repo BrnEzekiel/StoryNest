@@ -52,7 +52,8 @@
             "minSdkVersion": 29,
             "targetSdkVersion": 34,
             "compileSdkVersion": 34,
-            "buildToolsVersion": "34.0.0"
+            "buildToolsVersion": "34.0.0",
+            "jvmArgs": "-Xmx4096m"
           }
         }
       ]

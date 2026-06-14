@@ -21,8 +21,19 @@ import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "./src/components/BiometricGate";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import * as Notifications from "expo-notifications";
+import { initNotifications } from "./src/utils/NotificationService";
 
 SplashScreen.preventAutoHideAsync();
+
+// Configure foreground notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function App() {
   console.log("--- APP STARTING UP ---");
@@ -47,6 +58,7 @@ export default function App() {
 
   useEffect(() => {
     initGlobalHandler();
+    initNotifications();
   }, []);
 
   const onLayoutRootView = React.useCallback(async () => {

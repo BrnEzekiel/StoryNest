@@ -623,6 +623,49 @@ app.get("/admin/analytics", authenticate, async (req, res) => {
     } catch (e) { handleError(res, e); }
 });
 
+// --- PAYMENTS (PAYSTACK) ---
+
+app.get("/payments/public-key", (req, res) => {
+    res.json({ publicKey: config.paystack.publicKey });
+});
+
+app.post("/payments/verify", authenticate, async (req, res) => {
+    const { reference } = req.body;
+    try {
+        const paystackRes = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
+            headers: { Authorization: `Bearer ${config.paystack.secretKey}` }
+        });
+
+        if (paystackRes.data.status && paystackRes.data.data.status === "success") {
+            const amount = paystackRes.data.data.amount / 100;
+
+            // Upgrade user to premium
+            const updatedUser = await prisma.user.update({
+                where: { id: req.user.id },
+                data: { 
+                    isPremium: true,
+                    premiumExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                    coins: { increment: 500 }
+                }
+            });
+
+            // Log purchase
+            await prisma.purchase.create({
+                data: {
+                    userId: req.user.id,
+                    type: "SUBSCRIPTION",
+                    amount: amount,
+                    currency: paystackRes.data.data.currency
+                }
+            });
+
+            res.json({ success: true, user: updatedUser });
+        } else {
+            res.status(400).json({ error: "Payment verification failed" });
+        }
+    } catch (e) { handleError(res, e); }
+});
+
 // --- 404 ---
 app.use((req, res) => {
     console.log(`[404] Unhandled: ${req.method} ${req.url}`);

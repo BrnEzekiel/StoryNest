@@ -31,6 +31,7 @@ import { CreativeSuiteScreen } from "../screens/CreativeSuiteScreen";
 import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
+import { PremiumScreen } from "../screens/PremiumScreen";
 
 import * as SplashScreen from "expo-splash-screen";
 
@@ -154,6 +155,7 @@ export const MainNavigator = ({ onReady }: { onReady: () => void }) => {
           <Stack.Screen name="ManageChapters" component={ManageChaptersScreen} />
           <Stack.Screen name="Messages" component={MessagesScreen} />
           <Stack.Screen name="AuthorAnalytics" component={AuthorAnalyticsScreen} />
+          <Stack.Screen name="Premium" component={PremiumScreen} />
         </>
       )}
     </Stack.Navigator>

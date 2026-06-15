@@ -36,6 +36,10 @@ const config = {
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
   },
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY,
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY,
+  },
   geminiApiKey: process.env.GEMINI_API_KEY
 };
 

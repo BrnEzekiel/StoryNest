@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, Shield, Bookmark, Trophy, Mail } from "lucide-react-native";
+import { Settings, LogOut, Shield, Bookmark, Trophy, Mail, Star, Zap, ChevronRight } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
@@ -55,7 +55,10 @@ export const ProfileScreen = ({ navigation }: any) => {
                     <View style={styles.avatarBorder}><Image source={{ uri: user?.avatarUrl || "https://via.placeholder.com/100" }} style={styles.avatar} /></View>
                 </View>
                 <Text style={[styles.username, { fontFamily: fonts.heading, color: Colors.white }]}>{user?.username}</Text>
-                <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
+                <View style={styles.roleContainer}>
+                    <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
+                    {user?.isPremium && <Star size={14} color={Colors.accent} fill={Colors.accent} style={{ marginLeft: 8 }} />}
+                </View>
                 
                 <TouchableOpacity 
                     style={[styles.editBtn, { borderColor: Colors.accent }]} 
@@ -67,6 +70,22 @@ export const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <View style={styles.menuGrid}>
+            {!user?.isPremium && (
+                <TouchableOpacity 
+                    style={styles.premiumBanner} 
+                    onPress={() => navigation.navigate("Premium")}
+                    activeOpacity={0.9}
+                >
+                    <LinearGradient colors={['#FFD700', '#FFA500']} style={styles.bannerGradient} start={{x:0,y:0}} end={{x:1,y:1}}>
+                        <Zap size={20} color={Colors.primary} fill={Colors.primary} />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={[styles.bannerTitle, { color: Colors.primary, fontFamily: fonts.heading }]}>GO PREMIUM</Text>
+                            <Text style={[styles.bannerSub, { color: Colors.primary, opacity: 0.8, fontFamily: fonts.body }]}>Unlimited access & early features</Text>
+                        </View>
+                        <ChevronRight size={18} color={Colors.primary} />
+                    </LinearGradient>
+                </TouchableOpacity>
+            )}
             <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
             <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
             {user?.role === 'ADMIN' && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
@@ -89,6 +108,11 @@ const styles = StyleSheet.create({
   userRole: { fontSize: 12, letterSpacing: 2 },
   editBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   editBtnText: { fontSize: 11, letterSpacing: 1 },
+  roleContainer: { flexDirection: 'row', alignItems: 'center' },
+  premiumBanner: { marginBottom: 24, borderRadius: 20, overflow: 'hidden', elevation: 10, shadowColor: '#FFA500', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  bannerGradient: { padding: 20, flexDirection: 'row', alignItems: 'center' },
+  bannerTitle: { fontSize: 15, letterSpacing: 1 },
+  bannerSub: { fontSize: 11 },
   menuGrid: { padding: 24, marginTop: 20 },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
   menuIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

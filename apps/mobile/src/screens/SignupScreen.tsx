@@ -37,6 +37,7 @@ export const SignupScreen = ({ navigation }: any) => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [dob, setDob] = useState(new Date(2000, 0, 1));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -109,7 +110,14 @@ export const SignupScreen = ({ navigation }: any) => {
         navigation.navigate("OTP", { 
           email: email.trim(), 
           type: 'registration',
-          data: { username: username.trim(), password: password.trim(), dob: dob.toISOString(), tosAccepted, privacyAccepted }
+          data: { 
+            username: username.trim(), 
+            password: password.trim(), 
+            dob: dob.toISOString(), 
+            tosAccepted, 
+            privacyAccepted,
+            referralCode: referralCode.trim() ? referralCode.trim().toUpperCase() : undefined
+          }
         });
       } catch (err: any) {
         if (err.response?.status === 403) {
@@ -139,6 +147,14 @@ export const SignupScreen = ({ navigation }: any) => {
         placeholder="••••••••" 
         secureTextEntry 
         icon="lock"
+      />
+      <TextField 
+        label="Invite Code (Optional)" 
+        value={referralCode} 
+        onChangeText={(text) => setReferralCode(text.toUpperCase())} 
+        placeholder="e.g. NEST-ALEX-1234" 
+        icon="gift"
+        autoCapitalize="characters"
       />
       {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
       <Button title="Continue" onPress={handleNext} style={styles.signupBtn} />

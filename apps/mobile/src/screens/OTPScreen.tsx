@@ -145,7 +145,7 @@ export const OTPScreen = ({ route, navigation }: any) => {
                             style={[
                                 styles.otpInput, 
                                 { fontFamily: fonts.heading, color: theme.primary },
-                                digit && { borderColor: theme.primary, borderWidth: 2 },
+                                digit ? { borderColor: theme.primary, borderWidth: 2 } : null,
                                 status === "success" && styles.otpInputSuccess,
                                 status === "error" && styles.otpInputError
                             ]}

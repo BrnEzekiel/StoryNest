@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "build": "expo export"
+    "build": "expo export",
+    "build:apk": "eas build -p android --profile preview",
+    "build:aab": "eas build -p android --profile production",
+    "build:apk:local": "eas build -p android --profile preview --local"
   },
   "dependencies": {
     "@expo-google-fonts/arvo": "^0.4.1",

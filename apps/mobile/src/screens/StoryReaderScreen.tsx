@@ -313,6 +313,49 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
     } catch (error) { setIsLiked(wasLiked); }
   };
 
+  const handleUnlock = async () => {
+      if (!user) {
+          Alert.alert("Login Required", "Please log in to unlock premium content.");
+          return;
+      }
+      
+      const price = story?.price || 50;
+      if ((user?.coins || 0) < price) {
+          Alert.alert(
+              "Insufficient Coins", 
+              `You need ${price} coins to unlock this story. You currently have ${user?.coins || 0} coins.`,
+              [{ text: "Go to Shop", onPress: () => navigation.navigate("Shop") }, { text: "Cancel", style: 'cancel' }]
+          );
+          return;
+      }
+
+      Alert.alert(
+          "Unlock Story",
+          `Use ${price} coins to unlock "${story.title}" forever?`,
+          [
+              { text: "Cancel", style: 'cancel' },
+              { 
+                  text: "Unlock", 
+                  onPress: async () => {
+                      try {
+                          setLoading(true);
+                          const res = await apiClient.post(`/stories/${storyId}/unlock`);
+                          if (res.data.success) {
+                              Alert.alert("Success", "Story unlocked! Enjoy your read.");
+                              await refreshUser();
+                              fetchStory();
+                          }
+                      } catch (e: any) {
+                          Alert.alert("Error", e.response?.data?.error || "Failed to unlock story.");
+                      } finally {
+                          setLoading(false);
+                      }
+                  }
+              }
+          ]
+      );
+  };
+
   if (loading && !story) {
       return (
           <View style={[styles.container, { backgroundColor: appTheme.white }]}>
@@ -376,7 +419,23 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         </View>
         
         <View style={styles.bodyContainer}>
-          {paragraphs.length > 0 ? paragraphs.map((para, idx) => (
+          {story?.canRead === false ? (
+              <View style={styles.lockedContainer}>
+                  <View style={styles.lockIconHUD}>
+                      <Lock size={48} color={Colors.accent} />
+                  </View>
+                  <Text style={[styles.lockedTitle, { fontFamily: fonts.heading, color: readerTheme.text }]}>PREMIUM STORY</Text>
+                  <Text style={[styles.lockedDesc, { fontFamily: fonts.body, color: readerTheme.meta }]}>
+                      This masterpiece is exclusive to StoryNest Premium members.
+                  </Text>
+                  <TouchableOpacity 
+                    style={[styles.upgradeBtn, { backgroundColor: Colors.accent }]} 
+                    onPress={handleUnlock}
+                  >
+                      <Text style={[styles.upgradeBtnText, { color: Colors.primary, fontFamily: fonts.heading }]}>UNLOCK NOW</Text>
+                  </TouchableOpacity>
+              </View>
+          ) : paragraphs.length > 0 ? paragraphs.map((para: string, idx: number) => (
             <Text key={idx} style={[styles.bodyText, { color: readerTheme.text, fontFamily: fonts.body, fontSize, lineHeight: fontSize * 1.75, marginBottom: 20 }]}>{para}</Text>
           )) : (
             <View style={{ alignItems: 'center', marginTop: 100 }}>
@@ -512,6 +571,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
   modalTitle: { fontSize: 18, letterSpacing: 1 },
+  modalContent: { padding: 20 },
   modalDesc: { color: Colors.mutedTeal, marginBottom: 24, paddingHorizontal: 40 },
   centeredOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.85)' },
   warningContent: { width: WINDOW_WIDTH - 64, borderRadius: 32, padding: 32, alignItems: 'center' },
@@ -543,5 +603,11 @@ const styles = StyleSheet.create({
   sendBtn: { width: 44, height: 44, borderRadius: 22, marginLeft: 12, justifyContent: 'center', alignItems: 'center' },
   themeGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 24, justifyContent: 'space-between' },
   themeOption: { width: '48%', height: 60, borderRadius: 16, marginBottom: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
-  themeOptionText: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 1 }
+  themeOptionText: { fontFamily: Fonts.heading, fontSize: 12, letterSpacing: 1 },
+  lockedContainer: { alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 60 },
+  lockIconHUD: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,237,168,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,237,168,0.3)', marginBottom: 24 },
+  lockedTitle: { fontSize: 24, letterSpacing: 3, marginBottom: 12 },
+  lockedDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, opacity: 0.7, marginBottom: 32 },
+  upgradeBtn: { paddingHorizontal: 32, paddingVertical: 16, borderRadius: 12 },
+  upgradeBtnText: { fontSize: 12, letterSpacing: 2, fontWeight: '700' }
 });

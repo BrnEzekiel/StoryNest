@@ -3,7 +3,7 @@
     "name": "StoryNest",
     "slug": "mobile",
     "jsEngine": "hermes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "storynest",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.storynest.mobile"
+      "bundleIdentifier": "com.storynest.mobile",
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +24,8 @@
         "backgroundColor": "#003631"
       },
       "package": "com.storynest.mobile",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,8 +41,7 @@
     "updates": {
       "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
       "enabled": true,
-      "checkOnLaunch": "ALWAYS",
-      "fallbackToCacheTimeout": 0
+      "checkOnLaunch": "ALWAYS"
     },
     "owner": "brnezekiel",
     "plugins": [
@@ -59,11 +60,13 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 29,
+            "minSdkVersion": 21,
             "targetSdkVersion": 34,
             "compileSdkVersion": 34,
             "buildToolsVersion": "34.0.0",
-            "jvmArgs": "-Xmx4096m"
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true
           }
         }
       ]

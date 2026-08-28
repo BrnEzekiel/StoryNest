@@ -120,43 +120,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const getFonts = () => {
-    switch (fontPreference) {
-      case "serif":
-        return {
-          logo: "PlayfairDisplay_700Bold",
-          heading: "Lora_700Bold",
-          body: "Lora_400Regular",
-          bodyBold: "Lora_700Bold",
-        };
-      case "modern":
-        return {
-          logo: "PlayfairDisplay_700Bold",
-          heading: "Montserrat_700Bold",
-          body: "Inter_400Regular",
-          bodyBold: "Inter_700Bold",
-        };
-      case "classic":
-        return {
-          logo: "PlayfairDisplay_700Bold",
-          heading: "Bitter_700Bold",
-          body: "Merriweather_400Regular",
-          bodyBold: "Merriweather_700Bold",
-        };
-      case "dyslexic":
-        return {
-          logo: "PlayfairDisplay_700Bold",
-          heading: "Arvo_700Bold",
-          body: "OpenSans_400Regular",
-          bodyBold: "OpenSans_700Bold",
-        };
-      default:
-        return {
-          logo: "PlayfairDisplay_700Bold",
-          heading: "Oswald_500Medium",
-          body: "Urbanist_400Regular",
-          bodyBold: "Urbanist_700Bold",
-        };
-    }
+    // Standardize on brand fonts for stability on older devices
+    return {
+      logo: "Oswald_500Medium",
+      heading: "Oswald_500Medium",
+      body: "Urbanist_400Regular",
+      bodyBold: "Urbanist_700Bold",
+    };
   };
 
   return (

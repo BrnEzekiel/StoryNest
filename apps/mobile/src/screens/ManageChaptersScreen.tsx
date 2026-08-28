@@ -234,5 +234,6 @@ const styles = StyleSheet.create({
   actionBtn: { marginLeft: 16, padding: 4 },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { color: Colors.mutedTeal, marginTop: 20, textAlign: 'center' },
-  skeleton: { height: 80, borderRadius: 16, marginBottom: 16, width: '100%' }
+  skeleton: { height: 80, borderRadius: 16, marginBottom: 16, width: '100%' },
+  modalInput: { height: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, marginBottom: 20, fontSize: 16 }
 });

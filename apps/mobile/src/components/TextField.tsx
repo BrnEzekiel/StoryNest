@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Animated, Platform } from "react-native";
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Animated, Platform, KeyboardTypeOptions } from "react-native";
 import { Colors, Radii, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react-native";
+import { Eye, EyeOff, Mail, Lock, User, Gift } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 interface TextFieldProps {
@@ -14,8 +14,10 @@ interface TextFieldProps {
   style?: any; 
   labelStyle?: TextStyle;
   multiline?: boolean;
-  icon?: "mail" | "lock" | "user";
+  icon?: "mail" | "lock" | "user" | "gift";
   variant?: "dark" | "light"; 
+  keyboardType?: KeyboardTypeOptions;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }
 
 export const TextField: React.FC<TextFieldProps> = ({ 
@@ -28,7 +30,8 @@ export const TextField: React.FC<TextFieldProps> = ({
   labelStyle,
   multiline,
   icon,
-  variant
+  variant,
+  keyboardType
 }) => {
   const { isDarkMode, fonts, theme } = useTheme();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -58,6 +61,7 @@ export const TextField: React.FC<TextFieldProps> = ({
     if (icon === "mail") iconComp = <Mail size={iconSize} color={iconColor} />;
     if (icon === "lock") iconComp = <Lock size={iconSize} color={iconColor} />;
     if (icon === "user") iconComp = <User size={iconSize} color={iconColor} />;
+    if (icon === "gift") iconComp = <Gift size={iconSize} color={iconColor} />;
     
     if (!iconComp) return null;
     
@@ -83,6 +87,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           placeholderTextColor={isDarkMode ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 54, 49, 0.3)"}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           multiline={multiline}
+          keyboardType={keyboardType}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           underlineColorAndroid="transparent"

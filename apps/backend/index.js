@@ -59,6 +59,38 @@ app.use((req, res, next) => {
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+const generateReferralCode = (username = "NEST") => {
+    const clean = (username || "NEST").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "NEST";
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `NEST-${clean}-${rand}`;
+};
+
+const checkAndAwardReferralMilestone = async (referrerId) => {
+    try {
+        const referralCount = await prisma.user.count({
+            where: { referrerId }
+        });
+
+        // 10 Referrals unlocks Premium (granted once per user)
+        if (referralCount >= 10) {
+            const referrer = await prisma.user.findUnique({ where: { id: referrerId } });
+            if (referrer && !referrer.isPremium) {
+                console.log(`[Referral Milestone] User ${referrer.username} reached ${referralCount} referrals! Granting Premium.`);
+                await prisma.user.update({
+                    where: { id: referrerId },
+                    data: {
+                        isPremium: true,
+                        premiumExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1-year Pioneer Access
+                        coins: { increment: 500 } // Bonus coins milestone reward
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error("[Referral Milestone Error]:", e.message);
+    }
+};
+
 const sendOTPEmail = async (email, otp, type = "registration") => {
     try {
         await sendGmail({
@@ -180,11 +212,41 @@ app.post("/auth/otp/verify", async (req, res) => {
 });
 
 app.post("/auth/register", async (req, res) => {
-  let { email, password, username, firebaseUid, tosAccepted, privacyAccepted } = req.body;
+  let { email, password, username, firebaseUid, tosAccepted, privacyAccepted, referralCode: inputRefCode } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.emailVerified) return res.status(400).json({ error: "Email not verified" });
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    let userReferralCode = user.referralCode || generateReferralCode(username);
+    let referrerId = user.referrerId || null;
+    let initialCoins = 0;
+    let initialXp = 0;
+
+    // Check if valid referral code was supplied
+    if (inputRefCode && !referrerId) {
+      const trimmedRef = inputRefCode.trim().toUpperCase();
+      const referrer = await prisma.user.findFirst({
+        where: { referralCode: { equals: trimmedRef, mode: "insensitive" } }
+      });
+      if (referrer && referrer.id !== user.id) {
+        referrerId = referrer.id;
+        initialCoins = 25; // Bonus for new user
+        initialXp = 50;
+        // Reward referrer with coins & XP
+        await prisma.user.update({
+          where: { id: referrer.id },
+          data: {
+            coins: { increment: 50 },
+            xp: { increment: 100 }
+          }
+        }).catch(err => console.error("[Referral] Failed to credit referrer:", err.message));
+
+        // Check if referrer reached 10 referrals milestone to unlock Premium
+        checkAndAwardReferralMilestone(referrer.id).catch(err => console.error(err));
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { email },
       data: { 
@@ -193,7 +255,10 @@ app.post("/auth/register", async (req, res) => {
           privacyAccepted: true,
           notificationsOn: true,
           recsEnabled: true,
-          coins: 0
+          referralCode: userReferralCode,
+          referrerId: referrerId,
+          coins: { increment: initialCoins },
+          xp: { increment: initialXp }
       }
     });
     const tokens = generateTokens(updatedUser);
@@ -210,9 +275,10 @@ app.post("/auth/login", async (req, res) => {
         const firebaseEmail = decodedToken.email;
         user = await prisma.user.findUnique({ where: { email: firebaseEmail } });
         if (!user) {
+            const newUsername = `Nestling_${uuidv4().substring(0, 4)}`;
             user = await prisma.user.create({ data: { 
                 email: firebaseEmail, 
-                username: `Nestling_${uuidv4().substring(0, 4)}`, 
+                username: newUsername, 
                 password: "google_auth", 
                 avatarUrl: `https://api.dicebear.com/9.x/glass/svg?seed=${firebaseEmail}`,
                 emailVerified: true, 
@@ -220,7 +286,8 @@ app.post("/auth/login", async (req, res) => {
                 privacyAccepted: true,
                 notificationsOn: true,
                 recsEnabled: true,
-                coins: 0
+                coins: 0,
+                referralCode: generateReferralCode(newUsername)
             } });
         }
     } else {
@@ -297,13 +364,32 @@ app.get("/stories/:id", async (req, res) => {
       where: { id: req.params.id },
       include: { 
           _count: { select: { likes: true, comments: true } },
-          chapters: { where: { isDraft: false }, orderBy: { order: "asc" } }
+          chapters: { where: { isDraft: false }, orderBy: { order: "asc" }, select: { id: true, title: true, order: true } }
       }
     });
     if (!story) return res.status(404).json({ error: "Not found" });
     
     let isLiked = false;
     let bookmarkProgress = 0;
+    let canRead = true;
+
+    if (story.isPremium) {
+        if (!userId) {
+            canRead = false;
+        } else {
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user.isPremium) {
+                // Check if user has purchased this specific story
+                const purchase = await prisma.purchase.findFirst({
+                    where: { userId, storyId: req.params.id, type: "STORY" }
+                });
+                if (!purchase) {
+                    canRead = false;
+                }
+            }
+        }
+    }
+
     if (userId) {
         const [like, bookmark] = await Promise.all([
             prisma.like.findUnique({ where: { userId_storyId: { userId, storyId: req.params.id } } }),
@@ -312,7 +398,7 @@ app.get("/stories/:id", async (req, res) => {
         isLiked = !!like;
         bookmarkProgress = bookmark ? bookmark.progress : 0;
     }
-    res.json({ ...story, isLiked, bookmarkProgress });
+    res.json({ ...story, isLiked, bookmarkProgress, canRead });
   } catch (error) { handleError(res, error); }
 });
 
@@ -347,8 +433,24 @@ app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), asyn
 // --- CHAPTERS ---
 
 app.get("/chapters/:id", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        try { userId = jwt.verify(authHeader.split(" ")[1], config.jwtAccessSecret).id; } catch (e) {}
+    }
     try {
-        const chapter = await prisma.chapter.findUnique({ where: { id: req.params.id } });
+        const chapter = await prisma.chapter.findUnique({ 
+            where: { id: req.params.id },
+            include: { story: true }
+        });
+        if (!chapter) return res.status(404).json({ error: "Not found" });
+
+        if (chapter.story.isPremium) {
+            if (!userId) return res.status(403).json({ error: "Premium story. Please log in." });
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user || !user.isPremium) return res.status(403).json({ error: "Premium story. Upgrade required." });
+        }
+
         res.json(chapter);
     } catch (e) { handleError(res, e); }
 });
@@ -521,19 +623,181 @@ app.post("/stories/:id/bookmark", authenticate, async (req, res) => {
     } catch (e) { handleError(res, e); }
 });
 
+app.post("/stories/:id/unlock", authenticate, async (req, res) => {
+    try {
+        const story = await prisma.story.findUnique({ where: { id: req.params.id } });
+        if (!story) return res.status(404).json({ error: "Story not found" });
+        if (!story.isPremium) return res.json({ success: true, message: "Story is already free" });
+
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (user.coins < story.price) return res.status(400).json({ error: "Insufficient coins" });
+
+        // Atomic transaction to deduct coins and create purchase
+        const [updatedUser, purchase] = await prisma.$transaction([
+            prisma.user.update({
+                where: { id: req.user.id },
+                data: { coins: { decrement: story.price } }
+            }),
+            prisma.purchase.create({
+                data: {
+                    userId: req.user.id,
+                    storyId: story.id,
+                    type: "STORY",
+                    amount: story.price,
+                    currency: "COIN"
+                }
+            })
+        ]);
+
+        res.json({ success: true, user: updatedUser, purchase });
+    } catch (e) { handleError(res, e); }
+});
+
 // --- USER PROFILE & PREFERENCES ---
 
 app.get("/users/me", authenticate, async (req, res) => {  
     try {
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { id: req.user.id },
             select: { 
                 id: true, email: true, username: true, avatarUrl: true, bio: true,
                 role: true, readerTheme: true, readerFontSize: true,
-                notificationsOn: true, recsEnabled: true, coins: true
+                notificationsOn: true, recsEnabled: true, coins: true, xp: true,
+                isPremium: true, streakCount: true, totalReadTime: true,
+                referralCode: true, referrerId: true
             }
         });
+        if (user && !user.referralCode) {
+            const newCode = generateReferralCode(user.username);
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { referralCode: newCode },
+                select: { 
+                    id: true, email: true, username: true, avatarUrl: true, bio: true,
+                    role: true, readerTheme: true, readerFontSize: true,
+                    notificationsOn: true, recsEnabled: true, coins: true, xp: true,
+                    isPremium: true, streakCount: true, totalReadTime: true,
+                    referralCode: true, referrerId: true
+                }
+            });
+        }
         res.json(user);
+    } catch (e) { handleError(res, e); }
+});
+
+// --- REFERRALS ---
+
+app.get("/referrals/info", authenticate, async (req, res) => {
+    try {
+        let user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user) return res.status(404).json({ error: "User not found" });
+        
+        let referralCode = user.referralCode;
+        if (!referralCode) {
+            referralCode = generateReferralCode(user.username);
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { referralCode }
+            });
+        }
+
+        const referredUsers = await prisma.user.findMany({
+            where: { referrerId: user.id },
+            select: { id: true, username: true, avatarUrl: true, createdAt: true },
+            orderBy: { createdAt: "desc" }
+        });
+
+        const totalReferred = referredUsers.length;
+        const coinsEarned = totalReferred * 50;
+        const requiredForPremium = 10;
+        const remainingForPremium = Math.max(0, requiredForPremium - totalReferred);
+        
+        if (totalReferred >= requiredForPremium && !user.isPremium) {
+            await checkAndAwardReferralMilestone(user.id);
+            user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        }
+
+        const isPremiumUnlocked = user.isPremium || totalReferred >= requiredForPremium;
+
+        res.json({
+            referralCode,
+            referralLink: `https://storynest.app/ref/${referralCode}`,
+            totalReferred,
+            coinsEarned,
+            rewardPerReferral: 50,
+            userBonus: 25,
+            requiredForPremium,
+            remainingForPremium,
+            isPremiumUnlocked,
+            hasBeenReferred: !!user.referrerId,
+            referredUsers
+        });
+    } catch (e) { handleError(res, e); }
+});
+
+app.post("/referrals/claim", authenticate, async (req, res) => {
+    const { referralCode } = req.body;
+    if (!referralCode || !referralCode.trim()) {
+        return res.status(400).json({ error: "Please enter a valid referral code." });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if (user.referrerId) {
+            return res.status(400).json({ error: "You have already claimed a referral code." });
+        }
+
+        const cleanCode = referralCode.trim().toUpperCase();
+        if (user.referralCode && user.referralCode.toUpperCase() === cleanCode) {
+            return res.status(400).json({ error: "You cannot use your own referral code." });
+        }
+
+        const referrer = await prisma.user.findFirst({
+            where: {
+                referralCode: { equals: cleanCode, mode: "insensitive" }
+            }
+        });
+
+        if (!referrer) {
+            return res.status(404).json({ error: "Invalid referral code. Please check and try again." });
+        }
+
+        if (referrer.id === user.id) {
+            return res.status(400).json({ error: "You cannot use your own referral code." });
+        }
+
+        // Apply reward: +25 coins to user, +50 coins to referrer
+        const [updatedUser] = await prisma.$transaction([
+            prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    referrerId: referrer.id,
+                    coins: { increment: 25 },
+                    xp: { increment: 50 }
+                },
+                select: { id: true, coins: true, xp: true, referrerId: true }
+            }),
+            prisma.user.update({
+                where: { id: referrer.id },
+                data: {
+                    coins: { increment: 50 },
+                    xp: { increment: 100 }
+                }
+            })
+        ]);
+
+        // Check if referrer reached 10 referrals milestone to unlock Premium
+        checkAndAwardReferralMilestone(referrer.id).catch(err => console.error(err));
+
+        res.json({
+            success: true,
+            message: "Referral code applied! You earned 25 Story Coins and 50 XP.",
+            coinsEarned: 25,
+            newCoins: updatedUser.coins,
+            referrerName: referrer.username
+        });
     } catch (e) { handleError(res, e); }
 });
 

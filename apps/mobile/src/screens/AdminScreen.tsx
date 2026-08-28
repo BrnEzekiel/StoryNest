@@ -106,7 +106,7 @@ export const AdminScreen = ({ navigation }: any) => {
         
         return null;
     } catch (e) {
-        console.log("[Pexels] Fetch failed:", e.message);
+        console.log("[Pexels] Fetch failed:", (e as any).message);
         return null;
     }
   };

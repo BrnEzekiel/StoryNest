@@ -8,7 +8,8 @@ import { Fonts } from "../theme/fonts";
 import {
   ArrowLeft, Bell, Moon, Shield, Info, LogOut,
   ChevronRight, Globe, Lock, Sparkles, RefreshCw,
-  CheckCircle, AlertCircle, Palette, Fingerprint, Type, Layout, Trash2
+  CheckCircle, AlertCircle, Palette, Fingerprint, Type, Layout, Trash2,
+  MessageCircle, Gift
 } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, ThemeMode } from "../context/ThemeContext";
@@ -16,6 +17,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as Updates from "expo-updates";
 import * as Linking from 'expo-linking';
 import { triggerLocalNotification } from "../utils/NotificationService";
+import { openWhatsAppChannel } from "../utils/whatsapp";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -374,6 +376,21 @@ export const SettingsScreen = ({ navigation }: any) => {
           isSwitch switchValue={recsEnabled} onValueChange={setRecsEnabled}
         />
 
+        {/* ── Community & Earn ── */}
+        <Text style={styles.sectionTitle}>COMMUNITY & REWARDS</Text>
+        <SettingItem
+          icon={<MessageCircle size={20} color="#25D366" />}
+          title="Join WhatsApp Channel"
+          value="Official"
+          onPress={openWhatsAppChannel}
+        />
+        <SettingItem
+          icon={<Gift size={20} color="#D4AF37" />}
+          title="Refer & Earn Coins"
+          value="Get 50 Coins"
+          onPress={() => navigation.navigate("Referral")}
+        />
+
         {/* ── Account & Security ── */}
         <Text style={styles.sectionTitle}>ACCOUNT & SECURITY</Text>
         <SettingItem
@@ -399,8 +416,8 @@ export const SettingsScreen = ({ navigation }: any) => {
           loading={deleting}
         />
 
-        {/* ── App Updates ── */}
-        <Text style={styles.sectionTitle}>APP UPDATES</Text>
+        {/* ── App Updates (OTA Dynamic Rollout) ── */}
+        <Text style={styles.sectionTitle}>DYNAMIC APP UPDATES</Text>
         <Animated.View style={{ opacity: updateStatus === 'available' ? flickerAnim : 1 }}>
             <TouchableOpacity
                 style={[styles.updateCard, { backgroundColor: cfg.bg, borderColor: cfg.color }]}

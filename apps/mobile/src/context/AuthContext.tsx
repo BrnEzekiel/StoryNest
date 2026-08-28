@@ -16,6 +16,13 @@ interface User {
   totalReadTime?: number;
   streakCount?: number;
   notificationsOn?: boolean;
+  isPremium?: boolean;
+  coins?: number;
+  readerTheme?: string;
+  readerFontSize?: string;
+  todayReadTime?: number;
+  dailyGoalMinutes?: number;
+  xp?: number;
 }
 
 interface AuthContextType {
@@ -80,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           await sound.playAsync();
       } catch (e) {
-          console.log("[Auth] Audio play failed:", e.message);
+          console.log("[Auth] Audio play failed:", (e as any).message);
       }
   };
 

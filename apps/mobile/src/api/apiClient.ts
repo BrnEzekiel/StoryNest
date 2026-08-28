@@ -22,7 +22,7 @@ apiClient.interceptors.request.use(async (config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   } catch (e) {
-    console.log("[API Client] Token fetch failed:", e.message);
+    console.log("[API Client] Token fetch failed:", (e as any).message);
   }
   return config;
 });

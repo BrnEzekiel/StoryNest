@@ -9,14 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts, Oswald_500Medium } from "@expo-google-fonts/oswald";
 import { Urbanist_400Regular, Urbanist_700Bold } from "@expo-google-fonts/urbanist";
 import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
-import { Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
-import { Lora_400Regular, Lora_700Bold } from "@expo-google-fonts/lora";
-import { Montserrat_700Bold } from "@expo-google-fonts/montserrat";
-import { OpenSans_400Regular, OpenSans_700Bold } from "@expo-google-fonts/open-sans";
-import { Merriweather_400Regular, Merriweather_700Bold } from "@expo-google-fonts/merriweather";
-import { Bitter_700Bold } from "@expo-google-fonts/bitter";
-import { Arvo_700Bold } from "@expo-google-fonts/arvo";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "./src/components/BiometricGate";
@@ -24,51 +17,61 @@ import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import * as Notifications from "expo-notifications";
 import { initNotifications } from "./src/utils/NotificationService";
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Configure foreground notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Configure foreground notifications safely
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (e) {
+  console.log("[App] setNotificationHandler error:", e);
+}
 
 export default function App() {
   console.log("--- APP STARTING UP ---");
-  console.log(`[ENV] __DEV__: ${__DEV__}`);
-  const [fontsLoaded] = useFonts({
+  console.log(`[ENV] __DEV__: ${__DEV__} | Platform: ${Platform.OS} ${Platform.Version || ''}`);
+
+  const [fontsLoaded, fontError] = useFonts({
     Oswald_500Medium,
     Urbanist_400Regular,
     Urbanist_700Bold,
     PlayfairDisplay_700Bold,
-    Inter_400Regular,
-    Inter_700Bold,
-    Lora_400Regular,
-    Lora_700Bold,
-    Montserrat_700Bold,
-    OpenSans_400Regular,
-    OpenSans_700Bold,
-    Merriweather_400Regular,
-    Merriweather_700Bold,
-    Bitter_700Bold,
-    Arvo_700Bold,
   });
 
+  const [fontTimeoutPassed, setFontTimeoutPassed] = useState(false);
+
   useEffect(() => {
-    initGlobalHandler();
-    initNotifications();
+    try {
+      initGlobalHandler();
+      initNotifications().catch(() => {});
+    } catch (e) {
+      console.log("[App] Init error:", e);
+    }
+
+    // 2.5s fallback so older Android 5.0 devices never stall on splash
+    const timer = setTimeout(() => {
+      setFontTimeoutPassed(true);
+    }, 2500);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  const onLayoutRootView = React.useCallback(async () => {
-    if (fontsLoaded) {
-      // The splash screen is hidden by the MainNavigator when auth is ready, 
-      // or we can hide it here if we're not using Auth loading state.
-    }
-  }, [fontsLoaded]);
+  const readyToRender = fontsLoaded || fontError || fontTimeoutPassed;
 
-  if (!fontsLoaded) {
+  const onLayoutRootView = React.useCallback(async () => {
+    if (readyToRender) {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (e) {}
+    }
+  }, [readyToRender]);
+
+  if (!readyToRender) {
     return <View style={{ flex: 1, backgroundColor: '#003631' }} />;
   }
 

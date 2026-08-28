@@ -141,6 +141,7 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 30 },
   actionRow: { flexDirection: 'row', paddingHorizontal: 24, marginTop: 24 },
   followBtn: { flex: 1.5, height: 56, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  followingBtn: { borderWidth: 1.5, borderColor: 'rgba(0,54,49,0.1)' },
   followBtnText: { marginLeft: 10, fontSize: 14, letterSpacing: 1 },
   messageBtn: { flex: 1, height: 56, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   messageBtnText: { marginLeft: 10, fontSize: 14, letterSpacing: 1 },

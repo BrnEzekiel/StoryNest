@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity, ViewStyle, Animated } from "react-native";
 import { Colors, Radii, Shadows, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Clock } from "lucide-react-native";
+import { Clock, Lock } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -13,6 +13,7 @@ interface Story {
   genre: string;
   authorName: string;
   readingTime: number;
+  isPremium?: boolean;
 }
 
 interface StoryCardProps {
@@ -78,6 +79,11 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
                     <Text style={{ fontSize: 8, color: theme.primary, opacity: 0.5, fontFamily: fonts.heading }}>{story.title.substring(0, 2)}</Text>
                 </View>
             )}
+            {story.isPremium && (
+                <View style={styles.premiumBadge}>
+                    <Lock size={10} color={Colors.primary} fill={Colors.primary} />
+                </View>
+            )}
         </View>
         <View style={styles.info}>
           <Text style={[styles.genre, { fontFamily: fonts.body, color: theme.primary }]}>{story.genre}</Text>
@@ -104,6 +110,7 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
 const styles = StyleSheet.create({
   container: { flexDirection: "row", marginBottom: Spacing.m, borderRadius: Radii.m, padding: Spacing.s },
   cover: { width: 64, height: 84, borderRadius: Radii.s, backgroundColor: Colors.paleGreen },
+  premiumBadge: { position: 'absolute', top: 4, right: 4, backgroundColor: Colors.accent, padding: 4, borderRadius: 10, elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
   info: { flex: 1, marginLeft: Spacing.m, justifyContent: "center" },
   genre: { fontSize: 10, textTransform: "uppercase", marginBottom: Spacing.xs, letterSpacing: 0.05 },
   title: { fontSize: 16, marginBottom: Spacing.xs },

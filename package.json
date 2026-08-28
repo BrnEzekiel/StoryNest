@@ -7,6 +7,9 @@
     "backend": "npm run dev --workspace=apps/backend",
     "mobile": "npm run start --workspace=apps/mobile",
     "build:android": "cd apps/mobile && eas build -p android --profile preview",
+    "build:apk": "cd apps/mobile && eas build -p android --profile preview",
+    "build:aab": "cd apps/mobile && eas build -p android --profile production",
+    "build:apk:local": "cd apps/mobile && eas build -p android --profile preview --local",
     "build:ios": "cd apps/mobile && eas build -p ios --profile production",
     "db:push": "prisma db push --schema=packages/db/prisma/schema.prisma",
     "db:seed": "node packages/db/seed.js"
@@ -20,6 +23,7 @@
     "packages/*"
   ],
   "devDependencies": {
+    "eas-cli": "^23.0.0",
     "prisma": "^5.22.0"
   },
   "dependencies": {

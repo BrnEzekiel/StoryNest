@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+// @ts-ignore
 import { Paystack } from 'react-native-paystack-webview';
 import apiClient from "../api/apiClient";
 

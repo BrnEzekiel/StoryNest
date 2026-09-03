@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           await sound.playAsync();
       } catch (e) {
-          console.log("[Auth] Audio play failed:", (e as any).message);
+          console.log("[Auth] Audio play failed:", (e as any)?.message || e);
       }
   };
 

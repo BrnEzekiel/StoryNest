@@ -40,12 +40,11 @@
     },
     "updates": {
       "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
-      "enabled": true,
-      "checkOnLaunch": "ALWAYS"
+      "enabled": false,
+      "checkOnLaunch": "NEVER"
     },
     "owner": "brnezekiel",
     "plugins": [
-      "expo-updates",
       [
         "expo-notifications",
         {
@@ -66,7 +65,7 @@
             "buildToolsVersion": "34.0.0",
             "enableProguardInReleaseBuilds": false,
             "enableShrinkResourcesInReleaseBuilds": false,
-            "useLegacyPackaging": true
+            "useLegacyPackaging": false
           }
         }
       ]

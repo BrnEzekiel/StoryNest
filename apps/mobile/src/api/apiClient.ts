@@ -4,24 +4,21 @@ import { Storage } from "../utils/Storage";
 import Constants from "expo-constants";
 
 /**
- * Production APK must set EXPO_PUBLIC_API_URL at build time (EAS env).
- * localhost only works on emulators, never on a real phone.
+ * Production API: https://storynest.onrender.com
+ * Override at build time with EXPO_PUBLIC_API_URL if needed.
  */
 function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
   if (fromEnv && !fromEnv.includes("localhost") && !fromEnv.includes("127.0.0.1")) {
     return fromEnv;
   }
-  // Extra / app.json config if present
   const extra = (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl;
   if (extra) return extra.replace(/\/$/, "");
 
-  // Dev fallback only
   if (__DEV__) {
     return Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000";
   }
-  // Release without env: still prefer a non-crash path; login will show network errors
-  return fromEnv || "https://api.storynest.app";
+  return "https://storynest.onrender.com";
 }
 
 export const BASE_URL = resolveBaseUrl();
@@ -29,7 +26,7 @@ console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000,
+  timeout: 45000, // Render free tier can cold-start slowly
   headers: {
     "Content-Type": "application/json",
   },

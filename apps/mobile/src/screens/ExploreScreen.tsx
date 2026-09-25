@@ -1,161 +1,103 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground, Image } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Search, Book, Heart, Zap, Scroll, X } from "lucide-react-native";
+import { Search, X, TrendingUp, Sparkles, Filter, Shuffle } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
+import { HeaderWave } from "../components/HeaderWave";
 
-const GENRES = [
-  { id: "1", name: "FICTION", icon: <Book size={24} color={Colors.primary} />, bg: Colors.paleGreen },
-  { id: "2", name: "ROMANCE", icon: <Heart size={24} color="#D2691E" />, bg: Colors.paleCream },
-  { id: "3", name: "THRILLER", icon: <Zap size={24} color={Colors.accent} />, bg: Colors.primary },
-  { id: "4", name: "FAITH", icon: <Scroll size={24} color={Colors.darkTextCream} />, bg: Colors.accent },
-];
+const { width } = Dimensions.get("window");
 
 export const ExploreScreen = ({ navigation }: any) => {
-  const { theme, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { theme, fonts, isDarkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [stories, setStories] = useState<any[]>([]);
+  const [trending, setTrending] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    fetchStories();
+    fetchInitialData();
   }, []);
 
-  const fetchStories = async (query = "") => {
-    try {
+  const fetchInitialData = async () => {
       setLoading(true);
-      const url = query ? `/stories?q=${query}` : "/stories?limit=20";
+      try {
+          const [storiesRes, trendingRes] = await Promise.all([
+              apiClient.get("/stories?limit=10"),
+              apiClient.get("/stories/trending")
+          ]);
+          setStories(storiesRes.data);
+          setTrending(trendingRes.data);
+      } catch (e) { console.log(e); }
+      finally { setLoading(false); setRefreshing(false); }
+  };
+
+  const fetchFilteredStories = async (query = "") => {
+    setLoading(true);
+    try {
+      let url = query ? `/stories?q=${query}` : "/stories?limit=20";
       const res = await apiClient.get(url);
       setStories(res.data);
-    } catch (error) {
-      console.log("Error fetching explore data:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    } catch (error) { console.log(error); } 
+    finally { setLoading(false); }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchStories(searchQuery);
-  };
-
-  const handleGenrePress = (name: string) => {
-    const formattedGenre = name.charAt(0) + name.slice(1).toLowerCase();
-    navigation.navigate("Home", { genre: formattedGenre });
-  };
-
-  const onSearchFocus = () => {
-    Animated.timing(searchFocusAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
-  };
-
-  const onSearchBlur = () => {
-    if (!searchQuery) {
-      Animated.timing(searchFocusAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start();
-    }
+    fetchInitialData();
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <View style={[styles.header, { backgroundColor: Colors.primary }]}>
-        <SafeAreaView>
-          <Text style={styles.headerTitle}>EXPLORE THE NEST</Text>
-        </SafeAreaView>
-        
-        <View style={styles.searchWrapper}>
-          <View style={styles.searchUnderlineRow}>
-            <Search size={18} color={Colors.mutedTeal} style={styles.searchIcon} />
-            <TextInput
-              placeholder="Search stories, authors..."
-              placeholderTextColor="rgba(125, 184, 178, 0.5)"
-              style={[styles.searchInput, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={onSearchFocus}
-              onBlur={onSearchBlur}
-              onSubmitEditing={() => fetchStories(searchQuery)}
-              returnKeyType="search"
-              underlineColorAndroid="transparent"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => { setSearchQuery(""); fetchStories(""); }}>
-                <X size={18} color={Colors.mutedTeal} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <Animated.View style={[
-            styles.underlineBar,
-            {
-              width: searchFocusAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ["0%", "100%"]
-              }),
-              backgroundColor: Colors.accent
-            }
-          ]} />
-        </View>
+      <StatusBar style="light" />
+      <View style={styles.headerContainer}>
+        <ImageBackground source={require("../../assets/auth-bg.jpg")} style={[styles.headerBg, { paddingTop: insets.top + 20 }]} resizeMode="cover">
+            <LinearGradient colors={["rgba(0, 30, 28, 0.85)", "rgba(0, 30, 28, 0.99)"]} style={StyleSheet.absoluteFill} />
+            <View style={styles.headerContent}><Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>EXPLORE THE NEST</Text></View>
+            <View style={styles.searchWrapper}>
+              <View style={styles.searchBar}>
+                <Search size={18} color={Colors.accent} style={styles.searchIcon} />
+                <TextInput placeholder="Search..." placeholderTextColor="rgba(255, 237, 168, 0.5)" style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={() => fetchFilteredStories(searchQuery)} />
+              </View>
+            </View>
+            <HeaderWave color={theme.white} />
+        </ImageBackground>
       </View>
 
-      <ScrollView 
-        style={styles.body} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-      >
-        {!searchQuery && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>BROWSE GENRES</Text>
-            </View>
-
-            <View style={styles.genreGrid}>
-              {GENRES.map((genre) => (
-                <TouchableOpacity 
-                  key={genre.id} 
-                  style={[styles.genreTile, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : genre.bg }, Shadows.s]}
-                  onPress={() => handleGenrePress(genre.name)}
-                >
-                  <View style={styles.genreIcon}>{genre.icon}</View>
-                  <Text style={[styles.genreName, { color: isDarkMode ? Colors.accent : (genre.id === "3" ? Colors.accent : Colors.primary) }]}>
-                    {genre.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: isDarkMode ? Colors.accent : Colors.primary }]}>
-            {searchQuery ? "SEARCH RESULTS" : "TRENDING IN THE NEST"}
-          </Text>
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <View style={styles.section}>
+            <View style={styles.sectionHeader}><TrendingUp size={16} color={theme.primary} /><Text style={[styles.sectionTitle, { marginLeft: 8, color: theme.primary, fontFamily: fonts.heading }]}>TRENDING NOW</Text></View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
+                {loading ? [1,2].map(i => <View key={i} style={styles.trendingSkeleton} />) : trending.map(s => (
+                    <TouchableOpacity key={s.id} style={styles.trendingCard} onPress={() => navigation.navigate("Reader", { storyId: s.id })}>
+                        <View style={[styles.trendingImg, { backgroundColor: theme.primary + '10' }]}>
+                            {s.coverUrl ? (
+                                <Image source={{ uri: s.coverUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                            ) : (
+                                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+                                    <TrendingUp size={32} color={theme.primary} opacity={0.2} />
+                                </View>
+                            )}
+                        </View>
+                        <Text style={[styles.trendingTitle, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{s.title}</Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
         </View>
 
-        <View style={styles.trendingList}>
-          {loading && !refreshing ? (
-            <View>
-              {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-            </View>
-          ) : (
-            <>
-              {stories.map((story) => (
-                <StoryCard 
-                  key={story.id} 
-                  story={story} 
-                  onPress={() => navigation.navigate("Reader", { storyId: story.id })} 
-                />
-              ))}
-              {stories.length === 0 && (
-                <Text style={styles.emptyText}>No stories found for this path.</Text>
-              )}
-            </>
-          )}
+        <View style={styles.section}>
+            <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>{searchQuery ? "SEARCH RESULTS" : "LATEST UPDATES"}</Text></View>
+            <View style={styles.listContainer}>{loading ? [1,2].map(i => <SkeletonCard key={i} />) : stories.map((s, i) => <StoryCard key={s.id} story={s} index={i} onPress={() => navigation.navigate("Reader", { storyId: s.id })} />)}</View>
         </View>
       </ScrollView>
     </View>
@@ -164,20 +106,21 @@ export const ExploreScreen = ({ navigation }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: 24 },
-  headerTitle: { fontFamily: Fonts.heading, fontSize: 16, color: Colors.accent, textAlign: "center", marginTop: 10, letterSpacing: 0.1, textTransform: "uppercase" },
-  searchWrapper: { marginHorizontal: Spacing.l, marginTop: 16 },
-  searchUnderlineRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  headerContainer: { overflow: 'hidden' },
+  headerBg: { paddingBottom: 60 },
+  headerContent: { paddingHorizontal: 32, marginBottom: 20, alignItems: 'center' },
+  headerTitle: { fontSize: 18, color: Colors.accent, letterSpacing: 3 },
+  searchWrapper: { paddingHorizontal: 40 },
+  searchBar: { flexDirection: "row", alignItems: "center", borderBottomWidth: 1.5, borderBottomColor: "rgba(255, 237, 168, 0.2)", height: 48 },
   searchIcon: { marginRight: 12 },
-  searchInput: { flex: 1, fontFamily: Fonts.body, fontSize: 16, color: Colors.white },
-  underlineBar: { height: 1.5, width: "100%", opacity: 0.5 },
-  body: { flex: 1, paddingHorizontal: Spacing.l, paddingTop: Spacing.l },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.m },
-  sectionTitle: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.08, textTransform: "uppercase" },
-  genreGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: Spacing.xl },
-  genreTile: { width: "48%", padding: 20, borderRadius: Radii.m, marginBottom: 16, alignItems: "center", justifyContent: "center" },
-  genreIcon: { marginBottom: 12 },
-  genreName: { fontFamily: Fonts.heading, fontSize: 14, letterSpacing: 0.02 },
-  trendingList: { marginBottom: 40 },
-  emptyText: { fontFamily: Fonts.body, fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 20 },
+  searchInput: { flex: 1, fontSize: 15, color: Colors.accent },
+  body: { flex: 1 },
+  section: { marginTop: 32 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 24, marginBottom: 16 },
+  sectionTitle: { fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase" },
+  trendingCard: { width: 140, marginRight: 16 },
+  trendingImg: { width: 140, height: 200, borderRadius: 16, marginBottom: 8 },
+  trendingTitle: { fontSize: 14 },
+  trendingSkeleton: { width: 140, height: 200, borderRadius: 16, marginRight: 16, backgroundColor: 'rgba(0,0,0,0.05)' },
+  listContainer: { paddingHorizontal: 24 }
 });

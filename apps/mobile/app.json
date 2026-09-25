@@ -2,8 +2,8 @@
   "expo": {
     "name": "StoryNest",
     "slug": "mobile",
-    "jsEngine": "jsc",
-    "version": "1.0.0",
+    "jsEngine": "hermes",
+    "version": "1.0.1",
     "scheme": "storynest",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,28 +15,61 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.storynest.mobile"
+      "bundleIdentifier": "com.storynest.mobile",
+      "buildNumber": "2"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#003631"
       },
-      "package": "com.storynest.mobile"
+      "package": "com.storynest.mobile",
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "7557fb1f-2dfe-4def-b7b6-9fe56923d43c"
+        "projectId": "8a588efb-64b8-4d60-9e9b-205403b2b363"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/7557fb1f-2dfe-4def-b7b6-9fe56923d43c"
-    }
+      "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
+      "enabled": true,
+      "checkOnLaunch": "ALWAYS"
+    },
+    "owner": "brnezekiel",
+    "plugins": [
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FFEDA8",
+          "sounds": [
+            "./assets/notification.wav"
+          ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 21,
+            "targetSdkVersion": 34,
+            "compileSdkVersion": 34,
+            "buildToolsVersion": "34.0.0",
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true
+          }
+        }
+      ]
+    ]
   }
 }

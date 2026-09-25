@@ -1,12 +1,19 @@
 {
   "name": "storynest",
   "version": "1.0.0",
-  "description": "",
+  "description": "StoryNest monorepo — mobile, web, backend",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "backend": "npm run dev --workspace=apps/backend",
+    "worker": "npm run worker --workspace=apps/backend",
+    "worker:dev": "npm run worker:dev --workspace=apps/backend",
+    "web": "npm run dev --workspace=apps/web",
+    "web:build": "npm run build --workspace=apps/web",
     "mobile": "npm run start --workspace=apps/mobile",
     "build:android": "cd apps/mobile && eas build -p android --profile preview",
+    "build:apk": "cd apps/mobile && eas build -p android --profile preview",
+    "build:aab": "cd apps/mobile && eas build -p android --profile production",
+    "build:apk:local": "cd apps/mobile && eas build -p android --profile preview --local",
     "build:ios": "cd apps/mobile && eas build -p ios --profile production",
     "db:push": "prisma db push --schema=packages/db/prisma/schema.prisma",
     "db:seed": "node packages/db/seed.js"
@@ -18,5 +25,12 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "eas-cli": "^23.0.0",
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  }
 }

@@ -6,7 +6,7 @@ import { Colors } from "../theme/colors";
 const { width } = Dimensions.get("window");
 
 // Refined 2-wave perfectly symmetrical divider
-export const HeaderWave = () => (
+export const HeaderWave = ({ color = Colors.paleCream }: { color?: string }) => (
   <View style={styles.waveContainer}>
     <Svg
       width={width}
@@ -16,7 +16,7 @@ export const HeaderWave = () => (
     >
       <Path
         d="M0,160 Q360,60 720,160 T1440,160 L1440,320 L0,320 Z"
-        fill={Colors.paleCream}
+        fill={color}
       />
     </Svg>
   </View>

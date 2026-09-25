@@ -8,19 +8,19 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+// --- SECURE CONFIG WITH STABLE FALLBACKS ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBxVKKTyzGAcqtaA0TZxODqjyTVfP-Ghzw",
-  authDomain: "storynest-12345.firebaseapp.com",
-  projectId: "storynest-12345",
-  storageBucket: "storynest-12345.firebasestorage.app",
-  messagingSenderId: "564839035602",
-  appId: "1:564839035602:web:bc241f38f6c57b0692330b"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyBxVKKTyzGAcqtaA0TZxODqjyTVfP-Ghzw",
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "storynest-12345.firebaseapp.com",
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "storynest-12345",
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "storynest-12345.firebasestorage.app",
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "564839035602",
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:564839035602:web:bc241f38f6c57b0692330b"
 };
 
-// 1. Initialize Firebase App (Singleton)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// 2. Initialize Auth with Persistence (Expert Recommended Pattern)
+// Improved initialization for React Native
 export const auth = (() => {
   if (Platform.OS === 'web') {
     return getAuth(app);
@@ -30,7 +30,8 @@ export const auth = (() => {
       persistence: getReactNativePersistence(AsyncStorage)
     });
   } catch (e) {
-    // If it's already been initialized (common during Hot Refresh), return the existing instance
     return getAuth(app);
   }
 })();
+
+export default app;

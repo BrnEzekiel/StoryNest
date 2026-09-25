@@ -9,3 +9,5 @@ ios/build/
 .env
 *.log
 .claude/
+.antigravitycli/
+/expo_qr.png

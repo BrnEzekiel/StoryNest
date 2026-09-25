@@ -1125,7 +1125,7 @@ metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\requ
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:199792
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:199792
 C:\Users\USER\new\apps\mobile\index.ts:8 Running application "main" with appParams:
  {rootTag: '#root', hydrate: undefined} 
 Development-level warnings: ON.
@@ -1222,7 +1222,7 @@ registerRootComponent @ C:\Users\USER\new\node_modules\expo\src\launch\registerR
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:199792
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:199792
 (index):1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
 Element with focus: <div.css-view-175oi2r r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-paddingBlock-ytbthy>
 Ancestor with aria-hidden: <div.css-view-175oi2r r-flex-13awgt0 r-bottom-1p0dtai r-left-1d2f490 r-position-u8s1d r-right-zchlnj r-top-ipm5af> <div class=​"css-view-175oi2r r-flex-13awgt0 r-bottom-1p0dtai r-left-1d2f490 r-position-u8s1d r-right-zchlnj r-top-ipm5af" style=​"background-color:​ rgb(242, 242, 242)​;​ display:​ none;​" aria-hidden=​"true">​…​</div>​
@@ -1541,7 +1541,7 @@ metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\requ
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:199794
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:199794
 C:\Users\USER\new\apps\mobile\index.ts:8 Running application "main" with appParams:
  {rootTag: '#root', hydrate: undefined} 
 Development-level warnings: ON.
@@ -1638,7 +1638,7 @@ registerRootComponent @ C:\Users\USER\new\node_modules\expo\src\launch\registerR
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:199794
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:199794
 (index):1 Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
 Element with focus: <div.css-view-175oi2r r-transitionProperty-1i6wzkk r-userSelect-lrvibr r-cursor-1loqt21 r-touchAction-1otgn73 r-paddingBlock-ytbthy>
 Ancestor with aria-hidden: <div.css-view-175oi2r r-flex-13awgt0 r-bottom-1p0dtai r-left-1d2f490 r-position-u8s1d r-right-zchlnj r-top-ipm5af> <div class=​"css-view-175oi2r r-flex-13awgt0 r-bottom-1p0dtai r-left-1d2f490 r-position-u8s1d r-right-zchlnj r-top-ipm5af" style=​"background-color:​ rgb(242, 242, 242)​;​ display:​ flex;​" aria-hidden=​"true">​…​</div>​
@@ -2963,7 +2963,7 @@ Open the app and check out:
 
 ## MODEL ✨
 
-**Investigating Red Screen Error** I'm currently analyzing a React Native red screen error. The core issue appears to be a failure in `TurboModuleRegistry.getEnforcing` to locate 'PlatformConstants', suggesting a potential misconfiguration or missing dependency.**Resolving Platform Constants Issue** I'm digging into the "PlatformConstants" error. It seems the primary cause is a version mismatch between my `react-native` (0.76.9) and the Expo Go environment, possibly related to TurboModules in SDK 55 not being fully compatible or a cache issue.**Revising Expo Configuration** I'm reassessing the Expo Go version compatibility with the recent SDK 55 upgrade. The "PlatformConstants not found" error suggests a native-JS bridge mismatch, likely due to React Native 0.76+ not integrating seamlessly with the current Expo Go environment. I'll prioritize a stable configuration.**Disabling New Architecture** I'm now focusing on the "runtime not ready" error on the physical device. The `[runtime not ready]` message strongly implies the Hermes engine failed to load native modules. I suspect the `newArchEnabled: true` in `app.json` is the culprit, as the current Expo Go version might not support it. My immediate plan is to set `newArchEnabled` to `false` and re-evaluate.**Investigating Native Error** I've pinpointed the `PlatformConstants` error shown in your screenshot. It's a classic "Native/JS Mismatch" that occurs when the phone's Expo Go app doesn't align with the New Architecture settings I enabled. My immediate focus is disabling `newArchEnabled` in `app.json` and ensuring the `react-native` version is perfectly synced with the SDK 55 requirements to resolve this.
+**Investigating Red Screen Error** I'm currently analyzing a React Native red screen error. The core issue appears to be a failure in `TurboModuleRegistry.getEnforcing` to locate 'PlatformConstants', suggesting a potential misconfiguration or missing dependency.**Resolving Platform Constants Issue** I'm digging into the "PlatformConstants" error. It seems the primary cause is a version mismatch between my `react-native` (0.76.9) and the Expo Go environment, possibly related to TurboModules in SDK 55 not being fully compatible or a cache issue.**Revising Expo Configuration** I'm reassessing the Expo Go version compatibility with the recent SDK 55 upgrade. The "PlatformConstants not found" error suggests a native-JS bridge mismatch, likely due to React Native 0.76+ not integrating seamlessly with the current Expo Go environment. I'll prioritize a stable configuration.**Disabling New Architecture** I'm now focusing on the "runtime not ready" error on the physical device. The `[runtime not ready]` message strongly implies the jsc engine failed to load native modules. I suspect the `newArchEnabled: true` in `app.json` is the culprit, as the current Expo Go version might not support it. My immediate plan is to set `newArchEnabled` to `false` and re-evaluate.**Investigating Native Error** I've pinpointed the `PlatformConstants` error shown in your screenshot. It's a classic "Native/JS Mismatch" that occurs when the phone's Expo Go app doesn't align with the New Architecture settings I enabled. My immediate focus is disabling `newArchEnabled` in `app.json` and ensuring the `react-native` version is perfectly synced with the SDK 55 requirements to resolve this.
 [Thought: true]**Tool Command**:
 ```json
 {
@@ -12198,15 +12198,15 @@ Server running on port 5000
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
-    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
     at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12219,15 +12219,15 @@ TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
-    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
 [O    at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12322,7 +12322,7 @@ The error **`(0, _firebaseAuth.getReactNativePersistence) is not a function`** h
 still not working, please channel all the app errors into the backend terminal, i am tired of taking screenshots all the time, C:\Users\USER\new\node_modules\react-dom\cjs\react-dom-client.development.js:28004 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
 C:\Users\USER\new\apps\mobile\src\api\apiClient.ts:16 [API] Targeting Backend at: http://localhost:5000
 C:\Users\USER\new\node_modules\react-native-web\dist\modules\warnOnce\index.js:24 "shadow*" style props are deprecated. Use "boxShadow".
-warnOnce @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:sourcemap:151069
+warnOnce @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:sourcemap:151069
 C:\Users\USER\new\node_modules\react-native-web\dist\exports\AppRegistry\index.js:71 Running application "main" with appParams:
  Object 
 Development-level warnings: ON.
@@ -12334,7 +12334,7 @@ C:\Users\USER\new\node_modules\expo-secure-store\build\SecureStore.js:69 Uncaugh
 C:\Users\USER\new\node_modules\react-native-web\dist\modules\useResponderEvents\ResponderTouchHistoryStore.js:104 Cannot record touch end without a touch start.
  Touch End: {"identifier":0,"pageX":1150,"pageY":103,"timestamp":3111.5}
  Touch Bank: []
-recordTouchEnd @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:sourcemap:156341
+recordTouchEnd @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:sourcemap:156341
  web version also not working
 
 ---
@@ -12492,7 +12492,7 @@ To see your errors flow into the terminal, please perform a hard reload:
 
 ## USER 🧑‍💻
 
-index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:1280 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:1280 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
 C:\Users\USER\new\apps\mobile\src\api\apiClient.ts:16 [API] Targeting Backend at: http://localhost:5000
 C:\Users\USER\new\apps\mobile\src\screens\HomeScreen.tsx:261 "shadow*" style props are deprecated. Use "boxShadow".
 warnOnce @ C:\Users\USER\new\node_modules\react-native-web\dist\modules\warnOnce\index.js:24
@@ -12516,7 +12516,7 @@ metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\requ
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208653
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208653
 C:\Users\USER\new\apps\mobile\App.tsx:16 Uncaught TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
     at C:\Users\USER\new\apps\mobile\App.tsx:16:18
     at loadModuleImplementation (C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248:36)
@@ -12526,7 +12526,7 @@ C:\Users\USER\new\apps\mobile\App.tsx:16 Uncaught TypeError: (0 , _srcUtilsError
     at loadModuleImplementation (C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248:36)
     at guardedLoadModule (C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156:27)
     at metroRequire (C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74:75)
-    at index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208653:1
+    at index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208653:1
 (anonymous) @ C:\Users\USER\new\apps\mobile\App.tsx:16
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:163
@@ -12535,7 +12535,7 @@ metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\requ
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208653
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208653
 
 ---
 
@@ -12665,15 +12665,15 @@ Server running on port 5000
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
-    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
     at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12686,15 +12686,15 @@ TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
-    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at __d.0 (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:37:62)
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/api/firebaseConfig.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
     at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12707,15 +12707,15 @@ TypeError: (0 , _firebaseAuth.getReactNativePersistence) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:7434:47
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/utils/ErrorHandler.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:7434:47
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/utils/ErrorHandler.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
     at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12728,15 +12728,15 @@ TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:7434:47
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:497:7)
-    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:387:26)
-    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:33:18)
-    at eval (http://localhost:8081/apps/mobile/src/utils/ErrorHandler.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
-    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:4405:7)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:7434:47
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at runUpdatedModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:497:7)
+    at metroHotUpdateModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:387:26)
+    at define (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:33:18)
+    at eval (http://localhost:8081/apps/mobile/src/utils/ErrorHandler.bundle//&platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable&minify=false&modulesOnly=true&runModule=false&shallow=true:1:1)
+    at inject (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:4405:7)
     at Array.forEach (<anonymous>)
 ==================================================
 
@@ -12749,15 +12749,15 @@ TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:7434:47
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:166:14)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:1281:14
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208605:1
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:7434:47
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:166:14)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:1281:14
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208605:1
 ==================================================
 
 
@@ -12769,15 +12769,15 @@ TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:7443:47
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:166:14)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:1284:14
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208653:1
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:7443:47
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:166:14)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:1284:14
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208653:1
 ==================================================
 
 
@@ -12789,17 +12789,17 @@ TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
 --------------------------------------------------
 📜 STACK TRACE:
 TypeError: (0 , _srcUtilsErrorHandler.initGlobalHandler) is not a function
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:7443:47
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:166:14)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:1284:14
-    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:254:34)
-    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:159:23)
-    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:79:75)
-    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:208653:1
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:7443:47
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:166:14)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:1284:14
+    at loadModuleImplementation (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:254:34)
+    at guardedLoadModule (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:159:23)
+    at metroRequire (http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:79:75)
+    at http://localhost:8081/apps/mobile/index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:208653:1
 ==================================================
-index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:1280 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:1280 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
 C:\Users\USER\new\apps\mobile\src\api\apiClient.ts:16 [API] Targeting Backend at: http://localhost:5000
 C:\Users\USER\new\apps\mobile\src\screens\HomeScreen.tsx:261 "shadow*" style props are deprecated. Use "boxShadow".
 warnOnce @ C:\Users\USER\new\node_modules\react-native-web\dist\modules\warnOnce\index.js:24
@@ -12823,7 +12823,7 @@ metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\requ
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:206280
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:206280
 C:\Users\USER\new\apps\mobile\index.ts:9 Running application "undefined" with appParams:
  {rootTag: '#root'} 
 Development-level warnings: ON.
@@ -13054,7 +13054,7 @@ runApplication @ C:\Users\USER\new\node_modules\react-native-web\dist\exports\Ap
 loadModuleImplementation @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:248
 guardedLoadModule @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:156
 metroRequire @ C:\Users\USER\new\node_modules\@expo\cli\build\metro-require\require.js:74
-(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:206280
+(anonymous) @ index.ts.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=jsc&transform.routerRoot=app&unstable_transformProfile=jsc-stable:206280
  @d8b59694-0161-43e2-be67-41fbca95dce3.jpg why is browser one working but not the android
 --- Content from referenced files ---
 --- End of content ---

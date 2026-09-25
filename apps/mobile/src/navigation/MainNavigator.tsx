@@ -1,17 +1,23 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { DefaultTheme } from "@react-navigation/native";
 import { Home, Compass, Bookmark, User } from "lucide-react-native";
 import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { Selection } from "../utils/haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dimensions, View } from "react-native";
+import { NotificationDot } from "../components/NotificationDot";
 
 // Screens
-import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { LoginScreen } from "../screens/LoginScreen";
 import { SignupScreen } from "../screens/SignupScreen";
+import { OTPScreen } from "../screens/OTPScreen";
+import { ForgotPasswordScreen } from "../screens/ForgotPasswordScreen";
+import { ResetPasswordScreen } from "../screens/ResetPasswordScreen";
+import { LegalScreen } from "../screens/LegalScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ExploreScreen } from "../screens/ExploreScreen";
 import { BookmarksScreen } from "../screens/BookmarksScreen";
@@ -19,85 +25,124 @@ import { ProfileScreen } from "../screens/ProfileScreen";
 import { AdminScreen } from "../screens/AdminScreen";
 import { StoryReaderScreen } from "../screens/StoryReaderScreen";
 import { SettingsScreen } from "../screens/SettingsScreen";
+import { EditProfileScreen } from "../screens/EditProfileScreen";
+import { UserProfileScreen } from "../screens/UserProfileScreen";
+import { CreativeSuiteScreen } from "../screens/CreativeSuiteScreen";
+import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
+import { MessagesScreen } from "../screens/MessagesScreen";
+import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
+import { PremiumScreen } from "../screens/PremiumScreen";
+import { ReferralScreen } from "../screens/ReferralScreen";
 
+import * as SplashScreen from "expo-splash-screen";
+
+const { width } = Dimensions.get("window");
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Custom Theme to kill the white background once and for all
-export const StoryNestTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: Colors.primary,
-    card: Colors.white,
-    text: Colors.primary,
-  },
-};
-
 const TabNavigator = () => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, tabOrder, theme, fonts } = useTheme();
+  const { hasUnreadMessages } = useAuth();
+  const insets = useSafeAreaInsets();
+
+  const renderTabIcon = (name: string, color: string) => {
+    const size = 24;
+    return (
+        <View>
+            {name === "Home" && <Home color={color} size={size} />}
+            {name === "Explore" && <Compass color={color} size={size} />}
+            {name === "Saved" && <Bookmark color={color} size={size} />}
+            {name === "Profile" && <User color={color} size={size} />}
+            {name === "Profile" && hasUnreadMessages && <NotificationDot />}
+        </View>
+    );
+  };
+
+  const getScreenComponent = (name: string) => {
+    if (name === "Home") return HomeScreen;
+    if (name === "Explore") return ExploreScreen;
+    if (name === "Saved") return BookmarksScreen;
+    if (name === "Profile") return ProfileScreen;
+    return HomeScreen;
+  };
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
-          if (route.name === "Home") return <Home color={color} size={size} />;
-          if (route.name === "Explore") return <Compass color={color} size={size} />;
-          if (route.name === "Saved") return <Bookmark color={color} size={size} />;
-          if (route.name === "Profile") return <User color={color} size={size} />;
+      screenListeners={{
+        state: (e) => {
+          Selection();
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.mutedTeal,
+      }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ focused }: any) => renderTabIcon(route.name, focused ? "#003631" : "#7db8b2"),
+        tabBarActiveTintColor: "#003631",
+        tabBarInactiveTintColor: "#7db8b2",
         tabBarStyle: {
-          backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white,
-          borderTopColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen,
-          height: 60,
-          paddingBottom: 10,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderTopColor: "rgba(0,0,0,0.1)",
+          height: 70 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
+          paddingTop: 10,
+          position: 'absolute',
+          elevation: 30,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -10 },
+          shadowOpacity: 0.2,
+          shadowRadius: 15,
         },
         tabBarLabelStyle: {
-          fontFamily: Fonts.body,
-          fontSize: 11,
+          fontFamily: fonts.heading,
+          fontSize: 10,
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          marginBottom: 5,
         },
-        headerShown: false,
-        // Liquid Transition Logic (Impeccable #21)
-        animation: 'fade',
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            navigation.navigate("Home", { reset: true });
-          },
-        })}
-      />
-      <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen name="Saved" component={BookmarksScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      {tabOrder.map(name => (
+          <Tab.Screen key={name} name={name} component={getScreenComponent(name)} />
+      ))}
     </Tab.Navigator>
   );
 };
 
-export const MainNavigator = () => {
+export const MainNavigator = ({ onReady }: { onReady: () => void }) => {
   const { user, loading } = useAuth();
   const { isDarkMode } = useTheme();
 
-  if (loading) return null;
+  useEffect(() => {
+    if (!loading) {
+      onReady?.();
+      SplashScreen.hideAsync();
+    }
+  }, [loading]);
+
+  if (loading) {
+      return <View style={{ flex: 1, backgroundColor: '#003631' }} />;
+  }
 
   return (
     <Stack.Navigator 
       screenOptions={{ 
         headerShown: false, 
-        contentStyle: { backgroundColor: isDarkMode ? "#121212" : Colors.primary },
-        animation: 'slide_from_right'
+        contentStyle: { backgroundColor: isDarkMode ? "#121212" : "#003631" },
+        animation: 'slide_from_right',
+        animationDuration: 400,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
       }}
+      initialRouteName={!user ? "Login" : "Main"}
     >
       {!user ? (
         <>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="OTP" component={OTPScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+          <Stack.Screen name="Legal" component={LegalScreen} />
         </>
       ) : (
         <>
@@ -105,6 +150,14 @@ export const MainNavigator = () => {
           <Stack.Screen name="Reader" component={StoryReaderScreen} options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="Admin" component={AdminScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+          <Stack.Screen name="CreativeSuite" component={CreativeSuiteScreen} />
+          <Stack.Screen name="ManageChapters" component={ManageChaptersScreen} />
+          <Stack.Screen name="Messages" component={MessagesScreen} />
+          <Stack.Screen name="AuthorAnalytics" component={AuthorAnalyticsScreen} />
+          <Stack.Screen name="Premium" component={PremiumScreen} />
+          <Stack.Screen name="Referral" component={ReferralScreen} />
         </>
       )}
     </Stack.Navigator>

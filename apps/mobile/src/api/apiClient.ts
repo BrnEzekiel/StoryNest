@@ -1,42 +1,33 @@
 import axios from "axios";
-import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { Storage } from "../utils/Storage";
 
-// --- DEPLOYMENT CONFIG ---
-// Live URL (Render/Firebase):
-const LIVE_URL = "https://us-central1-storynest-12345.cloudfunctions.net/api";
-
-// Local Development URL:
-const MACHINE_IP = "192.168.100.5"; 
-const LOCAL_URL = `http://${MACHINE_IP}:5000`;
-
-// SMART URL SELECTION: Use local only if in __DEV__ and on same network
-export const BASE_URL = __DEV__ ? LOCAL_URL : LIVE_URL; 
-
-console.log(`[API] Targeting Backend at: ${BASE_URL}`);
+// --- ENVIRONMENT CONFIG ---
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000, // Reduced timeout to fail faster
+  timeout: 30000, // 30 seconds for production resilience
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
+// Interceptor to add access token to requests
 apiClient.interceptors.request.use(async (config) => {
-  console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
-  
-  // SecureStore doesn't work on Web by default, fallback to localStorage
-  let token;
-  if (Platform.OS === 'web') {
-    token = localStorage.getItem("accessToken");
-  } else {
-    token = await SecureStore.getItemAsync("accessToken");
-  }
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = await Storage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (e) {
+    console.log("[API Client] Token fetch failed:", (e as any).message);
   }
   return config;
 });
 
+// Interceptor to handle token refresh
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -44,35 +35,20 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        let refreshToken;
-        if (Platform.OS === 'web') {
-          refreshToken = localStorage.getItem("refreshToken");
-        } else {
-          refreshToken = await SecureStore.getItemAsync("refreshToken");
-        }
+        const refreshToken = await Storage.getItem("refreshToken");
+        if (!refreshToken) throw new Error("No refresh token");
 
         const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = res.data;
-        
-        if (Platform.OS === 'web') {
-          localStorage.setItem("accessToken", accessToken);
-          localStorage.setItem("refreshToken", newRefreshToken);
-        } else {
-          await SecureStore.setItemAsync("accessToken", accessToken);
-          await SecureStore.setItemAsync("refreshToken", newRefreshToken);
-        }
-        
+
+        await Storage.setItem("accessToken", accessToken);
+        await Storage.setItem("refreshToken", newRefreshToken);
+
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (err) {
-        if (Platform.OS === 'web') {
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-        } else {
-          await SecureStore.deleteItemAsync("accessToken");
-          await SecureStore.deleteItemAsync("refreshToken");
-        }
-        return Promise.reject(error);
+        await Storage.removeItem("accessToken");
+        await Storage.removeItem("refreshToken");
       }
     }
     return Promise.reject(error);

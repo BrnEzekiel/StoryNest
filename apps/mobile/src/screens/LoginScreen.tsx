@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert } from "react-native";
+import * as Updates from "expo-updates";
+import * as AuthSession from 'expo-auth-session';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import Svg, { Path } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { HeaderWave } from "../components/HeaderWave";
+import { RefreshCw } from "lucide-react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,23 +30,79 @@ const GoogleIcon = () => (
 );
 
 export const LoginScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
+  const { fonts, theme: appTheme, isDarkMode } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [otaStatus, setOtaStatus] = useState<"idle" | "checking" | "applying">("idle");
   const { login, loginWithGoogle } = useAuth();
 
+  useEffect(() => {
+    checkOTAUpdate();
+  }, []);
+
+  const checkOTAUpdate = async () => {
+      if (__DEV__ || !Updates.isEnabled) return;
+      try {
+          const update = await Updates.checkForUpdateAsync();
+          if (update.isAvailable) {
+              setOtaStatus("applying");
+              await Updates.fetchUpdateAsync();
+              Alert.alert("Update Ready", "The latest fixes have been downloaded. Restarting now...", [
+                  { text: "Restart", onPress: () => Updates.reloadAsync() }
+              ]);
+          }
+      } catch (e) {
+          console.log("[Login OTA] No updates or error:", e);
+      }
+  };
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '170425305101-f18bca4o76856idjks4isv7029esgclm.apps.googleusercontent.com',
+    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web / Default
+    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com',
+    iosClientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Placeholder
   });
+
+  useEffect(() => {
+    if (request) {
+      console.log("[Google Auth] Redirect URI:", request.redirectUri);
+    }
+  }, [request]);
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
-      loginWithGoogle(id_token!);
+      handleGoogleLogin(id_token!);
+    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
+      setGoogleLoading(false);
+    } else if (response?.type === 'error') {
+      setGoogleLoading(false);
+      const errorMsg = response.error?.message || "";
+      console.log("[Google Auth Response Error]", errorMsg);
+      
+      if (errorMsg.indexOf("state") !== -1 || errorMsg.indexOf("verification failed") !== -1) {
+          return;
+      }
+      
+      Alert.alert("Google Auth", "Unable to complete sign-in. Please try again or use email.");
     }
   }, [response]);
+
+  const handleGoogleLogin = async (idToken: string) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (err) {
+      setError("Google sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+      setGoogleLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadSavedEmail();
@@ -57,58 +118,80 @@ export const LoginScreen = ({ navigation }: any) => {
     } catch (e) {}
   };
 
+  const getFirebaseErrorMessage = (code: string): string => {
+    switch (code) {
+      case "auth/user-not-found":      return "We couldn't find an account with that email.";
+      case "auth/wrong-password":      return "The password you entered is incorrect.";
+      case "auth/invalid-email":       return "Please enter a valid email address.";
+      case "auth/invalid-credential": return "Email or password doesn't match our records.";
+      case "auth/too-many-requests":   return "Too many attempts. Please try again later.";
+      case "auth/network-request-failed": return "Network error. Check your connection.";
+      case "auth/email-already-in-use":   return "This email is already registered.";
+      case "auth/weak-password":       return "Password should be at least 6 characters.";
+      case "auth/operation-not-allowed": return "Sign-in method is currently disabled.";
+      default: return "An unexpected error occurred. Please try again.";
+    }
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Please fill in all fields to enter the nest");
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+      setError("Please enter both email and password.");
       return;
     }
     setLoading(true);
     setError("");
     try {
       if (rememberMe) {
-        await AsyncStorage.setItem("rememberedEmail", email);
+        await AsyncStorage.setItem("rememberedEmail", trimmedEmail);
       } else {
         await AsyncStorage.removeItem("rememberedEmail");
       }
-      await login(email, password);
+      await login(trimmedEmail, trimmedPassword);
     } catch (err: any) {
-      const firebaseCode = err?.code;
-      if (firebaseCode === "auth/invalid-credential" || firebaseCode === "auth/wrong-password") {
-        setError("Invalid email or password.");
-      } else if (firebaseCode === "auth/user-not-found") {
-        setError("No account found with this email.");
-      } else if (firebaseCode === "auth/too-many-requests") {
-        setError("Too many attempts. Please try again later.");
-      } else {
-        setError(err.response?.data?.error || err.message || "Login failed. Check your credentials.");
+      console.error("[Login Error]", err.message);
+      let msg = "We couldn't reach the server. Please check your internet connection.";
+      
+      if (err?.code?.startsWith("auth/")) {
+          msg = getFirebaseErrorMessage(err.code);
+      } else if (err.response?.status === 401) {
+          msg = "Incorrect email or password. Please try again.";
+      } else if (err.response?.status === 404) {
+          msg = "StoryNest services are temporarily down. Try again shortly.";
       }
+      
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const currentBg = isDarkMode ? appTheme.white : Colors.paleCream;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: currentBg }]}>
       <ImageBackground 
         source={require("../../assets/auth-bg.jpg")} 
-        style={styles.topSection} 
+        style={[styles.topSection, { height: height * 0.3 + insets.top }]} 
         resizeMode="cover"
       >
         <View style={styles.brandOverlay}>
-          <SafeAreaView style={styles.safeArea}>
+          <SafeAreaView style={styles.safeArea} edges={['top']}>
              <View style={styles.logoBox} />
           </SafeAreaView>
         </View>
-        <HeaderWave />
+        <HeaderWave color={currentBg} />
       </ImageBackground>
 
-      <View style={styles.bottomSection}>
+      <SafeAreaView style={[styles.bottomSection, { backgroundColor: currentBg }]} edges={['bottom', 'left', 'right']}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.keyboardView}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
             <View style={styles.headerContainer}>
                <View style={styles.underlineWrapper}>
-                 <Text style={styles.header}>Sign in</Text>
-                 <View style={styles.headerUnderline} />
+                 <Text style={[styles.header, { fontFamily: fonts.heading, color: appTheme.black }]}>Sign in</Text>
+                 <View style={[styles.headerUnderline, { backgroundColor: appTheme.primary }]} />
                </View>
             </View>
 
@@ -125,70 +208,82 @@ export const LoginScreen = ({ navigation }: any) => {
 
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.rememberMe} activeOpacity={0.8} onPress={() => setRememberMe(!rememberMe)}>
-                   <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
-                      {rememberMe && <View style={styles.checkboxInner} />}
+                   <View style={[styles.checkbox, { borderColor: appTheme.primary }, rememberMe && { backgroundColor: appTheme.primary }]}>
+                      {rememberMe && <View style={[styles.checkboxInner, { backgroundColor: appTheme.white }]} />}
                    </View>
-                   <Text style={styles.rememberText}>Remember Me</Text>
+                   <Text style={[styles.rememberText, { fontFamily: fonts.body }]}>Remember Me</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => Alert.alert("Forgot Password", "Contact support or follow email reset steps.")}>
-                  <Text style={styles.forgotText}>Forgot Password?</Text>
+                <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
+                  <Text style={[styles.forgotText, { fontFamily: fonts.body, color: appTheme.primary }]}>Forgot Password?</Text>
                 </TouchableOpacity>
               </View>
 
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
 
-              <Button title={loading ? "LOGGING IN..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
+              <Button title={loading ? "PREPARING..." : "Login"} onPress={handleLogin} disabled={loading} style={styles.loginBtn} />
 
               <View style={styles.socialSection}>
-                <Text style={styles.socialText}>OR QUICK ACCESS</Text>
-                <TouchableOpacity style={[styles.googleBtn, Shadows.s]} onPress={() => promptAsync()}>
-                  <GoogleIcon />
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                <Text style={[styles.socialText, { fontFamily: fonts.heading }]}>OR JOIN WITH</Text>
+                <TouchableOpacity 
+                  style={[styles.googleBtn, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }]} 
+                  onPress={() => {
+                    setGoogleLoading(true);
+                    promptAsync();
+                  }}
+                  disabled={loading || googleLoading}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator size="small" color={appTheme.primary} />
+                  ) : (
+                    <>
+                      <GoogleIcon />
+                      <Text style={[styles.googleBtnText, { fontFamily: fonts.heading, color: appTheme.black }]}>Google</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
 
               <View style={styles.footer}>
-                <Text style={styles.footerText}>Don't have an Account? </Text>
+                <Text style={[styles.footerText, { fontFamily: fonts.body }]}>Don't have an Account? </Text>
                 <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-                  <Text style={styles.footerLink}>Sign up</Text>
+                  <Text style={[styles.footerLink, { fontFamily: fonts.heading, color: appTheme.primary }]}>Sign up</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </View>
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.paleCream },
-  topSection: { height: height * 0.35, width: "100%" },
+  container: { flex: 1 },
+  topSection: { width: "100%" },
   brandOverlay: { flex: 1, backgroundColor: "rgba(0, 54, 49, 0.7)" },
   safeArea: { flex: 1 },
   logoBox: { flex: 1 },
-  bottomSection: { flex: 1, backgroundColor: Colors.paleCream, marginTop: -20 },
+  bottomSection: { flex: 1, marginTop: -20 },
   keyboardView: { flex: 1 },
   formScroll: { paddingHorizontal: 32, paddingVertical: 40 },
   headerContainer: { marginTop: 10, alignSelf: 'flex-start' },
   underlineWrapper: { alignSelf: 'flex-start' },
-  header: { fontFamily: Fonts.heading, fontSize: 32, color: Colors.primary },
-  headerUnderline: { height: 3, backgroundColor: Colors.error, marginTop: 4, marginBottom: 30, width: '100%' },
+  header: { fontSize: 32 },
+  headerUnderline: { height: 3, marginTop: 4, marginBottom: 30, width: '100%' },
   form: { marginTop: 0, width: '100%' },
   actionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 30 },
   rememberMe: { flexDirection: "row", alignItems: "center" },
-  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: Colors.primary, marginRight: 8, justifyContent: 'center', alignItems: 'center' },
-  checkboxActive: { backgroundColor: Colors.primary },
-  checkboxInner: { width: 10, height: 10, borderRadius: 2, backgroundColor: Colors.accent },
-  rememberText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.mutedTeal, fontWeight: "600" },
-  forgotText: { fontFamily: Fonts.body, fontSize: 13, color: Colors.error, fontWeight: "700" },
-  errorText: { color: Colors.error, marginBottom: 16, fontFamily: Fonts.body, textAlign: "center" },
-  loginBtn: { height: 56, borderRadius: 12, backgroundColor: Colors.error, width: '100%' },
+  checkbox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1, marginRight: 8, justifyContent: 'center', alignItems: 'center' },
+  checkboxInner: { width: 10, height: 10, borderRadius: 2 },
+  rememberText: { fontSize: 13, color: Colors.mutedTeal, fontWeight: "600" },
+  forgotText: { fontSize: 13, fontWeight: "700" },
+  errorText: { color: Colors.error, marginBottom: 16, textAlign: "center" },
+  loginBtn: { height: 56, borderRadius: 12, width: '100%' },
   socialSection: { marginTop: 32, alignItems: 'center' },
-  socialText: { fontFamily: Fonts.heading, fontSize: 10, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 16 },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white, width: '100%', height: 54, borderRadius: 12 },
-  googleBtnText: { fontFamily: Fonts.heading, color: Colors.primary, fontSize: 14, marginLeft: 12 },
+  socialText: { fontSize: 10, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 16 },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', height: 54, borderRadius: 12 },
+  googleBtnText: { fontSize: 14, marginLeft: 12 },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
-  footerText: { fontFamily: Fonts.body, color: Colors.mutedTeal, fontSize: 14 },
-  footerLink: { fontFamily: Fonts.heading, color: Colors.error, fontSize: 14 },
+  footerText: { color: Colors.mutedTeal, fontSize: 14 },
+  footerLink: { fontSize: 14 },
 });

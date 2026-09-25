@@ -8,6 +8,8 @@ const {
   enqueueEmail,
   enqueueDigest,
   enqueueNewChapterEmail,
+  enqueueDigestBatch,
+  ensureDigestScheduler,
 } = require("./emailQueue");
 
 const {
@@ -15,6 +17,7 @@ const {
   CONTENT_QUEUE_NAME,
   enqueueScheduledPublish,
   enqueueProcessCover,
+  ensureDueChapterScanner,
 } = require("./contentQueue");
 
 module.exports = {
@@ -24,8 +27,11 @@ module.exports = {
   enqueueEmail,
   enqueueDigest,
   enqueueNewChapterEmail,
+  enqueueDigestBatch,
+  ensureDigestScheduler,
   contentQueue,
   CONTENT_QUEUE_NAME,
   enqueueScheduledPublish,
   enqueueProcessCover,
+  ensureDueChapterScanner,
 };

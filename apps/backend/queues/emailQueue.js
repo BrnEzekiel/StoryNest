@@ -1,5 +1,5 @@
 /**
- * Email queue — welcome, OTP, digests, new-chapter notifications, etc.
+ * Email queue — welcome, OTP, digests, new-chapter, digest-batch cron.
  */
 const { Queue } = require("bullmq");
 const { redisConnection } = require("./connection");
@@ -29,7 +29,6 @@ async function enqueueEmail(type, payload, options = {}) {
   return emailQueue.add(type, payload, options);
 }
 
-/** Weekly/daily digest — cron or admin can call this. */
 async function enqueueDigest(payload, options = {}) {
   return emailQueue.add("digest", payload, {
     jobId: `digest-${payload.email}-${payload.period || "weekly"}-${Date.now()}`,
@@ -43,6 +42,31 @@ async function enqueueNewChapterEmail(payload) {
   });
 }
 
+/** Enqueue a one-shot batch run (or used by the repeatable scheduler). */
+async function enqueueDigestBatch(period = "weekly") {
+  return emailQueue.add(
+    "run-digest-batch",
+    { period },
+    { jobId: `digest-batch-${period}-${Date.now()}` }
+  );
+}
+
+/**
+ * Register weekly digest cron (Sunday 09:00 UTC).
+ * Safe to call on every worker boot — BullMQ dedupes by jobId/key.
+ */
+async function ensureDigestScheduler() {
+  await emailQueue.add(
+    "run-digest-batch",
+    { period: "weekly" },
+    {
+      repeat: { pattern: "0 9 * * 0" },
+      jobId: "digest-batch-weekly",
+    }
+  );
+  console.log("[EmailQueue] Weekly digest scheduler registered (Sun 09:00 UTC)");
+}
+
 module.exports = {
   emailQueue,
   EMAIL_QUEUE_NAME,
@@ -50,4 +74,6 @@ module.exports = {
   enqueueEmail,
   enqueueDigest,
   enqueueNewChapterEmail,
+  enqueueDigestBatch,
+  ensureDigestScheduler,
 };

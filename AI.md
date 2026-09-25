@@ -7,25 +7,31 @@
 Mobile Expo · Web Next.js 15 + Tailwind · Express + BullMQ · Prisma/Postgres · JWT
 
 ## Web routes
-`/` `/explore` `/library` `/feed` `/streaks` `/users/[id]` `/stories/[id]` (reader + comments) `/studio/*` `/admin` `/login` `/signup`
+`/` `/explore` `/library` `/feed` `/streaks` `/settings` `/users/[id]` `/stories/[id]` `/studio/*` `/admin` `/login` `/signup`
 
-## Phases
+## Phases 0–4 (summary)
 
-### 0–3
-- [x] BullMQ email + content queues; web skeleton; reader/library; studio/admin
-- [x] Due-chapter scanner every 5 min
-- [ ] OTP auth parity; TipTap; Cloudinary multipart; deploy CORS
+| Area | Status |
+|------|--------|
+| BullMQ email + content workers | Done |
+| Due-chapter scanner (5 min) | Done |
+| Web reader, library, studio, admin | Done |
+| Comments, follow, activity feed | Done |
+| Streaks + goals | Done |
+| **Weekly digest batch** (`run-digest-batch`, Sun 09:00 UTC) | Done |
+| **Settings** `/settings` notifications toggle | Done |
+| OTP auth parity on web | Open |
+| TipTap / Cloudinary multipart | Open |
+| Nest Plus / Stripe | Open |
+| Production CORS + Vercel | Open |
 
-### 4 Engagement
-- [x] `/streaks` goals
-- [x] Digest + new-chapter email job types
-- [x] Reader comments (nested)
-- [x] **Activity feed** `/feed` (`GET /activity/feed`)
-- [x] **User profile + follow** `/users/[id]` (`GET /users/:id/profile`, `POST /users/:id/follow`)
-- [ ] Digest cron for notificationsOn users
-- [ ] Nest Plus / Stripe
+## Digest how-to
+1. Redis + `npm run worker` running
+2. Users with `notificationsOn: true` (toggle in `/settings`)
+3. Cron enqueues one `digest` job per user with recent stories
+4. Manual test: `node -e "require('./apps/backend/queues').enqueueDigestBatch().then(()=>process.exit())"` from backend cwd with env loaded
 
 ## Next
-1. `git pull && npm install && npm run web`
-2. Sign in → `/feed` → open a user → Follow
-3. Optional: auth OTP, digests cron, or Stripe
+1. `git pull && npm install`
+2. Toggle digests on `/settings`
+3. Optional: **auth OTP**, **Stripe Nest Plus**, or production deploy

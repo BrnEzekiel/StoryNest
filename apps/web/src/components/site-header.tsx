@@ -27,8 +27,8 @@ export function SiteHeader() {
           <Link href="/studio" className="text-muted-foreground hover:text-foreground transition-colors">
             Studio
           </Link>
-          <Link href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">
-            Admin
+          <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors">
+            Settings
           </Link>
         </nav>
         <div className="flex items-center gap-2">

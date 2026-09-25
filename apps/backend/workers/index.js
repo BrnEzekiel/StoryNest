@@ -9,6 +9,7 @@ require("dotenv").config();
 const { createEmailWorker } = require("./emailWorker");
 const { createContentWorker } = require("./contentWorker");
 const { ensureDueChapterScanner } = require("../queues/contentQueue");
+const { ensureDigestScheduler } = require("../queues/emailQueue");
 
 console.log("[Workers] Starting StoryNest workers (email + content)…");
 
@@ -17,6 +18,10 @@ const contentWorker = createContentWorker();
 
 ensureDueChapterScanner().catch((err) => {
   console.error("[Workers] Failed to register due-chapter scanner:", err.message);
+});
+
+ensureDigestScheduler().catch((err) => {
+  console.error("[Workers] Failed to register digest scheduler:", err.message);
 });
 
 async function shutdown() {

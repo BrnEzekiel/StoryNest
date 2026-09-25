@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* StoryNest — Warm Cream surface, Deep Forest primary */
+    --background: 40 33% 97%;
+    --foreground: 174 100% 11%;
+    --card: 40 40% 98%;
+    --card-foreground: 174 100% 11%;
+    --primary: 174 100% 11%;
+    --primary-foreground: 48 100% 83%;
+    --secondary: 36 25% 92%;
+    --secondary-foreground: 174 100% 11%;
+    --muted: 36 20% 90%;
+    --muted-foreground: 24 12% 49%;
+    --accent: 48 100% 83%;
+    --accent-foreground: 174 100% 11%;
+    --border: 36 25% 87%;
+    --input: 36 25% 87%;
+    --ring: 174 100% 11%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 174 40% 8%;
+    --foreground: 40 33% 95%;
+    --card: 174 30% 12%;
+    --card-foreground: 40 33% 95%;
+    --primary: 48 100% 83%;
+    --primary-foreground: 174 100% 11%;
+    --secondary: 174 20% 18%;
+    --secondary-foreground: 40 33% 95%;
+    --muted: 174 15% 20%;
+    --muted-foreground: 36 15% 65%;
+    --accent: 48 80% 70%;
+    --accent-foreground: 174 100% 11%;
+    --border: 174 15% 22%;
+    --input: 174 15% 22%;
+    --ring: 48 100% 83%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: Georgia, Cambria, "Times New Roman", serif;
+  }
+}

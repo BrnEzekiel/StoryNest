@@ -1,6 +1,6 @@
 /**
  * StoryNest API client — talks to the existing Express backend.
- * Auth: Bearer JWT (mobile-compatible).
+ * Auth: Bearer JWT (mobile-compatible). Signup uses OTP like mobile.
  */
 
 const API_URL =
@@ -204,6 +204,13 @@ export type PublicProfile = {
   _count?: { followers?: number; following?: number };
 };
 
+export type AuthTokens = {
+  user?: MeUser | unknown;
+  accessToken?: string;
+  token?: string;
+  refreshToken?: string;
+};
+
 function normalizeStoryList(data: unknown): StoryListItem[] {
   if (Array.isArray(data)) return data as StoryListItem[];
   const d = data as { stories?: StoryListItem[]; data?: StoryListItem[] };
@@ -222,17 +229,57 @@ function normalizeActivities(data: unknown): ActivityItem[] {
   return d.activities || d.data || [];
 }
 
+export function pickAccessToken(data: AuthTokens): string | undefined {
+  return data.accessToken || data.token;
+}
+
 export const api = {
   health: () => apiFetch<{ status: string; version?: string; bullmq?: boolean }>("/health"),
 
-  login: (body: { email: string; password: string }) =>
-    apiFetch<{ user: unknown; accessToken: string; refreshToken?: string }>("/auth/login", {
+  login: (body: { email: string; password: string } | { idToken: string }) =>
+    apiFetch<AuthTokens>("/auth/login", {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  register: (body: { email: string; password: string; username: string }) =>
-    apiFetch<{ user: unknown; accessToken: string; refreshToken?: string }>("/auth/register", {
+  /** Step 1 — send OTP (requires email + DOB ISO string, same as mobile). */
+  otpInitiate: (body: { email: string; dob: string }) =>
+    apiFetch("/auth/otp/initiate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /** Step 2 — verify OTP. */
+  otpVerify: (body: { email: string; otp: string }) =>
+    apiFetch("/auth/otp/verify", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Step 3 — complete registration after OTP.
+   * Mobile also sends firebaseUid; web may omit or send a placeholder if Firebase isn't configured.
+   */
+  register: (body: {
+    email: string;
+    password: string;
+    username: string;
+    firebaseUid?: string;
+    dob?: string;
+  }) =>
+    apiFetch<AuthTokens>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  forgotPassword: (body: { email: string }) =>
+    apiFetch("/auth/password/forgot", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  resetPassword: (body: { email: string; otp: string; password: string }) =>
+    apiFetch("/auth/password/reset", {
       method: "POST",
       body: JSON.stringify(body),
     }),

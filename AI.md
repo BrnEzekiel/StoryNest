@@ -3,25 +3,23 @@
 **Last updated:** 2026-09-25  
 **Repo:** https://github.com/BrnEzekiel/StoryNest
 
-## Payments
-**Provider: Paystack** (not Stripe)
+## Auth (web)
+Matches mobile OTP flow:
+1. `POST /auth/otp/initiate` `{ email, dob }`
+2. `POST /auth/otp/verify` `{ email, otp }`
+3. `POST /auth/register` `{ email, password, username, dob?, firebaseUid? }`
+4. Login: `POST /auth/login` `{ email, password }`
+5. Forgot: `/auth/password/forgot` + `/auth/password/reset`
 
-| Env | Where | Notes |
-|-----|--------|--------|
-| `PAYSTACK_SECRET_KEY` | `apps/web` server env | Never commit; used by `/api/paystack/*` |
-| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | web | Inline popup |
-| `NEST_PLUS_AMOUNT` | web | Smallest currency unit (kobo for NGN) |
-| `NEST_PLUS_CURRENCY` | web | Default `NGN` |
+Pages: `/signup` (3 steps) · `/login` · `/forgot-password`
 
-Flow: `/plus` → `POST /api/paystack/initialize` → Paystack popup/redirect → `POST /api/paystack/verify` → `POST {API}/monetization/subscribe` with user JWT → `isPremium`.
+Web sends `firebaseUid: web_<ts>` when Firebase isn’t on the web client; if backend rejects, configure Firebase on web or relax UID check server-side.
 
-**Security:** Live keys were shared in chat — rotate them in the Paystack dashboard and only store in local `.env` / host secrets.
-
-## Web routes
-`/plus` Nest Plus · `/settings` · `/feed` · `/streaks` · `/users/[id]` · reader comments · studio · admin
+## Paystack Nest Plus
+`/plus` + `/api/paystack/initialize|verify` → `/monetization/subscribe`  
+**Rotate live keys** if they were pasted in chat; store only in env.
 
 ## Open
-- OTP auth parity on web
-- TipTap / Cloudinary multipart
-- Production CORS + Vercel (add Paystack env vars on host)
-- Confirm backend `/monetization/subscribe` sets `isPremium` (mobile already calls it)
+- TipTap + Cloudinary multipart on studio
+- Production CORS + Vercel env (Paystack, API_URL)
+- Optional real Firebase Auth on web

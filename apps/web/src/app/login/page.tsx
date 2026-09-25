@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, setTokens } from "@/lib/api";
+import { api, pickAccessToken, setTokens } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,16 +20,18 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const data = await api.login({ email, password });
-      // Backend may return accessToken or token — normalize
-      const access =
-        (data as { accessToken?: string; token?: string }).accessToken ||
-        (data as { accessToken?: string; token?: string }).token;
-      const refresh = (data as { refreshToken?: string }).refreshToken;
-      if (access) setTokens(access, refresh);
+      // Same as mobile fallback: email + password (Firebase idToken optional on web)
+      const data = await api.login({ email: email.trim(), password });
+      const access = pickAccessToken(data);
+      if (!access) throw new Error("No access token returned");
+      setTokens(access, data.refreshToken);
       router.push("/explore");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Login failed. Check email/password or create an account."
+      );
     } finally {
       setLoading(false);
     }
@@ -79,7 +81,12 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-3 text-center text-sm">
+            <Link href="/forgot-password" className="text-primary underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             New here?{" "}
             <Link href="/signup" className="text-primary underline-offset-4 hover:underline">
               Create an account

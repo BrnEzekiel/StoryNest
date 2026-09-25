@@ -24,6 +24,9 @@ export function SiteHeader() {
           <Link href="/streaks" className="text-muted-foreground hover:text-foreground transition-colors">
             Streaks
           </Link>
+          <Link href="/plus" className="text-muted-foreground hover:text-foreground transition-colors">
+            Nest Plus
+          </Link>
           <Link href="/studio" className="text-muted-foreground hover:text-foreground transition-colors">
             Studio
           </Link>

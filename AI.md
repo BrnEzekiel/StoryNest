@@ -24,7 +24,7 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 | Layer        | Technology                                      |
 |--------------|-------------------------------------------------|
 | Mobile       | React Native (Expo) + TypeScript                |
-| Web          | **Next.js 15 App Router + Tailwind (NEW)**      |
+| Web          | **Next.js 15 App Router + Tailwind**            |
 | Backend      | Node.js + Express.js + **BullMQ**               |
 | Database     | PostgreSQL + Prisma ORM                         |
 | Auth         | JWT (Access + Refresh Tokens)                   |
@@ -43,16 +43,16 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 - Root `package.json` — workspaces + scripts (`backend`, `worker`, `web`, `mobile`, `db:push`, `db:seed`)
 
 **Existing features (mobile + API)**
-- Auth (signup/login, JWT, Google auth path in progress)
+- Auth (OTP signup, login, JWT, Google path)
 - Home / Explore / Reader (themes, font size, progress)
 - Bookmarks, reading history, streaks
 - Admin panel (upload/edit/delete stories, role-based)
 - Cloudinary uploads
 
-**Web (Phase 1 skeleton)**
-- Landing, Explore (API list), Story detail (basic reader), Login, Signup, Library placeholder
-- Brand tokens in Tailwind + CSS variables
-- API client with Bearer JWT
+**Web**
+- Landing, Explore (search + genre filter), full reader, Library (bookmarks), Login/Signup
+- Reader: Light / Sepia / Dark, font size, progress bar, chapters, bookmark sync
+- API client mirrors mobile endpoints (`/stories`, `/bookmark`, `/users/me/bookmarks`, etc.)
 
 ---
 
@@ -101,8 +101,8 @@ packages/
 **Notes / Decisions:**
 - Workers run as a **separate process** from the API (`workers/index.js`).
 - Email sending reuses existing `sendGmail` (Gmail REST API).
-- Large-file push truncated plain `index.js`; recovery packaging uses base64 parts + `app.js` loader so remote deploys still get the full app + BullMQ.
-- Owner has **no local PC/Termux** — all git work is done via GitHub API from this AI session.
+- Large-file push truncated plain `index.js`; recovery packaging uses base64 parts + `app.js` loader.
+- Owner now has a PC; can pull `main` and run locally.
 
 ---
 
@@ -113,28 +113,30 @@ packages/
 - [x] Brand colors (Deep Forest Green + Warm Cream + Gold) in Tailwind theme + CSS variables
 - [x] Core UI primitives (Button, Card, Input) — shadcn-compatible patterns
 - [x] API client (`src/lib/api.ts`) with Authorization Bearer + localStorage tokens
-- [x] Auth pages: Login / Signup
+- [x] Auth pages: Login / Signup (basic; **OTP flow deferred — revisit later**)
 - [x] App shell: header, nav, footer
-- [x] Basic pages: Home, Explore, Story detail (read-only), Library placeholder
+- [x] Basic pages: Home, Explore, Story detail, Library
 - [x] Root package.json scripts: `"web"`, `"web:build"`, `"worker"`, `"worker:dev"`
 - [ ] CORS on Express updated for web origin (when known deploy URL)
-- [ ] Optional: full `npx shadcn@latest init` when a machine can run interactive CLI
+- [ ] Optional: full `npx shadcn@latest init` when interactive CLI is convenient
 - [ ] Deploy web to Vercel pointing at backend URL
 
 **Notes / Decisions:**
-- Auth uses same Bearer JWT as mobile for parity; httpOnly cookies can be added later without changing mobile.
-- Explore/story pages tolerate flexible API response shapes (`stories` array or nested).
+- Auth uses Bearer JWT like mobile. Web signup does not yet match mobile OTP + Firebase flow; login may work for existing accounts. **Revisit auth after Phase 2/3.**
+- Hydration mismatch with `crxlauncher` attributes = browser extension noise.
 
 ---
 
 ### Phase 2 — Core Reader & Library on Web
 **Goal:** Reading parity with mobile for the most important flows.
 
-- [ ] Story reader page (typography, Light / Sepia / Dark, font size, progress)
-- [ ] Bookmarks & progress sync with existing backend endpoints
-- [ ] Library / Continue reading (recently read, bookmarks, history)
-- [ ] Search & filters (genre, completion status)
-- [ ] Skeleton loaders / polished loading states
+- [x] Story reader page (typography, Light / Sepia / Dark, font size, progress bar)
+- [x] Chapter list + prev/next navigation; load chapter body via `/chapters/:id` when needed
+- [x] Bookmarks & progress sync (`POST /stories/:id/bookmark`, `GET /users/me/bookmarks`)
+- [x] Mark read (`POST /stories/:id/read`)
+- [x] Library page (bookmarks when signed in; CTA when guest)
+- [x] Search & genre filter on Explore (client-side over fetched list)
+- [x] Skeleton loaders (explore cards + reader)
 - [ ] (Optional later) Service worker / offline support
 
 **BullMQ usage in this phase**
@@ -142,7 +144,9 @@ packages/
 - [ ] “New chapter / story updated” email or push job
 
 **Notes / Decisions:**
-- _None yet_
+- Reader preferences also stored in `localStorage` (`sn_reader_theme`, `sn_reader_font`) and optionally synced via `POST /users/me/preferences`.
+- API client expanded in `apps/web/src/lib/api.ts` to match mobile reader endpoints.
+- Auth still deferred; bookmark actions require a valid token.
 
 ---
 
@@ -204,13 +208,12 @@ Start with 2–3 queues and expand.
 
 | Topic              | Decision                                                                 |
 |--------------------|--------------------------------------------------------------------------|
-| Auth on web        | Prefer httpOnly secure cookies later; currently Bearer JWT like mobile |
+| Auth on web        | Bearer JWT for now (mobile parity); OTP web flow + httpOnly cookies later |
 | API                | Same Express service; add web origin to CORS                             |
 | Monorepo scripts   | `web`, `worker`, `backend`, `mobile` on root `package.json`            |
 | Deployment         | Backend + workers → Render/Railway/Fly; Web → Vercel; Redis → Upstash    |
 | Design system      | Single Tailwind theme (brand tokens) shared conceptually with mobile     |
 | Workers            | Separate process from API (`npm run worker`)                             |
-| No local PC        | Owner works from phone only; AI pushes all changes via GitHub            |
 
 ---
 
@@ -263,9 +266,9 @@ Start with 2–3 queues and expand.
 
 ## 10. Immediate Next Action
 
-1. **Deploy / env (owner or AI via host dashboard):** set `REDIS_URL` on backend host; run API process + separate worker process.
-2. Point Vercel (or similar) at `apps/web` with `NEXT_PUBLIC_API_URL` = production API.
-3. Continue **Phase 2**: richer reader (themes, progress) + library wired to existing endpoints.
+1. **Owner (PC):** `git pull origin main` && `npm install` && run backend + `npm run web`.
+2. Smoke-test Explore → open a story → Display (theme/font) → Bookmark (if logged in) → Library.
+3. Next build target: **Phase 3** (author/admin web) *or* revisit web auth (OTP parity with mobile).
 
 ---
 

@@ -1,6 +1,6 @@
 /**
  * StoryNest API client — talks to the existing Express backend.
- * Auth: Bearer JWT (mobile-compatible). Web can later switch to httpOnly cookies.
+ * Auth: Bearer JWT (mobile-compatible).
  */
 
 const API_URL =
@@ -169,10 +169,24 @@ export type MeUser = {
   notificationsOn?: boolean;
 };
 
+export type CommentItem = {
+  id: string;
+  content: string;
+  parentId?: string | null;
+  createdAt?: string;
+  user?: { id?: string; username?: string; avatarUrl?: string | null };
+};
+
 function normalizeStoryList(data: unknown): StoryListItem[] {
   if (Array.isArray(data)) return data as StoryListItem[];
   const d = data as { stories?: StoryListItem[]; data?: StoryListItem[] };
   return d.stories || d.data || [];
+}
+
+function normalizeComments(data: unknown): CommentItem[] {
+  if (Array.isArray(data)) return data as CommentItem[];
+  const d = data as { comments?: CommentItem[]; data?: CommentItem[] };
+  return d.comments || d.data || [];
 }
 
 export const api = {
@@ -265,6 +279,17 @@ export const api = {
   like: (storyId: string) =>
     apiFetch<{ isLiked?: boolean; likes?: number }>(`/stories/${storyId}/like`, {
       method: "POST",
+    }),
+
+  comments: async (storyId: string) => {
+    const data = await apiFetch(`/stories/${storyId}/comments`);
+    return normalizeComments(data);
+  },
+
+  postComment: (storyId: string, body: { content: string; parentId?: string | null }) =>
+    apiFetch<CommentItem>(`/stories/${storyId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 
   preferences: (body: {

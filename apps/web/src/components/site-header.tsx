@@ -18,6 +18,12 @@ export function SiteHeader() {
           <Link href="/library" className="text-muted-foreground hover:text-foreground transition-colors">
             Library
           </Link>
+          <Link href="/studio" className="text-muted-foreground hover:text-foreground transition-colors">
+            Studio
+          </Link>
+          <Link href="/admin" className="text-muted-foreground hover:text-foreground transition-colors">
+            Admin
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>

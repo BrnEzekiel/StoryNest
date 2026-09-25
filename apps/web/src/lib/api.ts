@@ -72,6 +72,8 @@ export type StoryListItem = {
   author?: { username?: string; name?: string };
   isFeatured?: boolean;
   isDraft?: boolean;
+  isFlagged?: boolean;
+  publishedAt?: string | null;
 };
 
 export type Chapter = {
@@ -80,6 +82,8 @@ export type Chapter = {
   body?: string;
   content?: string;
   order?: number;
+  publishedAt?: string | null;
+  isDraft?: boolean;
 };
 
 export type StoryDetail = {
@@ -100,6 +104,8 @@ export type StoryDetail = {
   canRead?: boolean;
   contentWarnings?: string;
   isAdult?: boolean;
+  isDraft?: boolean;
+  isFlagged?: boolean;
   _count?: { likes?: number };
 };
 
@@ -109,6 +115,39 @@ export type BookmarkItem = {
   progress?: number;
   story?: StoryListItem;
   createdAt?: string;
+};
+
+export type AdminStats = {
+  storyCount?: number;
+  totalReads?: number;
+  userCount?: number;
+};
+
+export type AnalyticsRow = {
+  id: string;
+  title: string;
+  reads: number;
+  likes: number;
+  comments: number;
+  retention?: string;
+  trend?: string;
+};
+
+export type StoryPayload = {
+  title: string;
+  genre: string;
+  authorName: string;
+  summary?: string;
+  body?: string;
+  coverUrl?: string | null;
+  isDraft?: boolean;
+};
+
+export type ChapterPayload = {
+  title: string;
+  body: string;
+  order?: number;
+  publishedAt?: string | null;
 };
 
 function normalizeStoryList(data: unknown): StoryListItem[] {
@@ -145,7 +184,45 @@ export const api = {
 
   story: (id: string) => apiFetch<StoryDetail>(`/stories/${id}`),
 
+  createStory: (payload: StoryPayload) =>
+    apiFetch<StoryDetail>("/stories", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateStory: (id: string, payload: Partial<StoryPayload>) =>
+    apiFetch<StoryDetail>(`/stories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteStory: (id: string) =>
+    apiFetch(`/stories/${id}`, { method: "DELETE" }),
+
   chapter: (id: string) => apiFetch<Chapter>(`/chapters/${id}`),
+
+  listChapters: async (storyId: string) => {
+    const data = await apiFetch<Chapter[] | { chapters?: Chapter[] }>(
+      `/stories/${storyId}/chapters`
+    );
+    if (Array.isArray(data)) return data;
+    return (data as { chapters?: Chapter[] }).chapters || [];
+  },
+
+  createChapter: (storyId: string, payload: ChapterPayload) =>
+    apiFetch<Chapter>(`/stories/${storyId}/chapters`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateChapter: (id: string, payload: Partial<ChapterPayload>) =>
+    apiFetch<Chapter>(`/chapters/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteChapter: (id: string) =>
+    apiFetch(`/chapters/${id}`, { method: "DELETE" }),
 
   markRead: (storyId: string) =>
     apiFetch(`/stories/${storyId}/read`, { method: "POST" }).catch(() => null),
@@ -174,4 +251,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }).catch(() => null),
+
+  // --- Author / Admin (same as mobile Creator Hub) ---
+  myStories: async () => {
+    const data = await apiFetch("/admin/my-stories");
+    return normalizeStoryList(data);
+  },
+
+  adminStats: () => apiFetch<AdminStats>("/admin/stats"),
+
+  authorAnalytics: async () => {
+    const data = await apiFetch<AnalyticsRow[] | { data?: AnalyticsRow[] }>("/admin/analytics");
+    if (Array.isArray(data)) return data;
+    return (data as { data?: AnalyticsRow[] }).data || [];
+  },
 };

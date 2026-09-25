@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { api, hasToken } from "@/lib/api";
+import { CoverUpload } from "@/components/cover-upload";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"];
 
@@ -109,32 +111,12 @@ export default function NewStoryPage() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="cover">
-                Cover image URL
-              </label>
-              <Input
-                id="cover"
-                type="url"
-                placeholder="https://… (Cloudinary or any CDN)"
-                value={coverUrl}
-                onChange={(e) => setCoverUrl(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Paste a Cloudinary URL for now. Direct upload can be wired later.
-              </p>
+              <label className="text-sm font-medium">Cover</label>
+              <CoverUpload value={coverUrl} onChange={setCoverUrl} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="body">
-                First chapter body (optional)
-              </label>
-              <Textarea
-                id="body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={12}
-                className="font-serif text-base leading-relaxed"
-                placeholder="Once upon a time…"
-              />
+              <label className="text-sm font-medium">First chapter body (optional)</label>
+              <RichTextEditor value={body} onChange={setBody} />
             </div>
             {error && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">

@@ -1,25 +1,18 @@
-# StoryNest AI Memory & Migration Tracker
+# StoryNest AI Memory
 
-**Last updated:** 2026-09-25  
-**Repo:** https://github.com/BrnEzekiel/StoryNest
+**Repo:** https://github.com/BrnEzekiel/StoryNest  
+**Updated:** 2026-09-25
 
-## Auth (web)
-Matches mobile OTP flow:
-1. `POST /auth/otp/initiate` `{ email, dob }`
-2. `POST /auth/otp/verify` `{ email, otp }`
-3. `POST /auth/register` `{ email, password, username, dob?, firebaseUid? }`
-4. Login: `POST /auth/login` `{ email, password }`
-5. Forgot: `/auth/password/forgot` + `/auth/password/reset`
+## Studio writing tools
+- **TipTap** chapter editor (`RichTextEditor`) — bold/italic/H2/list/quote; saves **plain text** paragraphs for mobile reader compatibility
+- **Cloudinary** `POST /api/cloudinary/upload` + `CoverUpload` on new/edit story
+- Env on web: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 
-Pages: `/signup` (3 steps) · `/login` · `/forgot-password`
+## After pull
+```bash
+cd apps/web && npm install && npm run dev
+```
 
-Web sends `firebaseUid: web_<ts>` when Firebase isn’t on the web client; if backend rejects, configure Firebase on web or relax UID check server-side.
-
-## Paystack Nest Plus
-`/plus` + `/api/paystack/initialize|verify` → `/monetization/subscribe`  
-**Rotate live keys** if they were pasted in chat; store only in env.
-
-## Open
-- TipTap + Cloudinary multipart on studio
-- Production CORS + Vercel env (Paystack, API_URL)
-- Optional real Firebase Auth on web
+## Still open
+- Production CORS + Vercel deploy checklist
+- Optional Firebase Auth on web

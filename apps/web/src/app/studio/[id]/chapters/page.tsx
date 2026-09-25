@@ -5,10 +5,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { api, hasToken, type Chapter } from "@/lib/api";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default function ChaptersPage() {
   const params = useParams();
@@ -37,9 +37,7 @@ export default function ChaptersPage() {
         api.listChapters(storyId),
         api.story(storyId).catch(() => null),
       ]);
-      setChapters(
-        chs.slice().sort((a, b) => (a.order || 0) - (b.order || 0))
-      );
+      setChapters(chs.slice().sort((a, b) => (a.order || 0) - (b.order || 0)));
       if (story?.title) setStoryTitle(story.title);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load chapters");
@@ -82,9 +80,7 @@ export default function ChaptersPage() {
       const payload = {
         title: title.trim(),
         body: body.trim(),
-        publishedAt: publishedAt
-          ? new Date(publishedAt).toISOString()
-          : null,
+        publishedAt: publishedAt ? new Date(publishedAt).toISOString() : null,
         order: editing ? editing.order : chapters.length + 1,
       };
       if (editing) {
@@ -115,7 +111,7 @@ export default function ChaptersPage() {
 
   if (isForm) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <button
           type="button"
           onClick={() => setIsForm(false)}
@@ -151,25 +147,15 @@ export default function ChaptersPage() {
                   onChange={(e) => setPublishedAt(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave empty to publish immediately. Future dates mark the chapter as scheduled
-                  (backend + BullMQ content queue can enforce go-live).
+                  Empty = publish now. Future dates stay draft until the content worker scans them.
                 </p>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <label className="text-sm font-medium" htmlFor="cbody">
-                    Body
-                  </label>
+                  <label className="text-sm font-medium">Body</label>
                   <span className="text-xs text-muted-foreground">{wordCount} words</span>
                 </div>
-                <Textarea
-                  id="cbody"
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={16}
-                  className="font-serif text-base leading-relaxed"
-                  required
-                />
+                <RichTextEditor value={body} onChange={setBody} minHeight="min-h-[320px]" />
               </div>
               {error && (
                 <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
@@ -228,8 +214,7 @@ export default function ChaptersPage() {
 
       <ul className="space-y-2">
         {chapters.map((c, idx) => {
-          const scheduled =
-            c.publishedAt && new Date(c.publishedAt) > new Date();
+          const scheduled = c.publishedAt && new Date(c.publishedAt) > new Date();
           return (
             <li
               key={c.id}
@@ -239,10 +224,9 @@ export default function ChaptersPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{c.title || `Chapter ${idx + 1}`}</p>
                 <p className="text-xs text-muted-foreground">
-                  {c.body ? Math.ceil(c.body.length / 5) : "—"} words
                   {scheduled && (
-                    <span className="ml-2 text-primary">
-                      · Scheduled {new Date(c.publishedAt!).toLocaleString()}
+                    <span className="text-primary">
+                      Scheduled {new Date(c.publishedAt!).toLocaleString()}
                     </span>
                   )}
                 </p>

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { api, hasToken } from "@/lib/api";
 import { ReaderSkeleton } from "@/components/skeleton";
+import { CoverUpload } from "@/components/cover-upload";
 
 const GENRES = ["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"];
 
@@ -128,15 +129,8 @@ export default function EditStoryPage() {
               <Textarea id="summary" value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="cover">
-                Cover image URL
-              </label>
-              <Input
-                id="cover"
-                type="url"
-                value={coverUrl}
-                onChange={(e) => setCoverUrl(e.target.value)}
-              />
+              <label className="text-sm font-medium">Cover</label>
+              <CoverUpload value={coverUrl} onChange={setCoverUrl} />
             </div>
             {error && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">

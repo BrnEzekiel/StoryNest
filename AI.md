@@ -24,7 +24,8 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 | Layer        | Technology                                      |
 |--------------|-------------------------------------------------|
 | Mobile       | React Native (Expo) + TypeScript                |
-| Backend      | Node.js + Express.js + **BullMQ (in progress)** |
+| Web          | **Next.js 15 App Router + Tailwind (NEW)**      |
+| Backend      | Node.js + Express.js + **BullMQ**               |
 | Database     | PostgreSQL + Prisma ORM                         |
 | Auth         | JWT (Access + Refresh Tokens)                   |
 | Storage      | Cloudinary (cover images)                       |
@@ -35,10 +36,11 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 
 **Key paths**
 - `apps/mobile` — Expo app
-- `apps/backend` — Express API (`index.js`, Prisma, config)
+- `apps/web` — Next.js + Tailwind web client
+- `apps/backend` — Express API (`index.js` → `app.js` loader + base64 runtime with BullMQ)
 - `apps/backend/queues/` — BullMQ queues
 - `apps/backend/workers/` — BullMQ workers entry
-- Root `package.json` — workspaces + scripts (`backend`, `mobile`, `db:push`, `db:seed`)
+- Root `package.json` — workspaces + scripts (`backend`, `worker`, `web`, `mobile`, `db:push`, `db:seed`)
 
 **Existing features (mobile + API)**
 - Auth (signup/login, JWT, Google auth path in progress)
@@ -46,6 +48,11 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 - Bookmarks, reading history, streaks
 - Admin panel (upload/edit/delete stories, role-based)
 - Cloudinary uploads
+
+**Web (Phase 1 skeleton)**
+- Landing, Explore (API list), Story detail (basic reader), Login, Signup, Library placeholder
+- Brand tokens in Tailwind + CSS variables
+- API client with Bearer JWT
 
 ---
 
@@ -55,7 +62,7 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 |--------------------------|---------------------------------------------------|
 | **Next.js** (App Router) | Web app + future admin/author dashboards          |
 | **Tailwind CSS**         | Utility-first styling                             |
-| **shadcn/ui**            | High-quality accessible components                |
+| **shadcn/ui**            | High-quality accessible components (primitives in place; full CLI init optional) |
 | **Node.js + Express**    | Existing API (keep & extend)                      |
 | **JWT**                  | Existing auth (keep; prefer httpOnly cookies on web) |
 | **BullMQ + Redis**       | Async jobs (email, publish, media, digests, AI)   |
@@ -66,8 +73,8 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 ```
 apps/
   mobile/          ← existing Expo (keep evolving)
-  web/             ← NEW Next.js + Tailwind + shadcn/ui
-  backend/         ← existing Express + NEW BullMQ workers
+  web/             ← Next.js + Tailwind + shadcn-style UI
+  backend/         ← Express + BullMQ workers
 packages/
   db/              ← Prisma (shared, optional extract)
   shared/          ← types/constants (optional)
@@ -85,38 +92,38 @@ packages/
 - [x] Create `apps/backend/workers/` (`emailWorker.js`, `index.js`)
 - [x] Define queue names and config (`REDIS_URL` in `config.js` + `.env.example`)
 - [x] Example job: welcome email (`enqueueWelcomeEmail` + worker handler)
-- [x] Worker scripts: `npm run worker` / `npm run worker:dev`
+- [x] Worker scripts: `npm run worker` / `npm run worker:dev` (+ root scripts)
 - [x] Document recovery + wiring: `apps/backend/PHASE0_INDEX_PATCH.md`
-- [ ] **BLOCKER:** Restore full `apps/backend/index.js` (was truncated during remote push)
-  - Run: `git checkout 1c38922bcf7fd1dc857b2ffb78700fd3be0a7f11 -- apps/backend/index.js`
-  - Then apply the 3 edits in `PHASE0_INDEX_PATCH.md`
-- [ ] Prove end-to-end: Redis up + API + worker + `/queues/test-welcome`
-- [ ] Backend still starts and existing routes work (after index restore)
+- [x] Full backend entry restored via `index.js` → `app.js` + `b64_0..42.txt` (patched with queues import, `/queues/*` routes, welcome enqueue on register)
+- [ ] Prove end-to-end on a host with Redis (Render/Railway + Upstash): API + worker + `/queues/test-welcome`
+- [ ] Backend still starts on deploy host (verify after Redis env set)
 
 **Notes / Decisions:**
 - Workers run as a **separate process** from the API (`workers/index.js`).
 - Email sending reuses existing `sendGmail` (Gmail REST API).
-- Large-file push via GitHub API truncated `index.js`; recovery is local git checkout + small patch (documented).
-- Do **not** deploy main until `index.js` is restored.
+- Large-file push truncated plain `index.js`; recovery packaging uses base64 parts + `app.js` loader so remote deploys still get the full app + BullMQ.
+- Owner has **no local PC/Termux** — all git work is done via GitHub API from this AI session.
 
 ---
 
 ### Phase 1 — Next.js Web Skeleton
 **Goal:** Working Next.js app that authenticates against the same Express API.
 
-- [ ] Create `apps/web` with `create-next-app` (App Router, TypeScript, Tailwind, ESLint)
-- [ ] Initialize shadcn/ui (`npx shadcn@latest init`)
-- [ ] Map brand colors (Deep Forest Green + Warm Cream) into Tailwind theme + CSS variables
-- [ ] Add core shadcn components (Button, Card, Input, Dialog, etc.)
-- [ ] API client (fetch/axios) with Authorization + refresh-token handling
-- [ ] Auth pages: Login / Signup / Logout (JWT; prefer httpOnly cookies for web)
-- [ ] App shell: header, nav, theme toggle placeholder
-- [ ] Basic pages: Home (featured), Explore, Story detail (read-only), Profile
-- [ ] CORS on Express updated for web origin
-- [ ] Root package.json scripts: `"web": "npm run dev --workspace=apps/web"`
+- [x] Create `apps/web` with Next.js App Router, TypeScript, Tailwind
+- [x] Brand colors (Deep Forest Green + Warm Cream + Gold) in Tailwind theme + CSS variables
+- [x] Core UI primitives (Button, Card, Input) — shadcn-compatible patterns
+- [x] API client (`src/lib/api.ts`) with Authorization Bearer + localStorage tokens
+- [x] Auth pages: Login / Signup
+- [x] App shell: header, nav, footer
+- [x] Basic pages: Home, Explore, Story detail (read-only), Library placeholder
+- [x] Root package.json scripts: `"web"`, `"web:build"`, `"worker"`, `"worker:dev"`
+- [ ] CORS on Express updated for web origin (when known deploy URL)
+- [ ] Optional: full `npx shadcn@latest init` when a machine can run interactive CLI
+- [ ] Deploy web to Vercel pointing at backend URL
 
 **Notes / Decisions:**
-- _None yet_
+- Auth uses same Bearer JWT as mobile for parity; httpOnly cookies can be added later without changing mobile.
+- Explore/story pages tolerate flexible API response shapes (`stories` array or nested).
 
 ---
 
@@ -165,8 +172,8 @@ Pick from the existing roadmaps (`ROADMAP_IDEAL_APP.md`, `FUTURE_FEATURES.md`) a
 
 **High-value candidates**
 - [ ] AI recommendations (BullMQ background computation)
-- [ ] Daily / weekly digest emails (BullMQ scheduled + Nodemailer)
-- [ ] Reading goals & streaks dashboard (charts with shadcn + Recharts)
+- [ ] Daily / weekly digest emails (BullMQ scheduled)
+- [ ] Reading goals & streaks dashboard (charts)
 - [ ] Nested comments + mentions polish
 - [ ] Follow authors + activity feed
 - [ ] Highlights & notes
@@ -197,12 +204,13 @@ Start with 2–3 queues and expand.
 
 | Topic              | Decision                                                                 |
 |--------------------|--------------------------------------------------------------------------|
-| Auth on web        | Prefer httpOnly secure cookies for access/refresh; keep Bearer JWT for mobile |
+| Auth on web        | Prefer httpOnly secure cookies later; currently Bearer JWT like mobile |
 | API                | Same Express service; add web origin to CORS                             |
-| Monorepo scripts   | Add `web` and worker scripts to root `package.json`                      |
-| Deployment         | Backend + workers → Render/Railway/Fly; Web → Vercel; Redis → Upstash or managed |
+| Monorepo scripts   | `web`, `worker`, `backend`, `mobile` on root `package.json`            |
+| Deployment         | Backend + workers → Render/Railway/Fly; Web → Vercel; Redis → Upstash    |
 | Design system      | Single Tailwind theme (brand tokens) shared conceptually with mobile     |
 | Workers            | Separate process from API (`npm run worker`)                             |
+| No local PC        | Owner works from phone only; AI pushes all changes via GitHub            |
 
 ---
 
@@ -238,7 +246,8 @@ Start with 2–3 queues and expand.
 - `FUTURE_FEATURES.md` — 100 feature checklist
 - `DESIGN.md` — design notes
 - `implementation_plan.md` — Google Auth + Nodemailer work
-- `apps/backend/PHASE0_INDEX_PATCH.md` — **restore index.js + BullMQ wiring**
+- `apps/backend/PHASE0_INDEX_PATCH.md` — index.js recovery notes
+- `apps/web/README.md` — web app setup
 - `walkthrough.md`, `IMPECCABLE_GUIDE.md`, etc.
 
 ---
@@ -254,9 +263,9 @@ Start with 2–3 queues and expand.
 
 ## 10. Immediate Next Action
 
-1. **You (local):** Restore `apps/backend/index.js` per `PHASE0_INDEX_PATCH.md` and commit.
-2. Start Redis, `npm install` in `apps/backend`, run API + worker, hit `/queues/test-welcome`.
-3. After Phase 0 is green, start **Phase 1** (Next.js + Tailwind + shadcn skeleton).
+1. **Deploy / env (owner or AI via host dashboard):** set `REDIS_URL` on backend host; run API process + separate worker process.
+2. Point Vercel (or similar) at `apps/web` with `NEXT_PUBLIC_API_URL` = production API.
+3. Continue **Phase 2**: richer reader (themes, progress) + library wired to existing endpoints.
 
 ---
 

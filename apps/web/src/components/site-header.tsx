@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
   return (
@@ -19,12 +20,12 @@ export function SiteHeader() {
           </Link>
         </nav>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Log in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/signup">Join the Nest</Link>
-          </Button>
+          <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+            Log in
+          </Link>
+          <Link href="/signup" className={cn(buttonVariants({ size: "sm" }))}>
+            Join the Nest
+          </Link>
         </div>
       </div>
     </header>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function LibraryPage() {
   return (
@@ -8,9 +9,9 @@ export default function LibraryPage() {
       <p className="text-muted-foreground max-w-md mx-auto">
         Bookmarks, continue reading, and history will live here once you are signed in.
       </p>
-      <Button asChild>
-        <Link href="/login">Sign in to open your library</Link>
-      </Button>
+      <Link href="/login" className={cn(buttonVariants())}>
+        Sign in to open your library
+      </Link>
     </div>
   );
 }

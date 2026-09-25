@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function HomePage() {
@@ -19,12 +20,15 @@ export default function HomePage() {
           showing up. A home for writers and readers who care about craft.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <Button size="lg" asChild>
-            <Link href="/explore">Explore stories</Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild>
-            <Link href="/signup">Create free account</Link>
-          </Button>
+          <Link href="/explore" className={cn(buttonVariants({ size: "lg" }))}>
+            Explore stories
+          </Link>
+          <Link
+            href="/signup"
+            className={cn(buttonVariants({ size: "lg", variant: "outline" }))}
+          >
+            Create free account
+          </Link>
         </div>
       </section>
 

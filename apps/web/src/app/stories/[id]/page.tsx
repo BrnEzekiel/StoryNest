@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
 type StoryDetail = {
@@ -55,9 +56,9 @@ export default function StoryPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 space-y-4">
         <p className="text-red-700">{error || "Story not found"}</p>
-        <Button variant="outline" asChild>
-          <Link href="/explore">Back to Explore</Link>
-        </Button>
+        <Link href="/explore" className={cn(buttonVariants({ variant: "outline" }))}>
+          Back to Explore
+        </Link>
       </div>
     );
   }
@@ -77,9 +78,12 @@ export default function StoryPage() {
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <Button variant="ghost" size="sm" className="mb-8 -ml-2" asChild>
-        <Link href="/explore">← Explore</Link>
-      </Button>
+      <Link
+        href="/explore"
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-8 -ml-2 inline-flex")}
+      >
+        ← Explore
+      </Link>
       <header className="mb-10 space-y-3 border-b border-border pb-8">
         <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-primary leading-tight">
           {story.title || "Untitled"}

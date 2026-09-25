@@ -1,10 +1,14 @@
 {
-  "name": "new",
+  "name": "storynest",
   "version": "1.0.0",
-  "description": "",
+  "description": "StoryNest monorepo — mobile, web, backend",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "backend": "npm run dev --workspace=apps/backend",
+    "worker": "npm run worker --workspace=apps/backend",
+    "worker:dev": "npm run worker:dev --workspace=apps/backend",
+    "web": "npm run dev --workspace=apps/web",
+    "web:build": "npm run build --workspace=apps/web",
     "mobile": "npm run start --workspace=apps/mobile",
     "build:android": "cd apps/mobile && eas build -p android --profile preview",
     "build:apk": "cd apps/mobile && eas build -p android --profile preview",

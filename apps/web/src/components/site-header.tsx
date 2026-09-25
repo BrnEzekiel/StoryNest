@@ -11,12 +11,15 @@ export function SiteHeader() {
             STORYNEST
           </span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm md:flex">
+        <nav className="hidden items-center gap-5 text-sm lg:flex">
           <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
             Explore
           </Link>
           <Link href="/library" className="text-muted-foreground hover:text-foreground transition-colors">
             Library
+          </Link>
+          <Link href="/feed" className="text-muted-foreground hover:text-foreground transition-colors">
+            Feed
           </Link>
           <Link href="/streaks" className="text-muted-foreground hover:text-foreground transition-colors">
             Streaks

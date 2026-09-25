@@ -177,6 +177,33 @@ export type CommentItem = {
   user?: { id?: string; username?: string; avatarUrl?: string | null };
 };
 
+export type ActivityItem = {
+  id: string;
+  type: string;
+  userId?: string;
+  storyId?: string | null;
+  content?: string | null;
+  createdAt?: string;
+  user?: { id?: string; username?: string; avatarUrl?: string | null };
+  story?: {
+    id?: string;
+    title?: string;
+    genre?: string;
+    coverUrl?: string | null;
+  } | null;
+};
+
+export type PublicProfile = {
+  id: string;
+  username?: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  xp?: number;
+  streakCount?: number;
+  isFollowing?: boolean;
+  _count?: { followers?: number; following?: number };
+};
+
 function normalizeStoryList(data: unknown): StoryListItem[] {
   if (Array.isArray(data)) return data as StoryListItem[];
   const d = data as { stories?: StoryListItem[]; data?: StoryListItem[] };
@@ -187,6 +214,12 @@ function normalizeComments(data: unknown): CommentItem[] {
   if (Array.isArray(data)) return data as CommentItem[];
   const d = data as { comments?: CommentItem[]; data?: CommentItem[] };
   return d.comments || d.data || [];
+}
+
+function normalizeActivities(data: unknown): ActivityItem[] {
+  if (Array.isArray(data)) return data as ActivityItem[];
+  const d = data as { activities?: ActivityItem[]; data?: ActivityItem[] };
+  return d.activities || d.data || [];
 }
 
 export const api = {
@@ -205,6 +238,16 @@ export const api = {
     }),
 
   me: () => apiFetch<MeUser>("/users/me"),
+
+  userProfile: (userId: string) => apiFetch<PublicProfile>(`/users/${userId}/profile`),
+
+  followUser: (userId: string) =>
+    apiFetch(`/users/${userId}/follow`, { method: "POST" }),
+
+  activityFeed: async () => {
+    const data = await apiFetch("/activity/feed");
+    return normalizeActivities(data);
+  },
 
   stories: async (params?: { page?: number; limit?: number; q?: string; genre?: string }) => {
     const q = new URLSearchParams();

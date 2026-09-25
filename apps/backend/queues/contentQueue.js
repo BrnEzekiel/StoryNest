@@ -1,6 +1,5 @@
 /**
- * Content queue — scheduled publish, AI tagging, cover processing (Phase 3 scaffold).
- * Wire workers when deploy has Redis; chapter.publishedAt can drive delayed jobs.
+ * Content queue — scheduled publish, due-chapter scan, cover processing.
  */
 const { Queue } = require("bullmq");
 const { redisConnection } = require("./connection");
@@ -17,10 +16,6 @@ const contentQueue = new Queue(CONTENT_QUEUE_NAME, {
   },
 });
 
-/**
- * Schedule a story/chapter publish at a future time.
- * @param {{ storyId: string, chapterId?: string, publishAt: string|Date }} payload
- */
 async function enqueueScheduledPublish(payload) {
   const when = new Date(payload.publishAt).getTime();
   const delay = Math.max(0, when - Date.now());
@@ -41,9 +36,23 @@ async function enqueueProcessCover(payload) {
   return contentQueue.add("process-cover", payload);
 }
 
+/** Register a repeatable scan every 5 minutes (call once at worker boot). */
+async function ensureDueChapterScanner() {
+  await contentQueue.add(
+    "scan-due-chapters",
+    {},
+    {
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: "scan-due-chapters-repeat",
+    }
+  );
+  console.log("[ContentQueue] Due-chapter scanner every 5 min");
+}
+
 module.exports = {
   contentQueue,
   CONTENT_QUEUE_NAME,
   enqueueScheduledPublish,
   enqueueProcessCover,
+  ensureDueChapterScanner,
 };

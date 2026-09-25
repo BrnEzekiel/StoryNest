@@ -12,6 +12,7 @@ import {
   type StoryDetail,
 } from "@/lib/api";
 import { ReaderSkeleton } from "@/components/skeleton";
+import { StoryComments } from "@/components/story-comments";
 
 type ReaderTheme = "light" | "sepia" | "dark";
 type FontSize = "small" | "medium" | "large";
@@ -107,7 +108,7 @@ export default function StoryPage() {
             setBookmarked(!!bm);
             if (bm?.progress) setProgress(bm.progress / 100);
           } catch {
-            /* guest or endpoint unavailable */
+            /* guest */
           }
         }
 
@@ -206,7 +207,6 @@ export default function StoryPage() {
       className="min-h-[calc(100vh-4rem)] flex flex-col"
       style={{ backgroundColor: t.bg, color: t.text }}
     >
-      {/* Progress bar */}
       <div
         className="sticky top-16 z-40 h-1 w-full"
         style={{ backgroundColor: t.border }}
@@ -217,7 +217,6 @@ export default function StoryPage() {
         />
       </div>
 
-      {/* Toolbar */}
       <div
         className="sticky top-[4.25rem] z-30 border-b px-4 py-2 flex flex-wrap items-center gap-2 justify-between"
         style={{ backgroundColor: t.bg, borderColor: t.border }}
@@ -448,6 +447,13 @@ export default function StoryPage() {
               </Button>
             </div>
           )}
+
+          <StoryComments
+            storyId={id}
+            textColor={t.text}
+            metaColor={t.meta}
+            borderColor={t.border}
+          />
         </article>
       </div>
     </div>

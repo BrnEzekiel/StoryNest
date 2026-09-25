@@ -1,6 +1,5 @@
 /**
- * Content worker — scheduled publish + cover processing.
- * Uses Prisma when DATABASE_URL is available.
+ * Content worker — scheduled publish, scan-due chapters, cover processing.
  */
 const { Worker } = require("bullmq");
 const { redisConnection } = require("../queues/connection");
@@ -14,12 +13,54 @@ try {
   console.warn("[ContentWorker] Prisma not available:", e.message);
 }
 
+async function publishChapter(chapterId, storyId) {
+  const now = new Date();
+  if (chapterId) {
+    await prisma.chapter.update({
+      where: { id: chapterId },
+      data: { isDraft: false, publishedAt: now },
+    });
+    console.log(`[ContentWorker] Chapter ${chapterId} published`);
+  }
+  if (storyId) {
+    await prisma.story.update({
+      where: { id: storyId },
+      data: { isDraft: false, publishedAt: now },
+    });
+    console.log(`[ContentWorker] Story ${storyId} marked live`);
+  }
+}
+
+/** Publish chapters whose publishedAt is in the past but still draft-like */
+async function scanDueChapters() {
+  if (!prisma) {
+    console.warn("[ContentWorker] scan-due skipped — no Prisma");
+    return { published: 0 };
+  }
+  const now = new Date();
+  const due = await prisma.chapter.findMany({
+    where: {
+      publishedAt: { lte: now },
+      isDraft: true,
+    },
+    take: 50,
+  });
+  for (const ch of due) {
+    await prisma.chapter.update({
+      where: { id: ch.id },
+      data: { isDraft: false },
+    });
+    console.log(`[ContentWorker] scan-due published chapter ${ch.id}`);
+  }
+  return { published: due.length };
+}
+
 function createContentWorker() {
   const worker = new Worker(
     CONTENT_QUEUE_NAME,
     async (job) => {
       const { name, data } = job;
-      console.log(`[ContentWorker] job ${job.id} type=${name}`, data);
+      console.log(`[ContentWorker] job ${job.id} type=${name}`, data || "");
 
       switch (name) {
         case "publish-story": {
@@ -27,31 +68,14 @@ function createContentWorker() {
             console.warn("[ContentWorker] Skip publish — no Prisma");
             break;
           }
-          const now = new Date();
-          if (data.chapterId) {
-            await prisma.chapter.update({
-              where: { id: data.chapterId },
-              data: {
-                isDraft: false,
-                publishedAt: now,
-              },
-            });
-            console.log(`[ContentWorker] Chapter ${data.chapterId} published`);
-          }
-          if (data.storyId) {
-            await prisma.story.update({
-              where: { id: data.storyId },
-              data: {
-                isDraft: false,
-                publishedAt: now,
-              },
-            });
-            console.log(`[ContentWorker] Story ${data.storyId} published`);
-          }
+          await publishChapter(data.chapterId, data.storyId);
           break;
         }
+        case "scan-due-chapters": {
+          return await scanDueChapters();
+        }
         case "process-cover": {
-          console.log(`[ContentWorker] process-cover (noop until Cloudinary pipeline):`, data);
+          console.log(`[ContentWorker] process-cover (noop):`, data);
           break;
         }
         default:
@@ -77,4 +101,4 @@ function createContentWorker() {
   return worker;
 }
 
-module.exports = { createContentWorker };
+module.exports = { createContentWorker, scanDueChapters };

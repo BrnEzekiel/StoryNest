@@ -1,22 +1,22 @@
 /**
- * BullMQ workers entry point.
- * Run separately from the API server:
- *   npm run worker          (production)
- *   npm run worker:dev      (development with nodemon)
+ * BullMQ workers entry — run as a separate process from the API.
+ *   npm run worker
+ *   npm run worker:dev
  */
+require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
 require("dotenv").config();
 
 const { createEmailWorker } = require("./emailWorker");
+const { createContentWorker } = require("./contentWorker");
 
-console.log("[Workers] Starting BullMQ workers...");
+console.log("[Workers] Starting StoryNest workers (email + content)…");
 
 const emailWorker = createEmailWorker();
-
-console.log("[Workers] Email worker ready");
+const contentWorker = createContentWorker();
 
 async function shutdown() {
-  console.log("[Workers] Shutting down...");
-  await emailWorker.close();
+  console.log("[Workers] Shutting down…");
+  await Promise.all([emailWorker.close(), contentWorker.close()]);
   process.exit(0);
 }
 

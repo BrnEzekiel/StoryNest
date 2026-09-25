@@ -24,17 +24,20 @@ Premium long-form reading + writing platform. Focus: high-quality storytelling, 
 | Layer        | Technology                                      |
 |--------------|-------------------------------------------------|
 | Mobile       | React Native (Expo) + TypeScript                |
-| Backend      | Node.js + Express.js                            |
+| Backend      | Node.js + Express.js + **BullMQ (in progress)** |
 | Database     | PostgreSQL + Prisma ORM                         |
 | Auth         | JWT (Access + Refresh Tokens)                   |
 | Storage      | Cloudinary (cover images)                       |
-| Email        | Nodemailer (SMTP)                               |
+| Email        | Gmail REST API via google-auth-library          |
+| Queues       | BullMQ + Redis                                  |
 | Other        | Firebase Admin, rate limiting, multer           |
 | Monorepo     | npm workspaces (`apps/*`, `packages/*`)         |
 
 **Key paths**
 - `apps/mobile` — Expo app
 - `apps/backend` — Express API (`index.js`, Prisma, config)
+- `apps/backend/queues/` — BullMQ queues
+- `apps/backend/workers/` — BullMQ workers entry
 - Root `package.json` — workspaces + scripts (`backend`, `mobile`, `db:push`, `db:seed`)
 
 **Existing features (mobile + API)**
@@ -70,12 +73,6 @@ packages/
   shared/          ← types/constants (optional)
 ```
 
-**Data flow**
-- Mobile + Web → Express API (JWT)
-- Express → PostgreSQL (Prisma)
-- Express → Redis (BullMQ)
-- Workers → email, push, AI, image jobs, scheduled publish, etc.
-
 ---
 
 ## 3. Migration Phases & Checklist
@@ -83,16 +80,24 @@ packages/
 ### Phase 0 — Foundation (Redis + BullMQ)
 **Goal:** Safe base for background jobs without breaking existing API.
 
-- [ ] Add Redis (local Docker + production, e.g. Upstash / Render Redis)
-- [ ] Install `bullmq` + `ioredis` in `apps/backend`
-- [ ] Create `apps/backend/queues/` and `apps/backend/workers/`
-- [ ] Define queue names and basic config (REDIS_URL, concurrency)
-- [ ] Implement one example job (e.g. “send welcome email”) and prove it runs
-- [ ] Env vars documented in `.env.example`
-- [ ] Backend still starts and existing routes work
+- [x] Install `bullmq` + `ioredis` in `apps/backend` (`package.json` v1.2.0)
+- [x] Create `apps/backend/queues/` (`connection.js`, `emailQueue.js`, `index.js`)
+- [x] Create `apps/backend/workers/` (`emailWorker.js`, `index.js`)
+- [x] Define queue names and config (`REDIS_URL` in `config.js` + `.env.example`)
+- [x] Example job: welcome email (`enqueueWelcomeEmail` + worker handler)
+- [x] Worker scripts: `npm run worker` / `npm run worker:dev`
+- [x] Document recovery + wiring: `apps/backend/PHASE0_INDEX_PATCH.md`
+- [ ] **BLOCKER:** Restore full `apps/backend/index.js` (was truncated during remote push)
+  - Run: `git checkout 1c38922bcf7fd1dc857b2ffb78700fd3be0a7f11 -- apps/backend/index.js`
+  - Then apply the 3 edits in `PHASE0_INDEX_PATCH.md`
+- [ ] Prove end-to-end: Redis up + API + worker + `/queues/test-welcome`
+- [ ] Backend still starts and existing routes work (after index restore)
 
 **Notes / Decisions:**
-- _None yet_
+- Workers run as a **separate process** from the API (`workers/index.js`).
+- Email sending reuses existing `sendGmail` (Gmail REST API).
+- Large-file push via GitHub API truncated `index.js`; recovery is local git checkout + small patch (documented).
+- Do **not** deploy main until `index.js` is restored.
 
 ---
 
@@ -197,6 +202,7 @@ Start with 2–3 queues and expand.
 | Monorepo scripts   | Add `web` and worker scripts to root `package.json`                      |
 | Deployment         | Backend + workers → Render/Railway/Fly; Web → Vercel; Redis → Upstash or managed |
 | Design system      | Single Tailwind theme (brand tokens) shared conceptually with mobile     |
+| Workers            | Separate process from API (`npm run worker`)                             |
 
 ---
 
@@ -218,7 +224,7 @@ Start with 2–3 queues and expand.
 - Prisma schema & PostgreSQL
 - JWT logic
 - Cloudinary uploads
-- Nodemailer / SMTP setup
+- Gmail REST / Slack helpers in `config.js`
 - Existing seed data
 - Brand identity (Deep Forest Green + Warm Cream)
 
@@ -232,6 +238,7 @@ Start with 2–3 queues and expand.
 - `FUTURE_FEATURES.md` — 100 feature checklist
 - `DESIGN.md` — design notes
 - `implementation_plan.md` — Google Auth + Nodemailer work
+- `apps/backend/PHASE0_INDEX_PATCH.md` — **restore index.js + BullMQ wiring**
 - `walkthrough.md`, `IMPECCABLE_GUIDE.md`, etc.
 
 ---
@@ -245,15 +252,11 @@ Start with 2–3 queues and expand.
 
 ---
 
-## 10. Immediate Next Action (Start Here)
+## 10. Immediate Next Action
 
-**Begin Phase 0:**
-1. Add Redis support and BullMQ to `apps/backend`.
-2. Create queue + worker skeleton and one working example job.
-3. Document env vars.
-4. Confirm existing API is unbroken.
-
-After Phase 0 is stable, move to Phase 1 (Next.js + Tailwind + shadcn skeleton).
+1. **You (local):** Restore `apps/backend/index.js` per `PHASE0_INDEX_PATCH.md` and commit.
+2. Start Redis, `npm install` in `apps/backend`, run API + worker, hit `/queues/test-welcome`.
+3. After Phase 0 is green, start **Phase 1** (Next.js + Tailwind + shadcn skeleton).
 
 ---
 

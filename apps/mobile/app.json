@@ -3,7 +3,7 @@
     "name": "StoryNest",
     "slug": "mobile",
     "jsEngine": "hermes",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "scheme": "storynest",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.storynest.mobile",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +25,14 @@
       },
       "package": "com.storynest.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 2
+      "versionCode": 3,
+      "permissions": [
+        "INTERNET",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,27 +47,25 @@
     },
     "updates": {
       "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
-      "enabled": true,
-      "checkOnLaunch": "ALWAYS"
+      "enabled": false,
+      "checkOnLaunch": "NEVER",
+      "fallbackToCacheTimeout": 0
     },
     "owner": "brnezekiel",
     "plugins": [
-      "expo-updates",
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
           "color": "#FFEDA8",
-          "sounds": [
-            "./assets/notification.wav"
-          ]
+          "sounds": ["./assets/notification.wav"]
         }
       ],
       [
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 21,
+            "minSdkVersion": 29,
             "targetSdkVersion": 34,
             "compileSdkVersion": 34,
             "buildToolsVersion": "34.0.0",

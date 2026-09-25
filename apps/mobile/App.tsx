@@ -9,7 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts, Oswald_500Medium } from "@expo-google-fonts/oswald";
 import { Urbanist_400Regular, Urbanist_700Bold } from "@expo-google-fonts/urbanist";
 import { PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
-import { View, Platform } from "react-native";
+import { View, Platform, Text, StyleSheet } from "react-native";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BiometricGate } from "./src/components/BiometricGate";
@@ -19,7 +19,6 @@ import { initNotifications } from "./src/utils/NotificationService";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Configure foreground notifications safely
 try {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -33,8 +32,7 @@ try {
 }
 
 export default function App() {
-  console.log("--- APP STARTING UP ---");
-  console.log(`[ENV] __DEV__: ${__DEV__} | Platform: ${Platform.OS} ${Platform.Version || ''}`);
+  console.log("[App] start", Platform.OS, Platform.Version);
 
   const [fontsLoaded, fontError] = useFonts({
     Oswald_500Medium,
@@ -53,15 +51,11 @@ export default function App() {
       console.log("[App] Init error:", e);
     }
 
-    // 2.5s fallback so older Android 5.0 devices never stall on splash
-    const timer = setTimeout(() => {
-      setFontTimeoutPassed(true);
-    }, 2500);
-
+    const timer = setTimeout(() => setFontTimeoutPassed(true), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  const readyToRender = fontsLoaded || fontError || fontTimeoutPassed;
+  const readyToRender = fontsLoaded || !!fontError || fontTimeoutPassed;
 
   const onLayoutRootView = React.useCallback(async () => {
     if (readyToRender) {
@@ -72,7 +66,7 @@ export default function App() {
   }, [readyToRender]);
 
   if (!readyToRender) {
-    return <View style={{ flex: 1, backgroundColor: '#003631' }} />;
+    return <View style={styles.boot} />;
   }
 
   return (
@@ -81,13 +75,18 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <BiometricGate>
-              <NavigationContainer theme={{
-                ...DefaultTheme,
-                colors: {
-                  ...DefaultTheme.colors,
-                  background: '#003631', // Force Forest Green background globally
-                }
-              }}>
+              <NavigationContainer
+                theme={{
+                  ...DefaultTheme,
+                  colors: {
+                    ...DefaultTheme.colors,
+                    background: "#003631",
+                  },
+                }}
+                onReady={() => {
+                  onLayoutRootView();
+                }}
+              >
                 <StatusBar style="light" translucent backgroundColor="transparent" />
                 <MainNavigator onReady={onLayoutRootView} />
               </NavigationContainer>
@@ -98,3 +97,7 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  boot: { flex: 1, backgroundColor: "#003631" },
+});

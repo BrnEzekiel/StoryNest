@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 5.9.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -12,11 +12,27 @@
       "distribution": "internal",
       "channel": "preview",
       "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://REPLACE_WITH_YOUR_API_URL"
+      }
+    },
+    "preview-stable": {
+      "extends": "preview",
+      "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://REPLACE_WITH_YOUR_API_URL"
       }
     },
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {

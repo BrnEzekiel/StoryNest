@@ -8,6 +8,7 @@ const config = {
   databaseUrl: process.env.DATABASE_URL,
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET,
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  redisUrl: process.env.REDIS_URL || "redis://127.0.0.1:6379",
   cloudinary: {
     name: process.env.CLOUDINARY_CLOUD_NAME,
     key: process.env.CLOUDINARY_API_KEY,
@@ -43,7 +44,7 @@ const config = {
   geminiApiKey: process.env.GEMINI_API_KEY
 };
 
-console.log("[Config] v3.2 — Email: Gmail REST API (Port 443)");
+console.log("[Config] v3.3 — Email: Gmail REST API (Port 443) + BullMQ Redis");
 
 /**
  * Gmail REST API Email Sender (Port 443)

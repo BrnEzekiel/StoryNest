@@ -19,24 +19,28 @@ const emailQueue = new Queue(EMAIL_QUEUE_NAME, {
   },
 });
 
-/**
- * Enqueue a welcome email for a new user.
- * @param {{ email: string, username: string }} payload
- */
 async function enqueueWelcomeEmail(payload) {
   return emailQueue.add("welcome", payload, {
     jobId: `welcome-${payload.email}-${Date.now()}`,
   });
 }
 
-/**
- * Enqueue a generic email job.
- * @param {string} type - job name (e.g. "otp", "digest", "new-chapter")
- * @param {object} payload
- * @param {object} [options] - BullMQ job options (delay, priority, etc.)
- */
 async function enqueueEmail(type, payload, options = {}) {
   return emailQueue.add(type, payload, options);
+}
+
+/** Weekly/daily digest — cron or admin can call this. */
+async function enqueueDigest(payload, options = {}) {
+  return emailQueue.add("digest", payload, {
+    jobId: `digest-${payload.email}-${payload.period || "weekly"}-${Date.now()}`,
+    ...options,
+  });
+}
+
+async function enqueueNewChapterEmail(payload) {
+  return emailQueue.add("new-chapter", payload, {
+    jobId: `newch-${payload.email}-${payload.chapterTitle || Date.now()}`,
+  });
 }
 
 module.exports = {
@@ -44,4 +48,6 @@ module.exports = {
   EMAIL_QUEUE_NAME,
   enqueueWelcomeEmail,
   enqueueEmail,
+  enqueueDigest,
+  enqueueNewChapterEmail,
 };

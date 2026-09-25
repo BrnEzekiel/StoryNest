@@ -1,10 +1,18 @@
 /**
- * Content worker — processes scheduled publish and media jobs.
- * Publish handler is a stub that logs; extend to set isDraft=false / publishedAt in Prisma.
+ * Content worker — scheduled publish + cover processing.
+ * Uses Prisma when DATABASE_URL is available.
  */
 const { Worker } = require("bullmq");
 const { redisConnection } = require("../queues/connection");
 const { CONTENT_QUEUE_NAME } = require("../queues/contentQueue");
+
+let prisma;
+try {
+  const { PrismaClient } = require("@prisma/client");
+  prisma = new PrismaClient();
+} catch (e) {
+  console.warn("[ContentWorker] Prisma not available:", e.message);
+}
 
 function createContentWorker() {
   const worker = new Worker(
@@ -15,14 +23,35 @@ function createContentWorker() {
 
       switch (name) {
         case "publish-story": {
-          // TODO: prisma.story / chapter update when index is modularized
-          console.log(
-            `[ContentWorker] Would publish story=${data.storyId} chapter=${data.chapterId}`
-          );
+          if (!prisma) {
+            console.warn("[ContentWorker] Skip publish — no Prisma");
+            break;
+          }
+          const now = new Date();
+          if (data.chapterId) {
+            await prisma.chapter.update({
+              where: { id: data.chapterId },
+              data: {
+                isDraft: false,
+                publishedAt: now,
+              },
+            });
+            console.log(`[ContentWorker] Chapter ${data.chapterId} published`);
+          }
+          if (data.storyId) {
+            await prisma.story.update({
+              where: { id: data.storyId },
+              data: {
+                isDraft: false,
+                publishedAt: now,
+              },
+            });
+            console.log(`[ContentWorker] Story ${data.storyId} published`);
+          }
           break;
         }
         case "process-cover": {
-          console.log(`[ContentWorker] Would process cover`, data);
+          console.log(`[ContentWorker] process-cover (noop until Cloudinary pipeline):`, data);
           break;
         }
         default:

@@ -6,6 +6,8 @@ const {
   EMAIL_QUEUE_NAME,
   enqueueWelcomeEmail,
   enqueueEmail,
+  enqueueDigest,
+  enqueueNewChapterEmail,
 } = require("./emailQueue");
 
 const {
@@ -20,6 +22,8 @@ module.exports = {
   EMAIL_QUEUE_NAME,
   enqueueWelcomeEmail,
   enqueueEmail,
+  enqueueDigest,
+  enqueueNewChapterEmail,
   contentQueue,
   CONTENT_QUEUE_NAME,
   enqueueScheduledPublish,

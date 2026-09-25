@@ -150,6 +150,25 @@ export type ChapterPayload = {
   publishedAt?: string | null;
 };
 
+export type MeUser = {
+  id: string;
+  email?: string;
+  username?: string;
+  role?: string;
+  avatarUrl?: string | null;
+  streakCount?: number;
+  lastReadDate?: string | null;
+  todayReadTime?: number;
+  totalReadTime?: number;
+  dailyGoalMinutes?: number;
+  xp?: number;
+  coins?: number;
+  isPremium?: boolean;
+  readerTheme?: string;
+  readerFontSize?: string;
+  notificationsOn?: boolean;
+};
+
 function normalizeStoryList(data: unknown): StoryListItem[] {
   if (Array.isArray(data)) return data as StoryListItem[];
   const d = data as { stories?: StoryListItem[]; data?: StoryListItem[] };
@@ -170,6 +189,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  me: () => apiFetch<MeUser>("/users/me"),
 
   stories: async (params?: { page?: number; limit?: number; q?: string; genre?: string }) => {
     const q = new URLSearchParams();
@@ -246,13 +267,17 @@ export const api = {
       method: "POST",
     }),
 
-  preferences: (body: { readerTheme?: string; readerFontSize?: string }) =>
+  preferences: (body: {
+    readerTheme?: string;
+    readerFontSize?: string;
+    dailyGoalMinutes?: number;
+    notificationsOn?: boolean;
+  }) =>
     apiFetch("/users/me/preferences", {
       method: "POST",
       body: JSON.stringify(body),
     }).catch(() => null),
 
-  // --- Author / Admin (same as mobile Creator Hub) ---
   myStories: async () => {
     const data = await apiFetch("/admin/my-stories");
     return normalizeStoryList(data);

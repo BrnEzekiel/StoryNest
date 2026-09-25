@@ -18,6 +18,9 @@ export function SiteHeader() {
           <Link href="/library" className="text-muted-foreground hover:text-foreground transition-colors">
             Library
           </Link>
+          <Link href="/streaks" className="text-muted-foreground hover:text-foreground transition-colors">
+            Streaks
+          </Link>
           <Link href="/studio" className="text-muted-foreground hover:text-foreground transition-colors">
             Studio
           </Link>

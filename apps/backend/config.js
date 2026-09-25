@@ -3,12 +3,24 @@ const nodemailer = require("nodemailer");
 /**
  * v3.0 Centralized Configuration
  */
+function parseOrigins(raw) {
+  if (!raw) return [];
+  return String(raw)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 const config = {
   port: process.env.PORT || 5000,
   databaseUrl: process.env.DATABASE_URL,
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET,
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
   redisUrl: process.env.REDIS_URL || "redis://127.0.0.1:6379",
+  /** Comma-separated browser origins for CORS, e.g. https://app.vercel.app */
+  corsOrigins: parseOrigins(
+    process.env.CORS_ORIGINS || process.env.FRONTEND_URL || ""
+  ),
   cloudinary: {
     name: process.env.CLOUDINARY_CLOUD_NAME,
     key: process.env.CLOUDINARY_API_KEY,
@@ -41,74 +53,66 @@ const config = {
     secretKey: process.env.PAYSTACK_SECRET_KEY,
     publicKey: process.env.PAYSTACK_PUBLIC_KEY,
   },
-  geminiApiKey: process.env.GEMINI_API_KEY
+  geminiApiKey: process.env.GEMINI_API_KEY,
 };
 
-console.log("[Config] v3.3 — Email: Gmail REST API (Port 443) + BullMQ Redis");
+console.log("[Config] v3.4 — Gmail REST + BullMQ + CORS origins:", config.corsOrigins.length || "(default)");
 
 /**
  * Gmail REST API Email Sender (Port 443)
- * Bypasses Render's SMTP blocks.
  */
 const sendGmail = async ({ to, subject, html }) => {
-    const axios = require("axios");
-    const { OAuth2Client } = require("google-auth-library");
-    
-    const client = new OAuth2Client(
-        config.google.clientId,
-        config.google.clientSecret
+  const axios = require("axios");
+  const { OAuth2Client } = require("google-auth-library");
+
+  const client = new OAuth2Client(config.google.clientId, config.google.clientSecret);
+  client.setCredentials({ refresh_token: config.google.refreshToken });
+
+  try {
+    const { token } = await client.getAccessToken();
+
+    const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
+    const senderName = "StoryNest";
+    const fromHeader = `${senderName} <${config.smtp.auth.user}>`;
+
+    const messageParts = [
+      `From: ${fromHeader}`,
+      `To: ${to}`,
+      `Content-Type: text/html; charset=utf-8`,
+      `MIME-Version: 1.0`,
+      `Subject: ${utf8Subject}`,
+      "",
+      html,
+    ];
+    const message = messageParts.join("\n");
+
+    const encodedMessage = Buffer.from(message)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    await axios.post(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      { raw: encodedMessage },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
-    client.setCredentials({ refresh_token: config.google.refreshToken });
-
-    try {
-        const { token } = await client.getAccessToken();
-        
-        const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
-        const senderName = "StoryNest";
-        const fromHeader = `${senderName} <${config.smtp.auth.user}>`;
-
-        const messageParts = [
-            `From: ${fromHeader}`,
-            `To: ${to}`,
-            `Content-Type: text/html; charset=utf-8`,
-            `MIME-Version: 1.0`,
-            `Subject: ${utf8Subject}`,
-            '',
-            html
-        ];
-        const message = messageParts.join('\n');
-
-        // The body needs to be base64url encoded
-        const encodedMessage = Buffer.from(message)
-            .toString('base64')
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-
-        await axios.post(
-            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
-            { raw: encodedMessage },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        return { success: true };
-    } catch (error) {
-        console.error("[Gmail API] Send Failure:", error.response?.data || error.message);
-        throw error;
-    }
+    return { success: true };
+  } catch (error) {
+    console.error("[Gmail API] Send Failure:", error.response?.data || error.message);
+    throw error;
+  }
 };
 
-/**
- * Slack Webhook Notification
- */
 const sendSlack = async (text) => {
-    const axios = require("axios");
-    if (!config.slack.webhookUrl) return;
-    try {
-        await axios.post(config.slack.webhookUrl, { text });
-        return { success: true };
-    } catch (error) {
-        console.error("[Slack API] Send Failure:", error.message);
-    }
+  const axios = require("axios");
+  if (!config.slack.webhookUrl) return;
+  try {
+    await axios.post(config.slack.webhookUrl, { text });
+    return { success: true };
+  } catch (error) {
+    console.error("[Slack API] Send Failure:", error.message);
+  }
 };
 
 module.exports = { config, sendGmail, sendSlack };

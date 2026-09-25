@@ -3,16 +3,18 @@
 **Repo:** https://github.com/BrnEzekiel/StoryNest  
 **Updated:** 2026-09-25
 
-## Studio writing tools
-- **TipTap** chapter editor (`RichTextEditor`) — bold/italic/H2/list/quote; saves **plain text** paragraphs for mobile reader compatibility
-- **Cloudinary** `POST /api/cloudinary/upload` + `CoverUpload` on new/edit story
-- Env on web: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+## Production
+See **[DEPLOY.md](./DEPLOY.md)** for Vercel + API + worker + Redis + CORS.
 
-## After pull
-```bash
-cd apps/web && npm install && npm run dev
-```
+Key env:
+- `CORS_ORIGINS` / `FRONTEND_URL` on API
+- `NEXT_PUBLIC_API_URL` on web
+- Paystack + Cloudinary on **web** server env
 
-## Still open
-- Production CORS + Vercel deploy checklist
-- Optional Firebase Auth on web
+## Shipped features (web)
+Reader, library, studio (TipTap + Cloudinary), admin, streaks, feed, follow, comments, OTP signup, Nest Plus (Paystack), digests/workers
+
+## Open / optional
+- Unpack backend index if CORS is hard-coded to localhost
+- Firebase Auth on web (optional; OTP path works without it)
+- Mobile Paystack parity

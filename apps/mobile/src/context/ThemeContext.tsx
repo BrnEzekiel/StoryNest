@@ -26,7 +26,22 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const DEFAULT_TAB_ORDER = ["Home", "Explore", "Saved", "Profile"];
+/** Substance-style primary tabs */
+export const DEFAULT_TAB_ORDER = ["Home", "Read", "Podcasts", "Chat", "Activity"];
+
+const LEGACY_MAP: Record<string, string> = {
+  Explore: "Read",
+  Saved: "Read",
+  Profile: "Activity",
+};
+
+function migrateTabOrder(order: string[]): string[] {
+  const mapped = order.map((n) => LEGACY_MAP[n] || n);
+  const allowed = new Set(DEFAULT_TAB_ORDER);
+  const filtered = mapped.filter((n) => allowed.has(n));
+  const missing = DEFAULT_TAB_ORDER.filter((n) => !filtered.includes(n));
+  return [...new Set([...filtered, ...missing])].slice(0, 5);
+}
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
@@ -40,14 +55,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadSettings = async () => {
     try {
-      const savedMode = await AsyncStorage.getItem("themeMode") as ThemeMode;
-      const savedFont = await AsyncStorage.getItem("fontPreference") as FontPreference;
+      const savedMode = (await AsyncStorage.getItem("themeMode")) as ThemeMode;
+      const savedFont = (await AsyncStorage.getItem("fontPreference")) as FontPreference;
       const savedTabs = await AsyncStorage.getItem("tabOrder");
       const re = await AsyncStorage.getItem("recsEnabled");
 
       if (savedMode) setThemeModeState(savedMode);
       if (savedFont) setFontPreferenceState(savedFont);
-      if (savedTabs) setTabOrderState(JSON.parse(savedTabs));
+      if (savedTabs) {
+        try {
+          setTabOrderState(migrateTabOrder(JSON.parse(savedTabs)));
+        } catch {
+          setTabOrderState(DEFAULT_TAB_ORDER);
+        }
+      }
       if (re !== null) setRecsEnabledState(re === "true");
     } catch (e) {
       console.log("Failed to load settings");
@@ -65,8 +86,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setTabOrder = async (order: string[]) => {
-      setTabOrderState(order);
-      await AsyncStorage.setItem("tabOrder", JSON.stringify(order));
+    const next = migrateTabOrder(order);
+    setTabOrderState(next);
+    await AsyncStorage.setItem("tabOrder", JSON.stringify(next));
   };
 
   const setRecsEnabled = async (val: boolean) => {
@@ -119,30 +141,29 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const getFonts = () => {
-    // Standardize on brand fonts for stability on older devices
-    return {
-      logo: "Oswald_500Medium",
-      heading: "Oswald_500Medium",
-      body: "Urbanist_400Regular",
-      bodyBold: "Urbanist_700Bold",
-    };
-  };
+  const getFonts = () => ({
+    logo: "Oswald_500Medium",
+    heading: "Oswald_500Medium",
+    body: "Urbanist_400Regular",
+    bodyBold: "Urbanist_700Bold",
+  });
 
   return (
-    <ThemeContext.Provider value={{ 
-      themeMode, 
-      setThemeMode, 
-      fontPreference,
-      setFontPreference,
-      tabOrder,
-      setTabOrder,
-      isDarkMode, 
-      theme: getTheme(), 
-      fonts: getFonts(),
-      recsEnabled, 
-      setRecsEnabled 
-    }}>
+    <ThemeContext.Provider
+      value={{
+        themeMode,
+        setThemeMode,
+        fontPreference,
+        setFontPreference,
+        tabOrder,
+        setTabOrder,
+        isDarkMode,
+        theme: getTheme(),
+        fonts: getFonts(),
+        recsEnabled,
+        setRecsEnabled,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

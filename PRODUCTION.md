@@ -1,71 +1,112 @@
-# StoryNest production status (2026-09-28)
+# StoryNest production (Firebase + Render)
 
-## Live API
+You use **Firebase** for app identity / optional web hosting — **not Vercel**.
 
-| Item | Value |
-|------|--------|
-| **Public URL** | `https://storynest-qzwm.onrender.com` |
-| **Health** | `GET /health` → `status: ok`, v3.8.0, `social_master_v3_stable`, BullMQ on |
-| **Service** | Render free · `srv-d8djri4m0tmc73e1e1tg` · branch `main` |
-| **Cold start** | Free tier may sleep; first request 30–60s |
+## Stack in production
 
-**Wrong host (do not use):** `https://storynest.onrender.com`
+| Layer | Where |
+|--------|--------|
+| **API** | Render → `https://storynest-qzwm.onrender.com` |
+| **Auth (mobile)** | Firebase Auth (`storynest-12345`) |
+| **Web frontend** | Firebase Hosting *or* Firebase App Hosting |
+| **Mobile** | Expo / EAS APK |
+| **DB** | Postgres (via `DATABASE_URL` on Render) |
+| **Queues** | Redis + BullMQ on Render |
 
-### Render env (recommended)
+---
 
-```env
-CORS_ORIGINS=http://localhost:3000,https://*.vercel.app
-FRONTEND_URL=https://YOUR-VERCEL-URL
-DATABASE_URL=...
-JWT_ACCESS_SECRET=...
-JWT_REFRESH_SECRET=...
-REDIS_URL=...
+## 1. API (already live)
+
+```text
+https://storynest-qzwm.onrender.com/health
 ```
 
-### Clients
+→ `status: ok`, version 3.8.0
+
+### Render CORS (required for web)
 
 ```env
-NEXT_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
-EXPO_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+CORS_ORIGINS=http://localhost:3000,https://storynest-12345.web.app,https://storynest-12345.firebaseapp.com
+FRONTEND_URL=https://storynest-12345.web.app
 ```
 
-Already set in `apps/mobile/eas.json` and web/mobile API defaults.
+Add any custom Firebase domain you attach later.
 
-## Substance Phase A (shipped in repo)
+---
 
-Mobile bottom tabs aligned to product target:
+## 2. Firebase project
 
-1. **Home** — discovery feed / stories  
-2. **Read** — explore / library hub  
-3. **Podcasts** — placeholder (Phase C)  
-4. **Chat** — existing Messages  
-5. **Activity** — social activity feed (tab, not only stack)
+- Project id: **`storynest-12345`** (see `.firebaserc`)
+- Mobile already uses Firebase Auth + `google-services.json`
 
-## Deploy checklist
+---
 
-### Web (Vercel)
+## 3. Web deploy options
 
-1. Import `BrnEzekiel/StoryNest`
-2. Root directory: `apps/web`
-3. Env: `NEXT_PUBLIC_API_URL`, Paystack, Cloudinary
-4. Deploy production
-5. Add Vercel URL to Render `CORS_ORIGINS`
+### Option A — Firebase **App Hosting** (recommended for full Next.js)
 
-### Mobile APK
+Keeps `/api/paystack` and `/api/cloudinary` server routes.
+
+1. [Firebase console](https://console.firebase.google.com/) → App Hosting  
+2. Connect GitHub `BrnEzekiel/StoryNest`  
+3. Root / app directory: `apps/web`  
+4. Env:
+   ```env
+   NEXT_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+   PAYSTACK_SECRET_KEY=...
+   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=...
+   CLOUDINARY_*=...
+   ```
+5. Deploy
+
+### Option B — Firebase **Hosting** static export
+
+Good for a simple marketing/read UI **without** Next server routes.
+
+```bash
+cd apps/web
+# set API URL for build
+export NEXT_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+export STORYNEST_STATIC_EXPORT=1
+npm install
+npm run build
+cd ../..
+npx firebase-tools login
+npx firebase-tools deploy --only hosting
+```
+
+Output goes to `apps/web/out` (see `firebase.json`).
+
+**Note:** Static export cannot run Paystack/Cloudinary **server** routes. Those need Option A or keep them on Render only.
+
+---
+
+## 4. Mobile APK
 
 ```bash
 cd apps/mobile && npm install
 npx eas-cli build -p android --profile preview
 ```
 
-API URL is baked from `eas.json`.
+`EXPO_PUBLIC_API_URL` is already `https://storynest-qzwm.onrender.com` in `eas.json`.
 
-### Worker
+---
 
-Separate Render **Background Worker** with same env, start: `npm run worker --workspace=apps/backend` (or your worker script).
+## 5. Client env summary
 
-## Phases remaining
+```env
+# Web + Mobile
+NEXT_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+EXPO_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
 
-- **B** Subscribe UX, richer social posts, share cards  
-- **C** Real podcasts + deeper chat  
-- **D** Monetization polish (Paystack already on web)
+# Firebase (mobile already configured)
+# EXPO_PUBLIC_FIREBASE_* as in firebaseConfig.ts
+```
+
+---
+
+## Substance Phase A (code)
+
+Tabs: **Home · Read · Podcasts · Chat · Activity**
+
+Phases B–D still open (Subscribe polish, real podcasts, monetization depth).

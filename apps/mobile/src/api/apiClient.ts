@@ -3,10 +3,9 @@ import { Platform } from "react-native";
 import { Storage } from "../utils/Storage";
 import Constants from "expo-constants";
 
-/**
- * Production API: https://storynest.onrender.com
- * Override at build time with EXPO_PUBLIC_API_URL if needed.
- */
+/** Production API (Render): https://storynest-qzwm.onrender.com */
+const PRODUCTION_API = "https://storynest-qzwm.onrender.com";
+
 function resolveBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
   if (fromEnv && !fromEnv.includes("localhost") && !fromEnv.includes("127.0.0.1")) {
@@ -18,7 +17,7 @@ function resolveBaseUrl(): string {
   if (__DEV__) {
     return Platform.OS === "android" ? "http://10.0.2.2:5000" : "http://localhost:5000";
   }
-  return "https://storynest.onrender.com";
+  return PRODUCTION_API;
 }
 
 export const BASE_URL = resolveBaseUrl();
@@ -26,7 +25,7 @@ console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 45000, // Render free tier can cold-start slowly
+  timeout: 45000,
   headers: {
     "Content-Type": "application/json",
   },

@@ -4,7 +4,8 @@
  */
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:5000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  "https://storynest-qzwm.onrender.com";
 
 export type ApiError = {
   error?: string;
@@ -242,24 +243,18 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  /** Step 1 — send OTP (requires email + DOB ISO string, same as mobile). */
   otpInitiate: (body: { email: string; dob: string }) =>
     apiFetch("/auth/otp/initiate", {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  /** Step 2 — verify OTP. */
   otpVerify: (body: { email: string; otp: string }) =>
     apiFetch("/auth/otp/verify", {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  /**
-   * Step 3 — complete registration after OTP.
-   * Mobile also sends firebaseUid; web may omit or send a placeholder if Firebase isn't configured.
-   */
   register: (body: {
     email: string;
     password: string;

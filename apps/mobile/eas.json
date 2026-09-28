@@ -16,7 +16,7 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://storynest.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com"
       }
     },
     "preview-stable": {
@@ -25,7 +25,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://storynest.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com"
       }
     },
     "production": {
@@ -34,7 +34,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://storynest.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com"
       }
     }
   },

@@ -1,20 +1,27 @@
 # StoryNest AI Memory
 
 **Repo:** https://github.com/BrnEzekiel/StoryNest  
-**Updated:** 2026-09-25
+**Updated:** 2026-09-28
 
-## Production
-See **[DEPLOY.md](./DEPLOY.md)** for Vercel + API + worker + Redis + CORS.
+## Production API (verified)
+- **URL:** `https://storynest-qzwm.onrender.com`
+- **Health:** `GET /health` → `status: ok`, version 3.8.0, schema `social_master_v3_stable`, bullmq true
+- **Do not use** `https://storynest.onrender.com` (wrong / dead host)
 
-Key env:
-- `CORS_ORIGINS` / `FRONTEND_URL` on API
-- `NEXT_PUBLIC_API_URL` on web
-- Paystack + Cloudinary on **web** server env
+## Env for clients
+```
+NEXT_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+EXPO_PUBLIC_API_URL=https://storynest-qzwm.onrender.com
+```
 
-## Shipped features (web)
-Reader, library, studio (TipTap + Cloudinary), admin, streaks, feed, follow, comments, OTP signup, Nest Plus (Paystack), digests/workers
+## Shipped
+Web: reader, library, studio, admin, streaks, feed, OTP, Paystack, workers  
+Mobile: Expo 51, API client points at Render URL above
 
-## Open / optional
-- Unpack backend index if CORS is hard-coded to localhost
-- Firebase Auth on web (optional; OTP path works without it)
-- Mobile Paystack parity
+## Next product goal
+Substance-style social reader: Home feed, Read, Activity, Subscribe UX (see conversation roadmap)
+
+## Open
+- CORS_ORIGINS on Render for Vercel + localhost
+- APK rebuild after URL fix
+- Substance Phase A UI

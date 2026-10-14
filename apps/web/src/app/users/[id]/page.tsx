@@ -17,6 +17,7 @@ export default function UserProfilePage() {
   const [error, setError] = useState("");
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
 
   useEffect(() => {
     if (!userId) return;
@@ -53,6 +54,22 @@ export default function UserProfilePage() {
       setFollowing(!next);
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  async function shareProfile() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `Follow ${profile?.username || "this author"} on StoryNest`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "StoryNest", text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareMsg("Profile link copied");
+        setTimeout(() => setShareMsg(""), 2000);
+      }
+    } catch {
+      /* user cancelled */
     }
   }
 
@@ -99,7 +116,7 @@ export default function UserProfilePage() {
             )}
           </div>
           <h1 className="mt-4 text-2xl font-semibold text-white">{profile.username}</h1>
-          <p className="mt-2 text-sm text-pale-green/90 text-white/80 max-w-sm mx-auto">
+          <p className="mt-2 text-sm text-white/80 max-w-sm mx-auto">
             {profile.bio || "Searching for the next great story…"}
           </p>
         </div>
@@ -133,8 +150,13 @@ export default function UserProfilePage() {
               {error}
             </p>
           )}
+          {shareMsg && (
+            <p className="text-sm text-primary bg-primary/5 border border-primary/20 rounded-md px-3 py-2 text-center">
+              {shareMsg}
+            </p>
+          )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
               className="flex-1"
@@ -142,18 +164,28 @@ export default function UserProfilePage() {
               disabled={followBusy}
               onClick={toggleFollow}
             >
-              {following ? "Following" : "Follow"}
+              {following ? "Subscribed" : "Subscribe"}
             </Button>
-            <Link href="/explore" className={cn(buttonVariants({ variant: "outline" }), "flex-1")}>
-              Explore
-            </Link>
+            <Button type="button" variant="outline" className="flex-1" onClick={shareProfile}>
+              Share profile
+            </Button>
           </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Subscribe is free follow for now. Nest Plus unlocks premium reading perks.
+          </p>
 
           {typeof profile.streakCount === "number" && profile.streakCount > 0 && (
             <p className="text-center text-sm text-muted-foreground">
               🔥 {profile.streakCount}-day reading streak
             </p>
           )}
+
+          <div className="text-center">
+            <Link href="/plus" className="text-sm text-primary hover:underline">
+              Upgrade to Nest Plus →
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

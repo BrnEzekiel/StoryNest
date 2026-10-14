@@ -2,6 +2,17 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const NAV = [
+  { href: "/explore", label: "Read" },
+  { href: "/feed", label: "Home" },
+  { href: "/podcasts", label: "Podcasts" },
+  { href: "/library", label: "Library" },
+  { href: "/streaks", label: "Streaks" },
+  { href: "/plus", label: "Nest Plus" },
+  { href: "/studio", label: "Studio" },
+  { href: "/settings", label: "Settings" },
+];
+
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -11,28 +22,16 @@ export function SiteHeader() {
             STORYNEST
           </span>
         </Link>
-        <nav className="hidden items-center gap-5 text-sm lg:flex">
-          <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">
-            Explore
-          </Link>
-          <Link href="/library" className="text-muted-foreground hover:text-foreground transition-colors">
-            Library
-          </Link>
-          <Link href="/feed" className="text-muted-foreground hover:text-foreground transition-colors">
-            Feed
-          </Link>
-          <Link href="/streaks" className="text-muted-foreground hover:text-foreground transition-colors">
-            Streaks
-          </Link>
-          <Link href="/plus" className="text-muted-foreground hover:text-foreground transition-colors">
-            Nest Plus
-          </Link>
-          <Link href="/studio" className="text-muted-foreground hover:text-foreground transition-colors">
-            Studio
-          </Link>
-          <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors">
-            Settings
-          </Link>
+        <nav className="hidden items-center gap-4 text-sm xl:flex">
+          {NAV.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {n.label}
+            </Link>
+          ))}
         </nav>
         <div className="flex items-center gap-2">
           <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>

@@ -8,8 +8,9 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Selection } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Dimensions, View } from "react-native";
+import { Dimensions, Text, TouchableOpacity, View } from "react-native";
 import { NotificationDot } from "../components/NotificationDot";
+import Constants from "expo-constants";
 
 // Screens
 import { LoginScreen } from "../screens/LoginScreen";
@@ -31,7 +32,6 @@ import { CreativeSuiteScreen } from "../screens/CreativeSuiteScreen";
 import { ManageChaptersScreen } from "../screens/ManageChaptersScreen";
 import { MessagesScreen } from "../screens/MessagesScreen";
 import { AuthorAnalyticsScreen } from "../screens/AuthorAnalyticsScreen";
-import { PremiumScreen } from "../screens/PremiumScreen";
 import { ReferralScreen } from "../screens/ReferralScreen";
 
 import * as SplashScreen from "expo-splash-screen";
@@ -39,6 +39,26 @@ import * as SplashScreen from "expo-splash-screen";
 const { width } = Dimensions.get("window");
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const isExpoGo = Constants.appOwnership === "expo";
+
+const PremiumScreenLazy = (props: any) => {
+  const { PremiumScreen } = require("../screens/PremiumScreen");
+  return <PremiumScreen {...props} />;
+};
+
+const PremiumUnavailableScreen = ({ navigation }: any) => (
+  <View style={{ flex: 1, backgroundColor: "#003631", justifyContent: "center", alignItems: "center", padding: 24 }}>
+    <Text style={{ color: "#FFEDA8", fontFamily: Fonts.heading, fontSize: 16, textAlign: "center", marginBottom: 10 }}>
+      Premium payments are unavailable in Expo Go.
+    </Text>
+    <Text style={{ color: "#FFFFFF", fontFamily: Fonts.body, textAlign: "center", marginBottom: 20 }}>
+      Use a development build to access payment features.
+    </Text>
+    <TouchableOpacity onPress={() => navigation.goBack()} style={{ paddingVertical: 10, paddingHorizontal: 16, backgroundColor: "#FFEDA8", borderRadius: 8 }}>
+      <Text style={{ color: "#003631", fontFamily: Fonts.heading }}>Back</Text>
+    </TouchableOpacity>
+  </View>
+);
 
 const TabNavigator = () => {
   const { isDarkMode, tabOrder, theme, fonts } = useTheme();
@@ -156,7 +176,7 @@ export const MainNavigator = ({ onReady }: { onReady: () => void }) => {
           <Stack.Screen name="ManageChapters" component={ManageChaptersScreen} />
           <Stack.Screen name="Messages" component={MessagesScreen} />
           <Stack.Screen name="AuthorAnalytics" component={AuthorAnalyticsScreen} />
-          <Stack.Screen name="Premium" component={PremiumScreen} />
+          <Stack.Screen name="Premium" component={isExpoGo ? PremiumUnavailableScreen : PremiumScreenLazy} />
           <Stack.Screen name="Referral" component={ReferralScreen} />
         </>
       )}

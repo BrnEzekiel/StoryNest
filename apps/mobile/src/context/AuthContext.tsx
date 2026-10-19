@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (accessToken) {
         console.log("[Auth] Verifying session with backend...");
-        const res = await apiClient.get("/users/me");
+        const res = await apiClient.get("/users/me", { timeout: 8000 });
         console.log("[Auth] Session verified, user:", res.data?.username);
         setUser(res.data);
       } else {
@@ -131,20 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     console.log(`[Auth] Attempting login for ${email}...`);
     try {
-        let idToken = null;
-        try {
-            console.log(`[Auth] STEP 1: Trying Firebase Sign-In (5s timeout)...`);
-            const firebaseAuthPromise = signInWithEmailAndPassword(auth, email, password);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase Timeout")), 5000));
-            const { user: firebaseUser } = await Promise.race([firebaseAuthPromise, timeoutPromise]) as any;
-            console.log(`[Auth] Firebase User authenticated: ${firebaseUser.uid}`);
-            idToken = await firebaseUser.getIdToken();
-        } catch (firebaseErr: any) {
-            console.log(`[Auth] Firebase sign-in skipped/failed: ${firebaseErr.message}`);
-        }
-        
-        console.log(`[Auth] STEP 2: Backend Authentication...`);
-        const res = await apiClient.post("/auth/login", idToken ? { idToken } : { email, password });
+        console.log(`[Auth] Authenticating with backend...`);
+        const res = await apiClient.post("/auth/login", { email, password }, { timeout: 12000 });
         console.log(`[Auth] Backend Login Success`);
         
         const { user: backendUser, accessToken, refreshToken } = res.data;
@@ -161,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const credential = GoogleAuthProvider.credential(idToken);
     const { user: firebaseUser } = await signInWithCredential(auth, credential);
     const firebaseIdToken = await firebaseUser.getIdToken();
-    const res = await apiClient.post("/auth/login", { idToken: firebaseIdToken });
+    const res = await apiClient.post("/auth/login", { idToken: firebaseIdToken }, { timeout: 12000 });
     
     const { user: backendUser, accessToken, refreshToken } = res.data;
     await Storage.setItem("accessToken", accessToken);
@@ -242,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     try {
       console.log("[Auth] Refreshing user data from backend...");
-      const res = await apiClient.get("/users/me");
+      const res = await apiClient.get("/users/me", { timeout: 8000 });
       setUser(res.data);
       console.log("[Auth] User data refreshed:", res.data.username);
     } catch (e: any) {

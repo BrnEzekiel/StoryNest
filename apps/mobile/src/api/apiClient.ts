@@ -1,14 +1,32 @@
 import axios from "axios";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 import { Storage } from "../utils/Storage";
 
 // --- ENVIRONMENT CONFIG ---
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+const resolveBaseUrl = () => {
+  const explicit = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (explicit) return explicit;
+
+  if (__DEV__) {
+    const hostUri =
+      (Constants as any)?.expoConfig?.hostUri ||
+      (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
+      (Constants as any)?.manifest?.debuggerHost;
+    const host = hostUri?.split(":")?.[0];
+    if (host) return `http://${host}:5000`;
+  }
+
+  if (Platform.OS === "android") return "http://10.0.2.2:5000";
+  return "http://localhost:5000";
+};
+
+export const BASE_URL = resolveBaseUrl();
 console.log("[API Client] Base URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 30000, // 30 seconds for production resilience
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -38,7 +56,7 @@ apiClient.interceptors.response.use(
         const refreshToken = await Storage.getItem("refreshToken");
         if (!refreshToken) throw new Error("No refresh token");
 
-        const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+        const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken }, { timeout: 8000 });
         const { accessToken, refreshToken: newRefreshToken } = res.data;
 
         await Storage.setItem("accessToken", accessToken);

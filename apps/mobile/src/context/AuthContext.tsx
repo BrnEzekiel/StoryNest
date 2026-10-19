@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
-import { Platform } from "react-native";
 import { Storage } from "../utils/Storage";
 import { triggerLocalNotification } from "../utils/NotificationService";
 import { Audio } from 'expo-av';
@@ -102,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               playNotificationSound();
           }
           setLastMessageCount(totalMsgs);
-      } catch (e) {}
+      } catch {}
   };
 
   const restoreSession = async () => {
@@ -218,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
         await apiClient.post("/auth/logout");
-    } catch (e) {
+    } catch {
         console.log("[Auth] Backend logout notification failed (token likely already gone)");
     }
     await signOut(auth);

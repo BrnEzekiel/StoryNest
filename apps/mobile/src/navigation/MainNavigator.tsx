@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Home, Compass, Bookmark, User } from "lucide-react-native";
-import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Selection } from "../utils/haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Dimensions, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { NotificationDot } from "../components/NotificationDot";
 import Constants from "expo-constants";
 
@@ -36,7 +35,6 @@ import { ReferralScreen } from "../screens/ReferralScreen";
 
 import * as SplashScreen from "expo-splash-screen";
 
-const { width } = Dimensions.get("window");
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const isExpoGo = Constants.appOwnership === "expo";
@@ -61,7 +59,7 @@ const PremiumUnavailableScreen = ({ navigation }: any) => (
 );
 
 const TabNavigator = () => {
-  const { isDarkMode, tabOrder, theme, fonts } = useTheme();
+  const { tabOrder, fonts } = useTheme();
   const { hasUnreadMessages } = useAuth();
   const insets = useSafeAreaInsets();
 

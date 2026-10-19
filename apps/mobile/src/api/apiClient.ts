@@ -64,7 +64,7 @@ apiClient.interceptors.response.use(
 
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
-      } catch (err) {
+      } catch {
         await Storage.removeItem("accessToken");
         await Storage.removeItem("refreshToken");
       }

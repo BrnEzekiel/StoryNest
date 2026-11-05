@@ -1,0 +1,19 @@
+name: Keep backend awake
+
+# Render's free tier sleeps after 15 minutes idle, which makes the app's first
+# request time out ("Unable to reach Storynest"). Ping /health every 10
+# minutes so the service never sleeps.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 50 https://storynest-qzwm.onrender.com/health)
+          echo "health=$code"
+          test "$code" = "200"

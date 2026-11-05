@@ -32,15 +32,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install dependencies
         run: npm ci
 
+      # ubuntu-latest ships an Android SDK; just add our exact packages.
       - name: Install Android SDK packages
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" > /dev/null
-          sdkmanager --list_installed
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+          sdkmanager --list_installed | head -20
 
       - name: Build release APK
         working-directory: apps/mobile/android

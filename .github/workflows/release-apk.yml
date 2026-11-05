@@ -1,10 +1,11 @@
 name: Release APK
 
-# Public distribution without a Play Store account: push a version tag and a
-# production APK is built in the cloud and attached to a GitHub Release.
+# Public distribution without a Play Store account. The release APK is built
+# and device-verified locally, committed under dist/, and attached here when
+# a version tag is pushed:
 #   git tag v1.0.6 && git push origin v1.0.6
-# The APK is baked with the production backend URL (no secrets needed: the
-# URL and Firebase web keys are public by design; Pexels is unused).
+# (Cloud builds were tried and shelved: the Gradle step fails on runners for
+# reasons invisible without repo-admin log access. Local builds are reliable.)
 
 on:
   push:
@@ -16,56 +17,16 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install dependencies
-        run: npm ci
-
-      # ubuntu-latest ships an Android SDK; just add our exact packages.
-      # sdkmanager is resolved by glob so any cmdline-tools layout works.
-      - name: Install Android SDK packages
-        run: |
-          SDKROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          echo "SDKROOT=$SDKROOT"
-          ls "$SDKROOT/cmdline-tools"
-          SDKMANAGER="$(ls -d "$SDKROOT"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)"
-          echo "SDKMANAGER=$SDKMANAGER"
-          test -x "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
-          "$SDKMANAGER" --list_installed | head -20
-
-      - name: Build release APK
-        working-directory: apps/mobile/android
-        env:
-          EXPO_PUBLIC_API_URL: https://storynest-qzwm.onrender.com
-          NODE_OPTIONS: --max-old-space-size=6144
-        run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
-          ./gradlew assembleRelease --no-daemon --console=plain 2>&1 | tee build-ci.log; test ${PIPESTATUS[0]} -eq 0
-
-      - name: Rename APK
-        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "StoryNest-${GITHUB_REF_NAME}.apk"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: "StoryNest-*.apk"
+          files: "dist/*.apk"
           generate_release_notes: true
           body: |
             ## Install on Android
@@ -75,17 +36,3 @@ jobs:
 
             StoryNest talks to its hosted backend, so the app stays up to date
             from here: future versions appear as new releases on this page.
-
-      # Headless diagnostics: job logs need repo admin to read via API, so on
-      # failure publish the build tail to a scratch branch instead.
-      - name: Publish failure log
-        if: failure()
-        working-directory: apps/mobile/android
-        run: |
-          git config user.name "ci-logbot"
-          git config user.email "ci-logbot@local"
-          git checkout -b ci-logs/latest
-          tail -c 60000 build-ci.log > ci-failure.log || echo "(no build log)" > ci-failure.log
-          git add ci-failure.log
-          git commit -m "CI failure log" --no-verify
-          git push -f origin ci-logs/latest

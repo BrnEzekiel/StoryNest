@@ -36,12 +36,18 @@ jobs:
         run: npm ci
 
       # ubuntu-latest ships an Android SDK; just add our exact packages.
+      # sdkmanager is resolved by glob so any cmdline-tools layout works.
       - name: Install Android SDK packages
         run: |
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
-          sdkmanager --list_installed | head -20
+          SDKROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          echo "SDKROOT=$SDKROOT"
+          ls "$SDKROOT/cmdline-tools"
+          SDKMANAGER="$(ls -d "$SDKROOT"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)"
+          echo "SDKMANAGER=$SDKMANAGER"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+          "$SDKMANAGER" --list_installed | head -20
 
       - name: Build release APK
         working-directory: apps/mobile/android

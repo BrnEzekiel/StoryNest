@@ -35,6 +35,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# generated native folders (android/ IS tracked: it carries hand-fixed native
+# code that prebuild would wipe; only build outputs and local paths stay out)
 /ios
-/android
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/.cxx/
+/android/captures/
+/android/local.properties
+/android/*.hprof
+/android/app/src/main/assets/index.android.bundle

@@ -1,0 +1,67 @@
+name: Release APK
+
+# Public distribution without a Play Store account: push a version tag and a
+# production APK is built in the cloud and attached to a GitHub Release.
+#   git tag v1.0.6 && git push origin v1.0.6
+# The APK is baked with the production backend URL (no secrets needed: the
+# URL and Firebase web keys are public by design; Pexels is unused).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" > /dev/null
+          sdkmanager --list_installed
+
+      - name: Build release APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_API_URL: https://storynest-qzwm.onrender.com
+        run: ./gradlew assembleRelease --no-daemon --console=plain
+
+      - name: Rename APK
+        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "StoryNest-${GITHUB_REF_NAME}.apk"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "StoryNest-*.apk"
+          generate_release_notes: true
+          body: |
+            ## Install on Android
+            1. Download the APK below onto your phone.
+            2. Open it and allow "Install unknown apps" when asked.
+            3. Works on any network. No account needed to read.
+
+            StoryNest talks to its hosted backend, so the app stays up to date
+            from here: future versions appear as new releases on this page.

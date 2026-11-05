@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "564839035602",
+    "project_id": "storynest-12345",
+    "storage_bucket": "storynest-12345.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:564839035602:android:93aa58f478a5329492330b",
+        "android_client_info": {
+          "package_name": "com.storynest.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.storynest.mobile",
+            "certificate_hash": "d9d464267cf1ed70f3e5381b35abd6b71f21cb18"
+          }
+        },
+        {
+          "client_id": "564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQTX4YWJKdG-H-mj4tEB-0EwbDHwvS_Pk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

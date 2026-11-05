@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Platform, Dimensions, ImageBackground } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Dimensions, ImageBackground } from "react-native";
+import { useNotice } from "../context/NoticeContext";
+import { canCreateContent, roleLabel } from "../utils/roles";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, Shield, Bookmark, Trophy, Mail, Star, Zap, ChevronRight, Gift, Coins, MessageCircle } from "lucide-react-native";
+import { Settings, LogOut, Shield, Bookmark, Trophy, Mail, Star, Zap, ChevronRight, Gift, Coins, MessageCircle, PenLine } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
@@ -15,8 +17,9 @@ const { width } = Dimensions.get("window");
 
 export const ProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, upgradeToWriter } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
 
   useEffect(() => {
     refreshUser();
@@ -28,11 +31,37 @@ export const ProfileScreen = ({ navigation }: any) => {
             logout();
         }
     } else {
-        Alert.alert("Logout", "Are you sure?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Logout", onPress: logout }
-        ]);
+        showNotice({
+            title: "Logout",
+            message: "Are you sure?",
+            variant: "info",
+            actions: [
+                { label: "Cancel", kind: "ghost" },
+                { label: "Logout", kind: "primary", onPress: logout },
+            ],
+        });
     }
+  };
+
+  const handleBecomeWriter = () => {
+    showNotice({
+      title: "Become a Writer",
+      message: "Unlock Creator Studio to publish stories and podcasts. Continue?",
+      variant: "info",
+      actions: [
+        { label: "Cancel", kind: "ghost" },
+        {
+          label: "Become a Writer",
+          kind: "primary",
+          onPress: async () => {
+            const err = await upgradeToWriter();
+            showNotice(err
+              ? { title: "Error", message: err, variant: "error" }
+              : { title: "Welcome, Writer!", message: "Creator Studio is now open in your profile.", variant: "success" });
+          },
+        },
+      ],
+    });
   };
 
   const MenuOption = ({ icon: Icon, title, subtitle, onPress, color = theme.primary }: any) => (
@@ -57,7 +86,7 @@ export const ProfileScreen = ({ navigation }: any) => {
                 </View>
                 <Text style={[styles.username, { fontFamily: fonts.heading, color: Colors.white }]}>{user?.username}</Text>
                 <View style={styles.roleContainer}>
-                    <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{user?.role === 'ADMIN' ? 'PRO AUTHOR' : 'NEST READER'}</Text>
+                    <Text style={[styles.userRole, { fontFamily: fonts.body, color: Colors.accent }]}>{roleLabel(user?.role)}</Text>
                     {user?.isPremium && (
                         <View style={styles.premiumBadgeContainer}>
                             <Star size={12} color={Colors.primary} fill={Colors.primary} />
@@ -109,7 +138,7 @@ export const ProfileScreen = ({ navigation }: any) => {
             {/* WhatsApp Community Channel Banner */}
             <TouchableOpacity 
                 style={styles.waCommunityBanner} 
-                onPress={openWhatsAppChannel}
+                onPress={() => openWhatsAppChannel((message) => showNotice({ title: "WhatsApp Channel", message, variant: "error" }))}
                 activeOpacity={0.9}
             >
                 <LinearGradient colors={['#25D366', '#128C7E']} style={styles.waBannerGradient} start={{x:0,y:0}} end={{x:1,y:1}}>
@@ -126,9 +155,10 @@ export const ProfileScreen = ({ navigation }: any) => {
             </TouchableOpacity>
 
             <MenuOption icon={Gift} title="Refer & Earn" subtitle="Invite friends & earn free Story Coins" onPress={() => navigation.navigate("Referral")} color="#D4AF37" />
-            <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Saved")} color="#34C759" />
+            <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Bookmarks")} color="#34C759" />
             <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
-            {user?.role === 'ADMIN' && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
+            {canCreateContent(user?.role) && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
+            {user?.role === 'READER' && <MenuOption icon={PenLine} title="Become a Writer" subtitle="Publish stories & podcasts" onPress={handleBecomeWriter} color="#9B59B6" />}
         </View>
       </ScrollView>
     </View>

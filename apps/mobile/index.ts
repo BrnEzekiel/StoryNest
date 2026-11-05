@@ -12,4 +12,13 @@ import './src/api/firebaseConfig';
  */
 import App from './App';
 
+import TrackPlayer from 'react-native-track-player';
+import { playbackService } from './src/audio/playbackService';
+
+/**
+ * 3. Podcast background playback: notification/lock-screen controls answer
+ * even when the app is closed or the screen is off.
+ */
+TrackPlayer.registerPlaybackService(() => playbackService);
+
 registerRootComponent(App);

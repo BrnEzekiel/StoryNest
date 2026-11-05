@@ -1,0 +1,24 @@
+{
+  // StoryNest debug configs — replaces Android Studio run/debug.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Backend (node)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/backend/index.js",
+      "cwd": "${workspaceFolder}/apps/backend",
+      "envFile": "${workspaceFolder}/apps/backend/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Android (React Native Tools)",
+      "type": "reactnative",
+      "request": "launch",
+      "platform": "android",
+      "cwd": "${workspaceFolder}/apps/mobile",
+      "sourceMaps": true
+    }
+  ]
+}

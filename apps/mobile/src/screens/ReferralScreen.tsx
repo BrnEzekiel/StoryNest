@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,11 @@ import {
   ScrollView,
   TextInput,
   Share,
-  Alert,
-  ActivityIndicator,
   Dimensions,
   Platform,
 } from "react-native";
+import { useNotice } from "../context/NoticeContext";
+import { ActivityLog } from "../utils/activityLog";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -35,48 +35,43 @@ import { Fonts } from "../theme/fonts";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import { openWhatsAppChannel, WHATSAPP_CHANNEL_URL } from "../utils/whatsapp";
 
 const { width } = Dimensions.get("window");
+
+interface ReferralInfo {
+  referralCode: string;
+  referralLink: string;
+  totalReferred: number;
+  coinsEarned: number;
+  rewardPerReferral: number;
+  userBonus: number;
+  requiredForPremium: number;
+  remainingForPremium: number;
+  isPremiumUnlocked: boolean;
+  hasBeenReferred: boolean;
+  referredUsers: Array<{ id: string; username: string; createdAt: string }>;
+}
 
 export const ReferralScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
 
-  const [loading, setLoading] = useState(true);
-  const [referralInfo, setReferralInfo] = useState<{
-    referralCode: string;
-    referralLink: string;
-    totalReferred: number;
-    coinsEarned: number;
-    rewardPerReferral: number;
-    userBonus: number;
-    requiredForPremium: number;
-    remainingForPremium: number;
-    isPremiumUnlocked: boolean;
-    hasBeenReferred: boolean;
-    referredUsers: Array<{ id: string; username: string; createdAt: string }>;
-  } | null>(null);
+  const infoQuery = useCachedQuery<ReferralInfo>("referrals:info", async () => {
+    const res = await apiClient.get("/referrals/info");
+    return res.data;
+  });
+  const referralInfo = infoQuery.data;
 
   const [inputCode, setInputCode] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetchReferralInfo();
-  }, []);
-
-  const fetchReferralInfo = async () => {
-    try {
-      const res = await apiClient.get("/referrals/info");
-      setReferralInfo(res.data);
-    } catch (e: any) {
-      console.log("[Referral] Failed to fetch info:", e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchReferralInfo = () => infoQuery.refresh();
 
   const handleCopyCode = async () => {
     if (!referralInfo?.referralCode) return;
@@ -91,13 +86,13 @@ export const ReferralScreen = ({ navigation }: any) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch (e) {
-      Alert.alert("Code", referralInfo.referralCode);
+      showNotice({ title: "Code", message: referralInfo.referralCode, variant: "info" });
     }
   };
 
   const handleShare = async () => {
     const code = referralInfo?.referralCode || user?.username || "STORYNEST";
-    const shareMessage = `🌟 Discover thrilling stories on StoryNest!\n\nUse my invite code 👉 ${code} 👈 to get 25 FREE Story Coins & 50 XP!\n\nJoin our community on WhatsApp: ${WHATSAPP_CHANNEL_URL}`;
+    const shareMessage = `Discover thrilling stories on StoryNest!\n\nUse my invite code: ${code} to get 25 FREE Story Coins & 50 XP!\n\nJoin our community on WhatsApp: ${WHATSAPP_CHANNEL_URL}`;
     try {
       await Share.share({
         title: "Join StoryNest",
@@ -110,22 +105,24 @@ export const ReferralScreen = ({ navigation }: any) => {
 
   const handleClaimCode = async () => {
     if (!inputCode.trim()) {
-      Alert.alert("Required", "Please enter a referral code.");
+      showNotice({ title: "Required", message: "Please enter a referral code.", variant: "info" });
       return;
     }
+    if (claiming || !tapThrottle("referral:claim", TAP_GAP_MS)) return;
     setClaiming(true);
     try {
       const res = await apiClient.post("/referrals/claim", {
         referralCode: inputCode.trim(),
       });
-      Alert.alert("🎉 Success!", res.data.message || "25 Story Coins credited to your account!");
+      showNotice({ title: "Success!", message: res.data.message || "25 Story Coins credited to your account!", variant: "success" });
+      ActivityLog.log({ kind: "REFERRAL", title: "Referral reward claimed", sub: res.data.message || "25 Story Coins credited" });
       setInputCode("");
       await refreshUser();
       await fetchReferralInfo();
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error || "Could not apply referral code. Please check and try again.";
-      Alert.alert("Referral Error", errorMsg);
+      showNotice({ title: "Referral Error", message: errorMsg, variant: "error" });
     } finally {
       setClaiming(false);
     }
@@ -175,307 +172,297 @@ export const ReferralScreen = ({ navigation }: any) => {
         </View>
       </LinearGradient>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
-        >
-          {/* Premium 10-Referrals Milestone Card */}
-          <View style={[styles.milestoneCard, Shadows.m]}>
-            <LinearGradient
-              colors={isPremiumActive ? ["#003631", "#0A4E46"] : ["#1a2a28", "#0e1f1d"]}
-              style={styles.milestoneGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.milestoneHeader}>
-                <View style={styles.milestoneIconBox}>
-                  <Crown size={22} color={Colors.accent} />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.milestoneTitle, { fontFamily: fonts.heading }]}>
-                    PREMIUM MILESTONE
-                  </Text>
-                  <Text style={[styles.milestoneSub, { fontFamily: fonts.body }]}>
-                    {isPremiumActive
-                      ? "🎉 Pioneer Premium Unlocked! Granted once per user."
-                      : `${totalReferred} of ${requiredCount} friends invited`}
-                  </Text>
-                </View>
-                {isPremiumActive && (
-                  <View style={styles.unlockedTag}>
-                    <Check size={12} color="#003631" />
-                    <Text style={styles.unlockedTagText}>UNLOCKED</Text>
-                  </View>
-                )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+      >
+        {/* Premium 10-Referrals Milestone Card */}
+        <View style={[styles.milestoneCard, Shadows.m]}>
+          <LinearGradient
+            colors={isPremiumActive ? ["#003631", "#0A4E46"] : ["#1a2a28", "#0e1f1d"]}
+            style={styles.milestoneGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.milestoneHeader}>
+              <View style={styles.milestoneIconBox}>
+                <Crown size={22} color={Colors.accent} />
               </View>
-
-              {/* Progress Bar */}
-              <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${progressPercent}%`, backgroundColor: isPremiumActive ? "#27AE60" : Colors.accent },
-                  ]}
-                />
-              </View>
-
-              <View style={styles.progressLabelRow}>
-                <Text style={[styles.progressLabel, { fontFamily: fonts.body }]}>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.milestoneTitle, { fontFamily: fonts.heading }]}>
+                  PREMIUM MILESTONE
+                </Text>
+                <Text style={[styles.milestoneSub, { fontFamily: fonts.body }]}>
                   {isPremiumActive
-                    ? "Full Pioneer Access Active"
-                    : `${remainingCount} more referral${remainingCount === 1 ? "" : "s"} needed`}
-                </Text>
-                <Text style={[styles.progressPercent, { fontFamily: fonts.heading }]}>
-                  {progressPercent}%
+                    ? "Pioneer Premium Unlocked! Granted once per user."
+                    : `${totalReferred} of ${requiredCount} friends invited`}
                 </Text>
               </View>
-
-              {/* Perks list */}
-              <View style={styles.perksGrid}>
-                <View style={styles.perkItem}>
-                  <Zap size={14} color={Colors.accent} />
-                  <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
-                    Unlimited Stories
-                  </Text>
+              {isPremiumActive && (
+                <View style={styles.unlockedTag}>
+                  <Check size={12} color="#003631" />
+                  <Text style={styles.unlockedTagText}>UNLOCKED</Text>
                 </View>
-                <View style={styles.perkItem}>
-                  <Coins size={14} color="#D4AF37" />
-                  <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
-                    +500 Bonus Coins
-                  </Text>
-                </View>
-                <View style={styles.perkItem}>
-                  <Sparkles size={14} color={Colors.accent} />
-                  <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
-                    Early Beta Features
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* Referral Code Card */}
-          <View style={[styles.card, { backgroundColor: theme.white }]}>
-            <Text style={[styles.cardLabel, { fontFamily: fonts.heading, color: Colors.mutedTeal }]}>
-              YOUR UNIQUE INVITE CODE
-            </Text>
-
-            <View style={styles.codeBox}>
-              <Text style={[styles.codeText, { fontFamily: fonts.heading }]}>
-                {referralInfo?.referralCode || "NEST-VIP"}
-              </Text>
-              <TouchableOpacity
-                style={[styles.copyBtn, copied && { backgroundColor: "#27AE60" }]}
-                onPress={handleCopyCode}
-                activeOpacity={0.8}
-              >
-                {copied ? (
-                  <CheckCircle2 size={18} color="#FFFFFF" />
-                ) : (
-                  <Copy size={18} color={Colors.primary} />
-                )}
-                <Text
-                  style={[
-                    styles.copyBtnText,
-                    { fontFamily: fonts.heading },
-                    copied && { color: "#FFFFFF" },
-                  ]}
-                >
-                  {copied ? "COPIED" : "COPY"}
-                </Text>
-              </TouchableOpacity>
+              )}
             </View>
 
-            <TouchableOpacity
-              style={styles.shareBtn}
-              onPress={handleShare}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={["#003631", "#004D46"]}
-                style={styles.shareGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Share2 size={20} color={Colors.accent} />
-                <Text style={[styles.shareBtnText, { fontFamily: fonts.heading }]}>
-                  SHARE INVITE LINK
+            {/* Progress Bar */}
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progressPercent}%`, backgroundColor: isPremiumActive ? "#27AE60" : Colors.accent },
+                ]}
+              />
+            </View>
+
+            <View style={styles.progressLabelRow}>
+              <Text style={[styles.progressLabel, { fontFamily: fonts.body }]}>
+                {isPremiumActive
+                  ? "Full Pioneer Access Active"
+                  : `${remainingCount} more referral${remainingCount === 1 ? "" : "s"} needed`}
+              </Text>
+              <Text style={[styles.progressPercent, { fontFamily: fonts.heading }]}>
+                {progressPercent}%
+              </Text>
+            </View>
+
+            {/* Perks list */}
+            <View style={styles.perksGrid}>
+              <View style={styles.perkItem}>
+                <Zap size={14} color={Colors.accent} />
+                <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
+                  Unlimited Stories
                 </Text>
-              </LinearGradient>
+              </View>
+              <View style={styles.perkItem}>
+                <Coins size={14} color="#D4AF37" />
+                <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
+                  +500 Bonus Coins
+                </Text>
+              </View>
+              <View style={styles.perkItem}>
+                <Sparkles size={14} color={Colors.accent} />
+                <Text style={[styles.perkText, { fontFamily: fonts.body }]}>
+                  Early Beta Features
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Referral Code Card */}
+        <View style={[styles.card, { backgroundColor: theme.white }]}>
+          <Text style={[styles.cardLabel, { fontFamily: fonts.heading, color: Colors.mutedTeal }]}>
+            YOUR UNIQUE INVITE CODE
+          </Text>
+
+          <View style={styles.codeBox}>
+            <Text style={[styles.codeText, { fontFamily: fonts.heading }]}>
+              {referralInfo?.referralCode || "NEST-VIP"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.copyBtn, copied && { backgroundColor: "#27AE60" }]}
+              onPress={handleCopyCode}
+              activeOpacity={0.8}
+            >
+              {copied ? (
+                <CheckCircle2 size={18} color="#FFFFFF" />
+              ) : (
+                <Copy size={18} color={Colors.primary} />
+              )}
+              <Text
+                style={[
+                  styles.copyBtnText,
+                  { fontFamily: fonts.heading },
+                  copied && { color: "#FFFFFF" },
+                ]}
+              >
+                {copied ? "COPIED" : "COPY"}
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* WhatsApp Channel Card */}
           <TouchableOpacity
-            style={[styles.whatsappCard, Shadows.m]}
-            onPress={openWhatsAppChannel}
-            activeOpacity={0.9}
+            style={styles.shareBtn}
+            onPress={handleShare}
+            activeOpacity={0.85}
           >
             <LinearGradient
-              colors={["#25D366", "#128C7E"]}
-              style={styles.whatsappGradient}
+              colors={["#003631", "#004D46"]}
+              style={styles.shareGradient}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              end={{ x: 1, y: 0 }}
             >
-              <View style={styles.whatsappLeft}>
-                <MessageCircle size={28} color="#FFFFFF" />
-                <View style={{ marginLeft: 14, flex: 1 }}>
-                  <View style={styles.waBadgeRow}>
-                    <Text style={[styles.waTitle, { fontFamily: fonts.heading }]}>
-                      StoryNest WhatsApp Channel
-                    </Text>
-                    <View style={styles.liveBadge}>
-                      <Text style={styles.liveBadgeText}>OFFICIAL</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.waSub, { fontFamily: fonts.body }]}>
-                    Get new story releases, secret codes & author updates
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.joinPill}>
-                <Text style={[styles.joinPillText, { fontFamily: fonts.heading }]}>
-                  JOIN
-                </Text>
-              </View>
+              <Share2 size={20} color={Colors.accent} />
+              <Text style={[styles.shareBtnText, { fontFamily: fonts.heading }]}>
+                SHARE INVITE LINK
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
+        </View>
 
-          {/* Referral Stats */}
-          <View style={styles.statsGrid}>
-            <View style={[styles.statBox, { backgroundColor: theme.white }]}>
-              <Users size={22} color={Colors.primary} />
-              <Text style={[styles.statNumber, { fontFamily: fonts.heading, color: theme.black }]}>
-                {totalReferred}
-              </Text>
-              <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>
-                Friends Joined
-              </Text>
-            </View>
-
-            <View style={[styles.statBox, { backgroundColor: theme.white }]}>
-              <Coins size={22} color="#D4AF37" />
-              <Text style={[styles.statNumber, { fontFamily: fonts.heading, color: theme.black }]}>
-                {referralInfo?.coinsEarned || 0}
-              </Text>
-              <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>
-                Coins Earned
-              </Text>
-            </View>
-          </View>
-
-          {/* Claim a Friend's Code Section */}
-          {!referralInfo?.hasBeenReferred && (
-            <View style={[styles.card, { backgroundColor: theme.white }]}>
-              <View style={styles.claimHeader}>
-                <Sparkles size={18} color={Colors.primary} />
-                <Text
-                  style={[
-                    styles.claimTitle,
-                    { fontFamily: fonts.heading, color: theme.black },
-                  ]}
-                >
-                  Have a Friend's Code?
+        {/* WhatsApp Channel Card */}
+        <TouchableOpacity
+          style={[styles.whatsappCard, Shadows.m]}
+          onPress={() => openWhatsAppChannel((message) => showNotice({ title: "WhatsApp Channel", message, variant: "error" }))}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={["#25D366", "#128C7E"]}
+            style={styles.whatsappGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.whatsappLeft}>
+              <MessageCircle size={28} color="#FFFFFF" />
+              <View style={{ marginLeft: 14, flex: 1 }}>
+                <View style={styles.waBadgeRow}>
+                  <Text style={[styles.waTitle, { fontFamily: fonts.heading }]}>
+                    StoryNest WhatsApp Channel
+                  </Text>
+                  <View style={styles.liveBadge}>
+                    <Text style={styles.liveBadgeText}>OFFICIAL</Text>
+                  </View>
+                </View>
+                <Text style={[styles.waSub, { fontFamily: fonts.body }]}>
+                  Get new story releases, secret codes & author updates
                 </Text>
               </View>
-              <Text style={[styles.claimSub, { fontFamily: fonts.body }]}>
-                Enter an invite code to instantly claim 25 Story Coins & 50 XP.
-              </Text>
-
-              <View style={styles.claimInputRow}>
-                <TextInput
-                  style={[
-                    styles.claimInput,
-                    {
-                      fontFamily: fonts.heading,
-                      borderColor: isDarkMode
-                        ? "rgba(255,255,255,0.15)"
-                        : "rgba(0,54,49,0.2)",
-                      color: theme.black,
-                    },
-                  ]}
-                  placeholder="e.g. NEST-ALEX-1234"
-                  placeholderTextColor={Colors.mutedTeal}
-                  value={inputCode}
-                  onChangeText={setInputCode}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.claimBtn,
-                    (!inputCode.trim() || claiming) && { opacity: 0.6 },
-                  ]}
-                  onPress={handleClaimCode}
-                  disabled={!inputCode.trim() || claiming}
-                >
-                  {claiming ? (
-                    <ActivityIndicator size="small" color={Colors.accent} />
-                  ) : (
-                    <Text style={[styles.claimBtnText, { fontFamily: fonts.heading }]}>
-                      CLAIM
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
             </View>
-          )}
+            <View style={styles.joinPill}>
+              <Text style={[styles.joinPillText, { fontFamily: fonts.heading }]}>
+                JOIN
+              </Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
 
-          {/* How It Works */}
+        {/* Referral Stats */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statBox, { backgroundColor: theme.white }]}>
+            <Users size={22} color={Colors.primary} />
+            <Text style={[styles.statNumber, { fontFamily: fonts.heading, color: theme.black }]}>
+              {totalReferred}
+            </Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>
+              Friends Joined
+            </Text>
+          </View>
+
+          <View style={[styles.statBox, { backgroundColor: theme.white }]}>
+            <Coins size={22} color="#D4AF37" />
+            <Text style={[styles.statNumber, { fontFamily: fonts.heading, color: theme.black }]}>
+              {referralInfo?.coinsEarned || 0}
+            </Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.body }]}>
+              Coins Earned
+            </Text>
+          </View>
+        </View>
+
+        {/* Claim a Friend's Code Section */}
+        {!referralInfo?.hasBeenReferred && (
           <View style={[styles.card, { backgroundColor: theme.white }]}>
-            <Text style={[styles.cardLabel, { fontFamily: fonts.heading, color: Colors.mutedTeal }]}>
-              HOW IT WORKS
+            <View style={styles.claimHeader}>
+              <Sparkles size={18} color={Colors.primary} />
+              <Text
+                style={[
+                  styles.claimTitle,
+                  { fontFamily: fonts.heading, color: theme.black },
+                ]}
+              >
+                Have a Friend's Code?
+              </Text>
+            </View>
+            <Text style={[styles.claimSub, { fontFamily: fonts.body }]}>
+              Enter an invite code to instantly claim 25 Story Coins & 50 XP.
             </Text>
 
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberCircle}>
-                <Text style={styles.stepNumber}>1</Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
-                  Share Your Invite Code
+            <View style={styles.claimInputRow}>
+              <TextInput
+                style={[
+                  styles.claimInput,
+                  {
+                    fontFamily: fonts.heading,
+                    borderColor: isDarkMode
+                      ? "rgba(255,255,255,0.15)"
+                      : "rgba(0,54,49,0.2)",
+                    color: theme.black,
+                  },
+                ]}
+                placeholder="e.g. NEST-ALEX-1234"
+                placeholderTextColor={Colors.mutedTeal}
+                value={inputCode}
+                onChangeText={setInputCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.claimBtn,
+                  (!inputCode.trim() || claiming) && { opacity: 0.6 },
+                ]}
+                onPress={handleClaimCode}
+                disabled={!inputCode.trim() || claiming}
+              >
+                <Text style={[styles.claimBtnText, { fontFamily: fonts.heading }]}>
+                  {claiming ? "..." : "CLAIM"}
                 </Text>
-                <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
-                  Send your code or link to friends who love good stories.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberCircle}>
-                <Text style={styles.stepNumber}>2</Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
-                  They Sign Up
-                </Text>
-                <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
-                  When they join and enter your code, they get 25 Story Coins!
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.stepRow, { borderBottomWidth: 0 }]}>
-              <View style={[styles.stepNumberCircle, { backgroundColor: "#D4AF37" }]}>
-                <Text style={[styles.stepNumber, { color: "#003631" }]}>3</Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
-                  Reach 10 Referrals = Free Premium!
-                </Text>
-                <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
-                  You earn 50 coins per friend + full Pioneer Premium once you hit 10 referrals (granted once per user).
-                </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      )}
+        )}
+
+        {/* How It Works */}
+        <View style={[styles.card, { backgroundColor: theme.white }]}>
+          <Text style={[styles.cardLabel, { fontFamily: fonts.heading, color: Colors.mutedTeal }]}>
+            HOW IT WORKS
+          </Text>
+
+          <View style={styles.stepRow}>
+            <View style={styles.stepNumberCircle}>
+              <Text style={styles.stepNumber}>1</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
+                Share Your Invite Code
+              </Text>
+              <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
+                Send your code or link to friends who love good stories.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.stepRow}>
+            <View style={styles.stepNumberCircle}>
+              <Text style={styles.stepNumber}>2</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
+                They Sign Up
+              </Text>
+              <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
+                When they join and enter your code, they get 25 Story Coins!
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.stepRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.stepNumberCircle, { backgroundColor: "#D4AF37" }]}>
+              <Text style={[styles.stepNumber, { color: "#003631" }]}>3</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.stepTitle, { fontFamily: fonts.heading, color: theme.black }]}>
+                Reach 10 Referrals = Free Premium!
+              </Text>
+              <Text style={[styles.stepSub, { fontFamily: fonts.body }]}>
+                You earn 50 coins per friend + full Pioneer Premium once you hit 10 referrals (granted once per user).
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };

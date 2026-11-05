@@ -5,3 +5,15 @@ ios
 .git
 package-lock.json
 yarn.lock
+
+# Local-only configuration and signing material
+.env*
+credentials/
+credentials.json
+*.jks
+*.keystore
+
+# Local logs and build artifacts
+*.log
+*.apk
+*.aab

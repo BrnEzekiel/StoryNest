@@ -8,6 +8,23 @@
       "developmentClient": true,
       "distribution": "internal"
     },
+    "usb": {
+      "distribution": "internal",
+      "channel": "usb",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:5000",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAQTX4YWJKdG-H-mj4tEB-0EwbDHwvS_Pk",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "storynest-12345.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "storynest-12345",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "storynest-12345.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "564839035602",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:564839035602:web:bc241f38f6c57b0692330b"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
@@ -16,7 +33,13 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAQTX4YWJKdG-H-mj4tEB-0EwbDHwvS_Pk",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "storynest-12345.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "storynest-12345",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "storynest-12345.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "564839035602",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:564839035602:web:bc241f38f6c57b0692330b"
       }
     },
     "preview-stable": {
@@ -34,7 +57,13 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://storynest-qzwm.onrender.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAQTX4YWJKdG-H-mj4tEB-0EwbDHwvS_Pk",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "storynest-12345.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "storynest-12345",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "storynest-12345.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "564839035602",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:564839035602:web:bc241f38f6c57b0692330b"
       }
     }
   },

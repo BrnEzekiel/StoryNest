@@ -7,8 +7,10 @@ const path = require("path");
 const Module = require("module");
 
 let b64 = "";
-for (let i = 0; i < 43; i++) {
-  b64 += fs.readFileSync(path.join(__dirname, "b64_" + i + ".txt"), "utf8").trim();
+for (let i = 0; ; i++) {
+  const part = path.join(__dirname, "b64_" + i + ".txt");
+  if (!fs.existsSync(part)) break;
+  b64 += fs.readFileSync(part, "utf8").trim();
 }
 const code = Buffer.from(b64, "base64").toString("utf8");
 

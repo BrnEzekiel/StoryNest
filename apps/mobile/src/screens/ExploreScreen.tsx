@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Animated, Dimensions, ImageBackground, Image } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Animated, Dimensions, ImageBackground, Image } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, X, TrendingUp, Sparkles, Filter, Shuffle } from "lucide-react-native";
@@ -7,6 +7,8 @@ import { StoryCard } from "../components/StoryCard";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,43 +20,40 @@ export const ExploreScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
-  const [stories, setStories] = useState<any[]>([]);
-  const [trending, setTrending] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  const storiesQuery = useCachedQuery<any[]>(searchQuery ? null : "explore:stories", async () => {
+    const res = await apiClient.get("/stories?limit=10");
+    return res.data;
+  });
+  const trendingQuery = useCachedQuery<any[]>("explore:trending", async () => {
+    const res = await apiClient.get("/stories/trending");
+    return res.data;
+  });
 
-  const fetchInitialData = async () => {
-      setLoading(true);
-      try {
-          const [storiesRes, trendingRes] = await Promise.all([
-              apiClient.get("/stories?limit=10"),
-              apiClient.get("/stories/trending")
-          ]);
-          setStories(storiesRes.data);
-          setTrending(trendingRes.data);
-      } catch (e) { console.log(e); }
-      finally { setLoading(false); setRefreshing(false); }
-  };
+  const stories = searchQuery ? (searchResults || []) : (storiesQuery.data || []);
+  const trending = trendingQuery.data || [];
+  const isFirstLoad = !searchQuery && storiesQuery.isFirstLoad && storiesQuery.data === null;
 
   const fetchFilteredStories = async (query = "") => {
-    setLoading(true);
+    const q = query.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    if (!tapThrottle("explore:search", TAP_GAP_MS)) return;
     try {
-      let url = query ? `/stories?q=${query}` : "/stories?limit=20";
-      const res = await apiClient.get(url);
-      setStories(res.data);
-    } catch (error) { console.log(error); } 
-    finally { setLoading(false); }
+      const res = await apiClient.get(`/stories?q=${encodeURIComponent(q)}`);
+      setSearchResults(res.data);
+    } catch (error) { console.log(error); }
   };
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchInitialData();
+    if (!tapThrottle("explore:refresh", TAP_GAP_MS)) return;
+    storiesQuery.refresh({ showIndicator: true });
+    trendingQuery.refresh();
   };
 
   return (
@@ -67,19 +66,24 @@ export const ExploreScreen = ({ navigation }: any) => {
             <View style={styles.searchWrapper}>
               <View style={styles.searchBar}>
                 <Search size={18} color={Colors.accent} style={styles.searchIcon} />
-                <TextInput placeholder="Search..." placeholderTextColor="rgba(255, 237, 168, 0.5)" style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={() => fetchFilteredStories(searchQuery)} />
+                <TextInput placeholder="Search..." placeholderTextColor="rgba(255, 237, 168, 0.5)" style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} value={searchQuery} onChangeText={(t) => { setSearchQuery(t); if (!t) setSearchResults(null); }} onSubmitEditing={() => fetchFilteredStories(searchQuery)} />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => { setSearchQuery(""); setSearchResults(null); }}>
+                    <X size={18} color={Colors.accent} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
             <HeaderWave color={theme.white} />
         </ImageBackground>
       </View>
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={storiesQuery.refreshing} onRefresh={onRefresh} />}>
         <View style={styles.section}>
             <View style={styles.sectionHeader}><TrendingUp size={16} color={theme.primary} /><Text style={[styles.sectionTitle, { marginLeft: 8, color: theme.primary, fontFamily: fonts.heading }]}>TRENDING NOW</Text></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
-                {loading ? [1,2].map(i => <View key={i} style={styles.trendingSkeleton} />) : trending.map(s => (
-                    <TouchableOpacity key={s.id} style={styles.trendingCard} onPress={() => navigation.navigate("Reader", { storyId: s.id })}>
+                {isFirstLoad ? [1,2].map(i => <View key={i} style={styles.trendingSkeleton} />) : trending.map(s => (
+                    <TouchableOpacity key={s.id} style={styles.trendingCard} onPress={() => navigation.navigate("Reader", { storyId: s.id, story: s })}>
                         <View style={[styles.trendingImg, { backgroundColor: theme.primary + '10' }]}>
                             {s.coverUrl ? (
                                 <Image source={{ uri: s.coverUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -97,7 +101,7 @@ export const ExploreScreen = ({ navigation }: any) => {
 
         <View style={styles.section}>
             <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>{searchQuery ? "SEARCH RESULTS" : "LATEST UPDATES"}</Text></View>
-            <View style={styles.listContainer}>{loading ? [1,2].map(i => <SkeletonCard key={i} />) : stories.map((s, i) => <StoryCard key={s.id} story={s} index={i} onPress={() => navigation.navigate("Reader", { storyId: s.id })} />)}</View>
+            <View style={styles.listContainer}>{isFirstLoad ? [1,2].map(i => <SkeletonCard key={i} />) : stories.map((s, i) => <StoryCard key={s.id} story={s} index={i} onPress={() => navigation.navigate("Reader", { storyId: s.id, story: s })} />)}</View>
         </View>
       </ScrollView>
     </View>

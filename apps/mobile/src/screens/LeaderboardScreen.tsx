@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions, ActivityIndicator } from "react-native";
+import React from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Trophy, Medal, Star, Zap, Crown } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -15,26 +17,16 @@ const { width } = Dimensions.get("window");
 export const LeaderboardScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
-  const [leaders, setLeaders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchLeaders = async () => {
-    try {
-        setLoading(true);
-        const res = await apiClient.get("/gamification/leaderboard");
-        setLeaders(res.data);
-    } catch (e) { console.log(e); }
-    finally { setLoading(false); setRefreshing(false); }
-  };
-
-  useEffect(() => {
-    fetchLeaders();
-  }, []);
+  const leadersQuery = useCachedQuery<any[]>("gamification:leaderboard", async () => {
+    const res = await apiClient.get("/gamification/leaderboard");
+    return res.data;
+  });
+  const leaders = leadersQuery.data || [];
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchLeaders();
+    if (!tapThrottle("leaderboard:refresh", TAP_GAP_MS)) return;
+    leadersQuery.refresh({ showIndicator: true });
   };
 
   const currentBg = isDarkMode ? theme.white : Colors.paleCream;
@@ -109,21 +101,23 @@ export const LeaderboardScreen = ({ navigation }: any) => {
         <HeaderWave color={currentBg} />
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={leadersQuery.refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
-        {loading && !refreshing ? (
-            <ActivityIndicator color={theme.primary} style={{ marginTop: 100 }} />
+        {leaders.length === 0 ? (
+            <Text style={{ textAlign: 'center', marginTop: 100, color: Colors.mutedTeal }}>
+                {leadersQuery.isFirstLoad ? "Summoning the legends..." : "No legends yet. Be the first!"}
+            </Text>
         ) : (
             <>
                 {renderTop3()}
 
                 <View style={[styles.listContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}>
                     {leaders.slice(3).map((leader, index) => (
-                        <TouchableOpacity 
-                            key={leader.id || leader.username} 
+                        <TouchableOpacity
+                            key={leader.id || leader.username}
                             style={[styles.userRow, { borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
                             onPress={() => navigation.navigate("UserProfile", { userId: leader.id })}
                         >

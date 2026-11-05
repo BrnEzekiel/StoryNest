@@ -26,7 +26,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-/** Substance-style primary tabs */
+/** Substance-style primary tabs (library lives in the profile, not the bar) */
 export const DEFAULT_TAB_ORDER = ["Home", "Read", "Podcasts", "Chat", "Activity"];
 
 const LEGACY_MAP: Record<string, string> = {
@@ -35,7 +35,7 @@ const LEGACY_MAP: Record<string, string> = {
   Profile: "Activity",
 };
 
-function migrateTabOrder(order: string[]): string[] {
+export function migrateTabOrder(order: string[]): string[] {
   const mapped = order.map((n) => LEGACY_MAP[n] || n);
   const allowed = new Set(DEFAULT_TAB_ORDER);
   const filtered = mapped.filter((n) => allowed.has(n));

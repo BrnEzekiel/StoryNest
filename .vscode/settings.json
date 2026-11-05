@@ -1,0 +1,11 @@
+{
+  // StoryNest workspace settings.
+  // Android SDK is resolved from ANDROID_HOME / apps/mobile/android/local.properties —
+  // no download needed. Gradle project is nested under apps/mobile/android.
+  "gradle.nestedProjects": true,
+  "gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-17.0.20.101-hotspot",
+  "files.exclude": {
+    "**/node_modules": true
+  },
+  "r.lsp.promptToInstall": false
+}

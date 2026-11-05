@@ -18,6 +18,9 @@ interface TextFieldProps {
   variant?: "dark" | "light"; 
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  autoComplete?: "email" | "username" | "password" | "password-new" | "sms-otp" | "off";
+  textContentType?: "username" | "password" | "newPassword" | "emailAddress" | "oneTimeCode";
+  importantForAutofill?: "auto" | "no" | "noExcludeDescendants" | "yes" | "yesExcludeDescendants";
 }
 
 export const TextField: React.FC<TextFieldProps> = ({ 
@@ -31,7 +34,10 @@ export const TextField: React.FC<TextFieldProps> = ({
   multiline,
   icon,
   variant,
-  keyboardType
+  keyboardType,
+  autoComplete,
+  textContentType,
+  importantForAutofill
 }) => {
   const { isDarkMode, fonts, theme } = useTheme();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -88,6 +94,9 @@ export const TextField: React.FC<TextFieldProps> = ({
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           multiline={multiline}
           keyboardType={keyboardType}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          importantForAutofill={importantForAutofill}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           underlineColorAndroid="transparent"

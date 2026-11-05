@@ -32,8 +32,11 @@ model User {
   otpExpiry        DateTime?
   notificationsOn  Boolean      @default(true)
   recsEnabled      Boolean      @default(true)
+  discoverable     Boolean      @default(true)
+  publicKey        String?
 
   referrerId       String?
+  referralCode     String?      @unique
   dailyGoalMinutes Int          @default(30)
   xp               Int          @default(0)
   bookmarks        Bookmark[]
@@ -51,6 +54,7 @@ model User {
   followers        Follows[]    @relation("following")
   purchases        Purchase[]
   achievements     Achievement[]
+  podcasts         Podcast[]
   
   sentMessages     Message[]    @relation("SentMessages")
   receivedMessages Message[]    @relation("ReceivedMessages")
@@ -92,6 +96,9 @@ enum ActivityType {
     POLL_VOTE
     PLAYLIST_CREATE
     MENTION
+    MESSAGE
+    BOOKMARK
+    PODCAST_PLAY
 }
 
 model Achievement {
@@ -329,6 +336,7 @@ model Message {
   receiverId  String
   content     String   @db.Text
   isRead      Boolean  @default(false)
+  isEncrypted Boolean  @default(false)
   sender      User     @relation("SentMessages", fields: [senderId], references: [id])
   receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
   createdAt   DateTime @default(now())
@@ -358,7 +366,34 @@ model Comment {
   createdAt DateTime  @default(now())
 }
 
+model Podcast {
+  id           String   @id @default(uuid())
+  title        String
+  blurb        String?  @db.Text
+  audioUrl     String?
+  youtubeUrl   String?
+  youtubeId    String?
+  thumbnailUrl String?
+  authorId     String?
+  author       User?    @relation(fields: [authorId], references: [id])
+  authorName   String?
+  plays        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
 enum Role {
   READER
+  WRITER
   ADMIN
+}
+
+// Neon playground table (not app data): declared so `prisma db push`
+// never tries to drop it.
+model playing_with_neon {
+  id    Int    @id @default(autoincrement())
+  name  String
+  value Float? @db.Real
 }

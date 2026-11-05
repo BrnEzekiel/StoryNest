@@ -1,0 +1,73 @@
+{
+  // StoryNest VS Code setup — replaces the Android Studio workflow.
+  // SDK, JDK, Gradle wrapper and low-memory tuning already live in the repo / on disk,
+  // so nothing here downloads big toolchains.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend: dev (nodemon)",
+      "type": "shell",
+      "command": "npm run backend",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "services" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Mobile: Metro bundler (expo start)",
+      "type": "shell",
+      "command": "npm run mobile",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "services" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: assembleRelease (gradle)",
+      "type": "shell",
+      "command": ".\\gradlew.bat assembleRelease",
+      "options": { "cwd": "${workspaceFolder}/apps/mobile/android" },
+      "presentation": { "reveal": "always", "panel": "shared", "group": "build" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: install release APK on USB device",
+      "type": "shell",
+      "command": "adb install -r \"${workspaceFolder}/apps/mobile/android/app/build/outputs/apk/release/app-release.apk\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "group": "build" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: build + install release",
+      "dependsOn": ["Android: assembleRelease (gradle)", "Android: install release APK on USB device"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: devices",
+      "type": "shell",
+      "command": "adb devices -l",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: logcat (StoryNest)",
+      "type": "shell",
+      "command": "adb logcat -v time | findstr /i \"ReactNativeJS storynest\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "services" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: health check (localhost + Wi-Fi IP)",
+      "type": "powershell",
+      "command": "$ip = (Get-NetIPAddress -InterfaceAlias 'Wi-Fi' -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress; Write-Host 'localhost:'; curl.exe -s -m 8 http://localhost:5000/health; Write-Host \"`nWi-Fi ($ip):\"; if ($ip) { curl.exe -s -m 8 \"http://${ip}:5000/health\" }",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -185,5 +185,6 @@ model Comment {
 
 enum Role {
   READER
+  WRITER
   ADMIN
 }

@@ -54,6 +54,7 @@ const config = {
     publicKey: process.env.PAYSTACK_PUBLIC_KEY,
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
+  resendApiKey: process.env.RESEND_API_KEY,
 };
 
 console.log("[Config] v3.4 — Gmail REST + BullMQ + CORS origins:", config.corsOrigins.length || "(default)");

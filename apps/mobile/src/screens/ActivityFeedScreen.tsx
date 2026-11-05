@@ -1,252 +1,257 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, RefreshControl } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  RefreshControl,
-  ActivityIndicator,
-} from "react-native";
-import { Colors, Shadows } from "../theme/colors";
-import { MessageSquare, Heart, BookOpen, Award, Zap, User } from "lucide-react-native";
+  BookOpen, Heart, MessageCircle, Bookmark, Send, ListMusic,
+  Mic, Unlock, Gift, BellOff,
+} from "lucide-react-native";
+import { Colors } from "../theme/colors";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import apiClient from "../api/apiClient";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { ActivityLog, JournalEntry, ActivityKind } from "../utils/activityLog";
+import { SkeletonCard } from "../components/SkeletonCard";
+
+interface FeedRow {
+  id: string;
+  ts: number;
+  title: string;
+  sub?: string;
+  storyId?: string;
+  coverUrl?: string;
+  icon: React.ReactNode;
+  unread?: boolean;
+  onPress?: () => void;
+}
+
+const timeAgo = (ts: number): string => {
+  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
+};
+
+const KIND_COPY: Record<ActivityKind, (e: JournalEntry) => { title: string; sub?: string }> = {
+  READ: (e) => ({ title: `You read "${e.title}"`, sub: e.sub }),
+  LIKE: (e) => ({ title: `You liked "${e.title}"`, sub: e.sub }),
+  COMMENT: (e) => ({ title: `You commented on "${e.title}"`, sub: e.sub }),
+  BOOKMARK: (e) => ({ title: `You saved "${e.title}"`, sub: e.sub }),
+  MESSAGE: (e) => ({ title: `You messaged ${e.title}`, sub: e.sub }),
+  PLAYLIST: (e) => ({ title: `You created the playlist "${e.title}"`, sub: e.sub }),
+  PODCAST: (e) => ({ title: `You played "${e.title}"`, sub: e.sub }),
+  UNLOCK: (e) => ({ title: `You unlocked "${e.title}"`, sub: e.sub }),
+  REFERRAL: (e) => ({ title: e.title, sub: e.sub }),
+  PUBLISH: (e) => ({ title: `You published "${e.title}"`, sub: e.sub }),
+};
 
 export const ActivityFeedScreen = ({ navigation }: any) => {
-  const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
-  const [activities, setActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [journalReady, setJournalReady] = useState(false);
 
-  const fetchFeed = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get("/activity/feed");
-      setActivities(Array.isArray(res.data) ? res.data : res.data?.activities || []);
-    } catch (e) {
-      console.log(e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFeed();
+  // On-device journal paints instantly; reload whenever the screen gains focus.
+  const loadJournal = useCallback(async () => {
+    setJournal(await ActivityLog.list());
+    setJournalReady(true);
   }, []);
+  useFocusEffect(useCallback(() => { loadJournal(); }, [loadJournal]));
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchFeed();
-  };
+  // Chats share the Messages screen cache, so they paint instantly too.
+  const convosQuery = useCachedQuery<any[]>("messages:conversations", async () => {
+    const res = await apiClient.get("/messages/conversations");
+    return Array.isArray(res.data) ? res.data : [];
+  }, { ttlMs: 60 * 1000 });
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "READ":
-        return <BookOpen size={16} color="#34C759" />;
-      case "LIKE":
-        return <Heart size={16} color="#FF2D55" fill="#FF2D55" />;
-      case "COMMENT":
-        return <MessageSquare size={16} color="#5856D6" />;
-      case "ACHIEVEMENT":
-        return <Award size={16} color="#FF9500" />;
-      case "PUBLISH":
-        return <Zap size={16} color={Colors.accent} fill={Colors.accent} />;
-      default:
-        return <User size={16} color={Colors.mutedTeal} />;
+  // Server-side feed (best effort: lights up automatically if the backend adds it).
+  const serverQuery = useCachedQuery<any[]>("activity:server", async () => {
+    try {
+      const res = await apiClient.get("/activity/feed");
+      return Array.isArray(res.data) ? res.data : [];
+    } catch {
+      return [];
+    }
+  }, { ttlMs: 2 * 60 * 1000 });
+
+  const iconFor = (kind: ActivityKind): React.ReactNode => {
+    switch (kind) {
+      case "READ": return <BookOpen size={18} color={Colors.accent} />;
+      case "LIKE": return <Heart size={18} color="#FF6B6B" />;
+      case "COMMENT": return <MessageCircle size={18} color="#4EA8DE" />;
+      case "BOOKMARK": return <Bookmark size={18} color={Colors.accent} />;
+      case "MESSAGE": return <Send size={18} color="#4EA8DE" />;
+      case "PLAYLIST": return <ListMusic size={18} color={Colors.accent} />;
+      case "PODCAST": return <Mic size={18} color="#B388EB" />;
+      case "PUBLISH": return <Mic size={18} color={Colors.accent} />;
+      case "UNLOCK": return <Unlock size={18} color="#4EA8DE" />;
+      case "REFERRAL": return <Gift size={18} color={Colors.accent} />;
     }
   };
 
-  const getActivityText = (activity: any) => {
-    const username = <Text style={{ fontWeight: "bold" }}>{activity.user?.username || "Someone"}</Text>;
-    const storyTitle = activity.story ? (
-      <Text style={{ fontWeight: "bold", color: theme.primary }}>"{activity.story.title}"</Text>
-    ) : null;
+  const rows: FeedRow[] = [
+    ...journal.map((e): FeedRow => {
+      const copy = KIND_COPY[e.kind](e);
+      return {
+        id: `j-${e.id}`,
+        ts: e.ts,
+        title: copy.title,
+        sub: copy.sub,
+        storyId: e.storyId,
+        coverUrl: e.coverUrl,
+        icon: iconFor(e.kind),
+        onPress: e.storyId
+          ? () => navigation.navigate("Reader", { storyId: e.storyId })
+          : e.kind === "MESSAGE"
+            ? () => navigation.navigate("Messages")
+            : undefined,
+      };
+    }),
+    ...(convosQuery.data || []).map((c: any): FeedRow => ({
+      id: `c-${c.user?.id}`,
+      ts: c.lastMessage?.createdAt ? new Date(c.lastMessage.createdAt).getTime() : 0,
+      title: c.user?.username || "Chat",
+      sub: c.lastMessage?.content
+        ? (c.lastMessage.content.length > 90 ? c.lastMessage.content.slice(0, 90) + "..." : c.lastMessage.content)
+        : "New conversation",
+      icon: <Send size={18} color="#4EA8DE" />,
+      unread: !!c.hasUnread,
+      onPress: () => navigation.navigate("Messages"),
+    })),
+    ...(serverQuery.data || []).map((a: any, i: number): FeedRow => ({
+      id: `s-${a.id || i}`,
+      ts: a.createdAt ? new Date(a.createdAt).getTime() : 0,
+      title: a.text || a.title || "Update",
+      sub: a.story?.title,
+      storyId: a.storyId || a.story?.id,
+      icon: <BookOpen size={18} color={Colors.accent} />,
+      onPress: (a.storyId || a.story?.id)
+        ? () => navigation.navigate("Reader", { storyId: a.storyId || a.story?.id })
+        : undefined,
+    })),
+  ]
+    .filter((r) => r.ts > 0)
+    .sort((a, b) => b.ts - a.ts);
 
-    switch (activity.type) {
-      case "READ":
-        return (
-          <Text>
-            {username} finished reading {storyTitle}
-          </Text>
-        );
-      case "LIKE":
-        return (
-          <Text>
-            {username} liked {storyTitle}
-          </Text>
-        );
-      case "COMMENT":
-        return (
-          <Text>
-            {username} commented on {storyTitle}
-          </Text>
-        );
-      case "ACHIEVEMENT":
-        return <Text>{username} earned a new badge!</Text>;
-      case "PUBLISH":
-        return (
-          <Text>
-            {username} published {storyTitle}
-          </Text>
-        );
-      default:
-        return <Text>{username} updated their nest</Text>;
-    }
-  };
+  const refreshing = convosQuery.refreshing;
+  const showSkeletons = !journalReady || (journal.length === 0 && convosQuery.isFirstLoad && rows.length === 0);
+  const notificationsOff = !!user && user.notificationsOn === false;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.white }]}>
-      <StatusBar style="light" />
-      <View
-        style={[
-          styles.headerSection,
-          { backgroundColor: Colors.primary, paddingTop: insets.top + 16 },
-        ]}
-      >
+      <View style={[styles.header, { backgroundColor: Colors.primary }]}>
         <Text style={[styles.headerTitle, { fontFamily: fonts.heading }]}>ACTIVITY</Text>
-        <Text style={[styles.headerSub, { fontFamily: fonts.body }]}>People you follow</Text>
+        <Text style={[styles.headerSub, { fontFamily: fonts.body }]}>Everything you do, as it happens</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-        }
-        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 90 }}
-      >
-        {loading && !refreshing ? (
-          <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
-        ) : activities.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <User size={48} color={Colors.mutedTeal} style={{ marginBottom: 16, opacity: 0.3 }} />
-            <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>
-              Your feed is quiet. Follow authors from Read to see what they publish and engage with.
-            </Text>
-            <TouchableOpacity
-              style={[styles.exploreBtn, { backgroundColor: theme.primary }]}
-              onPress={() => navigation.navigate("Read")}
-            >
-              <Text style={[styles.exploreText, { fontFamily: fonts.heading }]}>OPEN READ</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          activities.map((activity) => (
-            <View
-              key={activity.id}
-              style={[
-                styles.activityCard,
-                { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white },
-                Shadows.s,
-              ]}
-            >
+      {notificationsOff && (
+        <TouchableOpacity
+          style={[styles.noticeBar, { backgroundColor: isDarkMode ? "rgba(255,237,168,0.08)" : Colors.paleGreen }]}
+          onPress={() => navigation.navigate("Settings")}
+          activeOpacity={0.8}
+        >
+          <BellOff size={16} color={Colors.mutedTeal} />
+          <Text style={[styles.noticeText, { fontFamily: fonts.body }]}>
+            Notifications are off. Turn them on in Settings to get alerts.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showSkeletons ? (
+        <View style={styles.listContent}>
+          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        </View>
+      ) : (
+        <FlatList
+          data={rows}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { loadJournal(); convosQuery.refresh(); serverQuery.refresh(); }}
+              tintColor={Colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={[styles.emptyTitle, { fontFamily: fonts.heading, color: theme.black }]}>Your nest is quiet... for now</Text>
+              <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>
+                Stories you read, like, save, and talk about land here automatically.
+              </Text>
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("UserProfile", { userId: activity.userId || activity.user?.id })
-                }
+                style={[styles.browseBtn, { backgroundColor: Colors.primary }]}
+                onPress={() => navigation.navigate("Explore")}
               >
-                <Image
-                  source={{
-                    uri: activity.user?.avatarUrl || "https://via.placeholder.com/40",
-                  }}
-                  style={styles.avatar}
-                />
+                <Text style={[styles.browseText, { fontFamily: fonts.heading }]}>FIND A STORY</Text>
               </TouchableOpacity>
-              <View style={styles.cardContent}>
-                <View style={styles.activityHeader}>
-                  <View style={styles.iconBox}>{getActivityIcon(activity.type)}</View>
-                  <Text style={styles.timeText}>
-                    {activity.createdAt ? new Date(activity.createdAt).toLocaleDateString() : ""}
-                  </Text>
-                </View>
-                <Text style={[styles.activityText, { color: theme.black, fontFamily: fonts.body }]}>
-                  {getActivityText(activity)}
-                </Text>
-                {activity.story && (
-                  <TouchableOpacity
-                    style={[
-                      styles.storyPreview,
-                      {
-                        backgroundColor: isDarkMode
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(0,54,49,0.03)",
-                      },
-                    ]}
-                    onPress={() =>
-                      navigation.navigate("Reader", {
-                        storyId: activity.storyId || activity.story?.id,
-                      })
-                    }
-                  >
-                    {activity.story.coverUrl ? (
-                      <Image source={{ uri: activity.story.coverUrl }} style={styles.storyCover} />
-                    ) : null}
-                    <View style={styles.storyInfo}>
-                      <Text
-                        style={[styles.storyTitle, { fontFamily: fonts.heading, color: theme.black }]}
-                        numberOfLines={1}
-                      >
-                        {activity.story.title}
-                      </Text>
-                      <Text style={[styles.storyGenre, { fontFamily: fonts.body }]}>
-                        {activity.story.genre}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
             </View>
-          ))
-        )}
-      </ScrollView>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.card, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.paleGreen }]}
+              onPress={item.onPress}
+              disabled={!item.onPress}
+              activeOpacity={0.8}
+            >
+              {item.coverUrl ? (
+                <Image source={{ uri: item.coverUrl }} style={styles.cover} />
+              ) : (
+                <View style={[styles.iconWrap, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.06)" : "#FFFFFF" }]}>
+                  {item.icon}
+                </View>
+              )}
+              <View style={styles.textWrap}>
+                <Text style={[styles.title, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                {!!item.sub && (
+                  <Text style={[styles.sub, { fontFamily: fonts.body }]} numberOfLines={2}>{item.sub}</Text>
+                )}
+                <Text style={[styles.time, { fontFamily: fonts.body }]}>{timeAgo(item.ts)}</Text>
+              </View>
+              {!!item.unread && <View style={styles.unreadDot} />}
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerSection: { paddingBottom: 28, paddingHorizontal: 24 },
-  headerTitle: { fontSize: 16, color: Colors.accent, letterSpacing: 2 },
-  headerSub: { fontSize: 13, color: "rgba(255,237,168,0.7)", marginTop: 6 },
-  content: { flex: 1 },
-  activityCard: { flexDirection: "row", padding: 16, borderRadius: 24, marginBottom: 16 },
-  avatar: { width: 44, height: 44, borderRadius: 22, marginRight: 16 },
-  cardContent: { flex: 1 },
-  activityHeader: {
+  header: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  headerTitle: { color: Colors.accent, fontSize: 26, letterSpacing: 1 },
+  headerSub: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
+  noticeBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 10,
   },
-  iconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "rgba(0,54,49,0.05)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  timeText: { fontSize: 10, color: Colors.mutedTeal },
-  activityText: { fontSize: 14, lineHeight: 20, marginBottom: 12 },
-  storyPreview: { flexDirection: "row", alignItems: "center", borderRadius: 12, padding: 8 },
-  storyCover: { width: 32, height: 44, borderRadius: 4, marginRight: 12 },
-  storyInfo: { flex: 1 },
-  storyTitle: { fontSize: 12 },
-  storyGenre: { fontSize: 10, color: Colors.mutedTeal },
-  emptyContainer: { alignItems: "center", marginTop: 80, paddingHorizontal: 40 },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.mutedTeal,
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  exploreBtn: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 20 },
-  exploreText: { color: Colors.white, fontSize: 13, letterSpacing: 1 },
+  noticeText: { flex: 1, fontSize: 12, color: Colors.mutedTeal, lineHeight: 18 },
+  listContent: { padding: 20, gap: 12 },
+  card: { flexDirection: "row", alignItems: "center", borderRadius: 16, padding: 14 },
+  cover: { width: 48, height: 68, borderRadius: 8, marginRight: 14 },
+  iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", marginRight: 14 },
+  textWrap: { flex: 1 },
+  title: { fontSize: 14, lineHeight: 20 },
+  sub: { fontSize: 12, color: Colors.mutedTeal, marginTop: 2, lineHeight: 18 },
+  time: { fontSize: 11, color: Colors.mutedTeal, marginTop: 4 },
+  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.accent, marginLeft: 8 },
+  emptyWrap: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, textAlign: "center", marginBottom: 8 },
+  emptyText: { fontSize: 13, color: Colors.mutedTeal, textAlign: "center", lineHeight: 20, marginBottom: 24 },
+  browseBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14 },
+  browseText: { color: Colors.accent, fontSize: 13, letterSpacing: 1 },
 });

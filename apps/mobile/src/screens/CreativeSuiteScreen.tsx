@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, TextInput, Modal, Dimensions, Animated, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Modal, Dimensions, Animated, Platform } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Users, Globe, Plus, X, Trash2, Camera, User, MapPin, Book, Sparkles, ChevronRight, Zap } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -16,11 +19,17 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { storyId, storyTitle } = route.params;
   const { theme, fonts, isDarkMode } = useTheme();
-  
+  const { showNotice } = useNotice();
+
   const [tab, setTab] = useState<"characters" | "world">("characters");
-  const [characters, setCharacters] = useState<any[]>([]);
-  const [worldEntries, setWorldEntries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const suiteQuery = useCachedQuery<any>(`creative:${storyId}`, async () => {
+    const res = await apiClient.get(`/stories/${storyId}`);
+    return res.data;
+  });
+  const characters = suiteQuery.data?.characters || [];
+  const worldEntries = suiteQuery.data?.worldEntries || [];
+  const isFirstLoad = suiteQuery.isFirstLoad && !suiteQuery.data;
 
   // Modals
   const [showCharModal, setShowCharModal] = useState(false);
@@ -39,19 +48,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
   const [worldType, setWorldType] = useState("LOCATION");
   const [worldContent, setWorldContent] = useState("");
 
-  const fetchData = async () => {
-    try {
-        setLoading(true);
-        const res = await apiClient.get(`/stories/${storyId}`);
-        setCharacters(res.data.characters || []);
-        setWorldEntries(res.data.worldEntries || []);
-    } catch (e) { console.log(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [storyId]);
+  const fetchData = () => suiteQuery.refresh();
 
   const pickCharAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -65,6 +62,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
 
   const handleAddCharacter = async () => {
     if (!charName) return;
+    if (submitting || !tapThrottle(`creative:char:${storyId}`, TAP_GAP_MS)) return;
     setSubmitting(true);
     try {
         const formData = new FormData();
@@ -82,15 +80,16 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
         await apiClient.post(`/stories/${storyId}/characters`, formData, {
             headers: { "Content-Type": "multipart/form-data" }
         });
-        
+
         setShowCharModal(false);
         resetCharForm();
         fetchData();
-    } catch (e) { Alert.alert("Error", "Failed to save character."); }
+    } catch (e) { showNotice({ title: "Error", message: "Failed to save character.", variant: "error" }); }
     finally { setSubmitting(false); }
   };
 
   const handleDeleteCharacter = async (id: string) => {
+    if (!tapThrottle(`creative:delchar:${id}`, TAP_GAP_MS)) return;
     try {
         await apiClient.delete(`/characters/${id}`);
         fetchData();
@@ -99,6 +98,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
 
   const handleAddWorld = async () => {
     if (!worldTitle || !worldContent) return;
+    if (submitting || !tapThrottle(`creative:world:${storyId}`, TAP_GAP_MS)) return;
     setSubmitting(true);
     try {
         await apiClient.post(`/stories/${storyId}/world`, {
@@ -109,11 +109,12 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
         setShowWorldModal(false);
         resetWorldForm();
         fetchData();
-    } catch (e) { Alert.alert("Error", "Failed to save entry."); }
+    } catch (e) { showNotice({ title: "Error", message: "Failed to save entry.", variant: "error" }); }
     finally { setSubmitting(false); }
   };
 
   const handleDeleteWorld = async (id: string) => {
+    if (!tapThrottle(`creative:delworld:${id}`, TAP_GAP_MS)) return;
     try {
         await apiClient.delete(`/world/${id}`);
         fetchData();
@@ -145,14 +146,14 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
       </View>
 
       <View style={styles.tabContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tab, tab === "characters" && styles.activeTab]}
             onPress={() => setTab("characters")}
           >
               <Users size={16} color={tab === "characters" ? Colors.accent : "rgba(255,237,168,0.4)"} />
               <Text style={[styles.tabText, { fontFamily: fonts.heading, color: tab === "characters" ? Colors.accent : "rgba(255,237,168,0.4)" }]}>DESIGN LAB</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tab, tab === "world" && styles.activeTab]}
             onPress={() => setTab("world")}
           >
@@ -162,7 +163,9 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        {loading ? <ActivityIndicator color={Colors.accent} style={{ marginTop: 40 }} /> : (
+        {isFirstLoad ? (
+            <Text style={{ color: Colors.accent, textAlign: 'center', marginTop: 60, opacity: 0.6 }}>Warming up the studio...</Text>
+        ) : (
             tab === "characters" ? (
                 <View style={styles.list}>
                     <TouchableOpacity style={styles.addCard} onPress={() => setShowCharModal(true)}>
@@ -172,7 +175,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                         </LinearGradient>
                     </TouchableOpacity>
 
-                    {characters.map(char => (
+                    {characters.map((char: any) => (
                         <View key={char.id} style={styles.card}>
                             <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.cardGradient}>
                                 <View style={styles.cardHeader}>
@@ -209,7 +212,7 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                         </LinearGradient>
                     </TouchableOpacity>
 
-                    {worldEntries.map(entry => (
+                    {worldEntries.map((entry: any) => (
                         <View key={entry.id} style={styles.card}>
                             <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.cardGradient}>
                                 <View style={styles.cardHeader}>
@@ -255,8 +258,8 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                             <HUDInput placeholder="SYSTEM ROLE" value={charRole} onChangeText={setCharRole} />
                             <HUDInput placeholder="NEURAL TRAITS (COMMA SEP)" value={charTraits} onChangeText={setCharTraits} />
                             <HUDInput placeholder="DATABASE ENTRY / BIO" value={charDesc} onChangeText={setCharDesc} multiline height={100} />
-                            <TouchableOpacity style={styles.hudActionBtn} onPress={handleAddCharacter}>
-                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>INITIALIZE ENTITY</Text>
+                            <TouchableOpacity style={[styles.hudActionBtn, { opacity: submitting ? 0.6 : 1 }]} onPress={handleAddCharacter} disabled={submitting}>
+                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>{submitting ? "WORKING..." : "INITIALIZE ENTITY"}</Text>
                             </TouchableOpacity>
                           </>
                       ) : (
@@ -270,8 +273,8 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
                             </View>
                             <HUDInput placeholder="DATA TITLE" value={worldTitle} onChangeText={setWorldTitle} />
                             <HUDInput placeholder="SYSTEM DETAILS..." value={worldContent} onChangeText={setWorldContent} multiline height={180} />
-                            <TouchableOpacity style={styles.hudActionBtn} onPress={handleAddWorld}>
-                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>COMMIT DATA</Text>
+                            <TouchableOpacity style={[styles.hudActionBtn, { opacity: submitting ? 0.6 : 1 }]} onPress={handleAddWorld} disabled={submitting}>
+                                <Text style={[styles.hudActionText, { fontFamily: fonts.heading }]}>{submitting ? "WORKING..." : "COMMIT DATA"}</Text>
                             </TouchableOpacity>
                           </>
                       )}
@@ -285,10 +288,10 @@ export const CreativeSuiteScreen = ({ route, navigation }: any) => {
 
 const HUDInput = ({ ...props }: any) => (
     <View style={styles.hudInputWrapper}>
-        <TextInput 
-            {...props} 
-            placeholderTextColor="rgba(255,237,168,0.3)" 
-            style={[styles.hudInput, { fontFamily: Fonts.body, height: props.height || 54 }, props.style, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]} 
+        <TextInput
+            {...props}
+            placeholderTextColor="rgba(255,237,168,0.3)"
+            style={[styles.hudInput, { fontFamily: Fonts.body, height: props.height || 54 }, props.style, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
         />
         <View style={styles.hudInputLine} />
     </View>

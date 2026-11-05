@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, TextInput, Dimensions } from "react-native";
+import { warmupServer } from "../utils/warmup";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Dimensions } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows, Radii, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -9,22 +11,29 @@ import { useTheme } from "../context/ThemeContext";
 import { ArrowLeft, Mail } from "lucide-react-native";
 import { HeaderWave } from "../components/HeaderWave";
 import { StatusBar } from "expo-status-bar";
+import { checkLimit, LIMITS } from "../utils/rateLimit";
 
 const { width } = Dimensions.get("window");
 
 export const OTPScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { fonts, theme, isDarkMode } = useTheme();
-  const { email, type, data } = route.params;
+  const { showNotice } = useNotice();
+  const { email, type, data, from } = route.params;
   const { verifyOTP, finalizeRegistration, initiateRegistration, forgotPassword } = useAuth();
-  
+
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [timer, setTimer] = useState(60);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  
+
   const inputs = useRef<any>([]);
+  const verifyingRef = useRef(false);
+
+  useEffect(() => {
+    warmupServer();
+  }, []);
 
   useEffect(() => {
     let interval: any;
@@ -36,7 +45,7 @@ export const OTPScreen = ({ route, navigation }: any) => {
 
   useEffect(() => {
     const code = otp.join("");
-    if (code.length === 6) {
+    if (code.length === 6 && !verifyingRef.current) {
       handleVerify(code);
     }
   }, [otp]);
@@ -59,6 +68,12 @@ export const OTPScreen = ({ route, navigation }: any) => {
   };
 
   const handleResend = async () => {
+    if (resending) return;
+    const verdict = checkLimit(`otp:resend:${email}`, LIMITS.otpResend.max, LIMITS.otpResend.windowMs);
+    if (!verdict.allowed) {
+      showNotice({ title: "Slow down", message: "Too many code requests. Please wait a few minutes before requesting another code.", variant: "info" });
+      return;
+    }
     setResending(true);
     try {
       if (type === 'registration') {
@@ -70,51 +85,58 @@ export const OTPScreen = ({ route, navigation }: any) => {
       setOtp(["", "", "", "", "", ""]);
       setStatus("idle");
       inputs.current[0].focus();
-      Alert.alert("Sent!", "A new code has been sent to your email.");
+      showNotice({ title: "Sent!", message: "A new code has been sent to your email.", variant: "success" });
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.error || "Failed to resend code.");
+      showNotice({ title: "Error", message: err.response?.data?.error || "Failed to resend code.", variant: "error" });
     } finally {
       setResending(false);
     }
   };
 
   const handleVerify = async (code: string) => {
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
+    // Password resets verify the code atomically when the new password is
+    // set, so skip the pre-check and hand the code to that screen.
+    if (type !== 'registration') {
+        setLoading(false);
+        verifyingRef.current = false;
+        navigation.navigate("ResetPassword", { email, otp: code, from });
+        return;
+    }
     setLoading(true);
     setStatus("idle");
     try {
       await verifyOTP(email, code);
       setStatus("success");
-      
+
       console.log(`[Auth] OTP Verified. Starting final registration for ${email}...`);
-      
-      if (type === 'registration') {
-          await finalizeRegistration({ ...data, email });
-          console.log(`[Auth] Registration Complete.`);
-      } else {
-          setLoading(false);
-          navigation.navigate("ResetPassword", { email, otp: code });
-      }
+
+      await finalizeRegistration({ ...data, email });
+      console.log(`[Auth] Registration Complete.`);
 
     } catch (err: any) {
       console.log("[Auth] Verification/Registration Error:", err.message);
       setStatus("error");
       setLoading(false);
-      
+
       const serverMsg = err.response?.data?.error || err.response?.data?.message;
       let finalMsg = serverMsg || err.message || "Process failed.";
-      
+
       if (err.code === 'auth/invalid-credential') {
           finalMsg = "This email is already partially registered with a different password. Please use the original password or delete the user from Firebase console to restart.";
       }
-      
+
       const statusStr = err.response ? `(HTTP ${err.response.status})` : (err.message?.includes("network") ? "(Network Error)" : "");
-      
-      Alert.alert("Registration Error", `${finalMsg} ${statusStr}`);
-      
+
+      showNotice({ title: "Registration Error", message: `${finalMsg} ${statusStr}`, variant: "error" });
+
       setTimeout(() => {
         setOtp(["", "", "", "", "", ""]);
         inputs.current[0].focus();
       }, 500);
+    } finally {
+      verifyingRef.current = false;
     }
   };
 
@@ -143,7 +165,7 @@ export const OTPScreen = ({ route, navigation }: any) => {
                             key={index}
                             ref={ref => inputs.current[index] = ref}
                             style={[
-                                styles.otpInput, 
+                                styles.otpInput,
                                 { fontFamily: fonts.heading, color: theme.primary },
                                 digit ? { borderColor: theme.primary, borderWidth: 2 } : null,
                                 status === "success" && styles.otpInputSuccess,
@@ -154,6 +176,9 @@ export const OTPScreen = ({ route, navigation }: any) => {
                             onKeyPress={(e) => handleKeyPress(e, index)}
                             keyboardType="number-pad"
                             maxLength={1}
+                            autoComplete={index === 0 ? "sms-otp" : "off"}
+                            textContentType={index === 0 ? "oneTimeCode" : "none"}
+                            importantForAutofill={index === 0 ? "yes" : "no"}
                             selectionColor={theme.primary}
                             editable={!loading}
                         />
@@ -162,7 +187,6 @@ export const OTPScreen = ({ route, navigation }: any) => {
 
                 {loading && (
                     <View style={styles.loadingArea}>
-                        <ActivityIndicator size="large" color={status === "success" ? "#27AE60" : theme.primary} />
                         <Text style={[styles.loadingText, { fontFamily: fonts.heading }]}>
                             {status === "success" ? "VERIFIED! ENTERING NEST..." : "VERIFYING CODE..."}
                         </Text>
@@ -175,9 +199,9 @@ export const OTPScreen = ({ route, navigation }: any) => {
                         <Text style={[styles.timerText, { fontFamily: fonts.body }]}>Resend in {timer}s</Text>
                     ) : (
                         <TouchableOpacity onPress={handleResend} disabled={resending || loading}>
-                            {resending ? <ActivityIndicator size="small" color={theme.primary} /> : (
-                                <Text style={[styles.resendLink, { fontFamily: fonts.heading, color: theme.primary }]}>Resend Code</Text>
-                            )}
+                            <Text style={[styles.resendLink, { fontFamily: fonts.heading, color: theme.primary, opacity: resending ? 0.5 : 1 }]}>
+                                {resending ? "Sending..." : "Resend Code"}
+                            </Text>
                         </TouchableOpacity>
                     )}
                 </View>

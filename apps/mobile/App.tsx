@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { AuthProvider } from "./src/context/AuthContext";
 import { ThemeProvider } from "./src/context/ThemeContext";
+import { NoticeProvider } from "./src/context/NoticeContext";
 import { MainNavigator } from "./src/navigation/MainNavigator";
 import { initGlobalHandler } from "./src/utils/ErrorHandler";
 import * as SplashScreen from "expo-splash-screen";
@@ -73,6 +74,7 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
+          <NoticeProvider>
           <AuthProvider>
             <BiometricGate>
               <NavigationContainer
@@ -92,6 +94,7 @@ export default function App() {
               </NavigationContainer>
             </BiometricGate>
           </AuthProvider>
+          </NoticeProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

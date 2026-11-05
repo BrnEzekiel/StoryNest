@@ -1,8 +1,9 @@
 import React from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Platform, Switch, Alert, Animated, ActivityIndicator
+  ScrollView, Platform, Switch, Animated, AppState
 } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import {
@@ -17,40 +18,61 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as Updates from "expo-updates";
 import * as Linking from 'expo-linking';
 import { triggerLocalNotification } from "../utils/NotificationService";
+import { resolveUpdateAvailability } from "../utils/updates";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
+import { fetchLatestRelease, isNewerRelease, shouldCheckGitHub, markGitHubChecked, GITHUB_CHECK_INTERVAL_MS, ReleaseInfo } from "../utils/githubUpdates";
 import { openWhatsAppChannel } from "../utils/whatsapp";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import apiClient from "../api/apiClient";
 
-type UpdateStatus = "idle" | "checking" | "available" | "upToDate" | "error";
+type UpdateStatus = "idle" | "checking" | "available" | "upToDate" | "error" | "disabled";
 
 export const SettingsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { logout, user, refreshUser } = useAuth();
+  const { logout, user, refreshUser, forgotPassword } = useAuth();
   const { 
     themeMode, setThemeMode, 
     fontPreference, setFontPreference,
     tabOrder, setTabOrder,
     isDarkMode, recsEnabled, setRecsEnabled, theme 
   } = useTheme();
+  const { showNotice } = useNotice();
 
   const [notifications, setNotifications] = React.useState(user?.notificationsOn || false);
   const [updatingNotifs, setUpdatingNotifs] = React.useState(false);
+  const [discoverable, setDiscoverable] = React.useState(user?.discoverable ?? true);
+  const [updatingDiscoverable, setUpdatingDiscoverable] = React.useState(false);
   const [biometricEnabled, setBiometricEnabled] = React.useState(false);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [ghStatus, setGhStatus] = React.useState<UpdateStatus>("idle");
+  const [ghRelease, setGhRelease] = React.useState<ReleaseInfo | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   
   const spinAnim = React.useRef(new Animated.Value(0)).current;
   const flickerAnim = React.useRef(new Animated.Value(1)).current;
   const spinLoop = React.useRef<Animated.CompositeAnimation | null>(null);
   const flickerLoop = React.useRef<Animated.CompositeAnimation | null>(null);
+  const ghPulseAnim = React.useRef(new Animated.Value(1)).current;
+  const ghPulseLoop = React.useRef<Animated.CompositeAnimation | null>(null);
 
-  // Auto-check on mount
+  // Auto-check on mount, re-check on foreground, and poll while mounted.
   React.useEffect(() => {
     checkForUpdates(true);
+    checkGitHubUpdates(true);
     loadBiometricSetting();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") checkGitHubUpdates(true);
+    });
+    const timer = setInterval(() => checkGitHubUpdates(true), GITHUB_CHECK_INTERVAL_MS);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+      ghPulseLoop.current?.stop();
+    };
   }, []);
 
   const loadBiometricSetting = async () => {
@@ -63,7 +85,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         if (!hasHardware || !isEnrolled) {
-            Alert.alert("Not Supported", "Biometric authentication is not set up on this device.");
+            showNotice({ title: "Not Supported", message: "Biometric authentication is not set up on this device.", variant: "info" });
             return;
         }
         
@@ -80,47 +102,50 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const handleThemePress = () => {
-    Alert.alert(
-      "Theme Library",
-      "Choose your preferred app appearance:",
-      [
-        { text: "Light", onPress: () => setThemeMode("light") },
-        { text: "Dark", onPress: () => setThemeMode("dark") },
-        { text: "Sepia (Classic)", onPress: () => setThemeMode("sepia") },
-        { text: "Solarized (Comfort)", onPress: () => setThemeMode("solarized") },
-        { text: "OLED Black", onPress: () => setThemeMode("oled") },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    showNotice({
+      title: "Theme Library",
+      message: "Choose your preferred app appearance:",
+      variant: "info",
+      actions: [
+        { label: "Light", kind: "primary", onPress: () => setThemeMode("light") },
+        { label: "Dark", kind: "ghost", onPress: () => setThemeMode("dark") },
+        { label: "Sepia (Classic)", kind: "ghost", onPress: () => setThemeMode("sepia") },
+        { label: "Solarized (Comfort)", kind: "ghost", onPress: () => setThemeMode("solarized") },
+        { label: "OLED Black", kind: "ghost", onPress: () => setThemeMode("oled") },
+        { label: "Cancel", kind: "ghost" },
+      ],
+    });
   };
 
   const handleFontPress = () => {
-    Alert.alert(
-      "Typography",
-      "Choose your preferred reading font:",
-      [
-        { text: "Default (Urbanist)", onPress: () => setFontPreference("default") },
-        { text: "Serif (Lora)", onPress: () => setFontPreference("serif") },
-        { text: "Modern (Inter)", onPress: () => setFontPreference("modern") },
-        { text: "Classic (Merriweather)", onPress: () => setFontPreference("classic") },
-        { text: "Open Sans (Accessible)", onPress: () => setFontPreference("dyslexic") },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    showNotice({
+      title: "Typography",
+      message: "Choose your preferred reading font:",
+      variant: "info",
+      actions: [
+        { label: "Default (Urbanist)", kind: "primary", onPress: () => setFontPreference("default") },
+        { label: "Serif (Lora)", kind: "ghost", onPress: () => setFontPreference("serif") },
+        { label: "Modern (Inter)", kind: "ghost", onPress: () => setFontPreference("modern") },
+        { label: "Classic (Merriweather)", kind: "ghost", onPress: () => setFontPreference("classic") },
+        { label: "Open Sans (Accessible)", kind: "ghost", onPress: () => setFontPreference("dyslexic") },
+        { label: "Cancel", kind: "ghost" },
+      ],
+    });
   };
 
   const handleNavPress = () => {
-    Alert.alert(
-      "Navigation Layout",
-      "Customize your bottom bar tabs:",
-      [
-        { text: "Classic (Home First)", onPress: () => setTabOrder(["Home", "Explore", "Saved", "Profile"]) },
-        { text: "Discovery (Explore First)", onPress: () => setTabOrder(["Explore", "Home", "Saved", "Profile"]) },
-        { text: "Minimal (No Explore)", onPress: () => setTabOrder(["Home", "Saved", "Profile"]) },
-        { text: "Restore Default", onPress: () => setTabOrder(["Home", "Explore", "Saved", "Profile"]) },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    showNotice({
+      title: "Navigation Layout",
+      message: "Customize your bottom bar tabs:",
+      variant: "info",
+      actions: [
+        { label: "Classic (Home First)", kind: "primary", onPress: () => setTabOrder(["Home", "Read", "Podcasts", "Chat", "Activity"]) },
+        { label: "Discovery (Read First)", kind: "ghost", onPress: () => setTabOrder(["Read", "Home", "Podcasts", "Chat", "Activity"]) },
+        { label: "Minimal (No Podcasts)", kind: "ghost", onPress: () => setTabOrder(["Home", "Read", "Chat", "Activity"]) },
+        { label: "Restore Default", kind: "ghost", onPress: () => setTabOrder(["Home", "Read", "Podcasts", "Chat", "Activity"]) },
+        { label: "Cancel", kind: "ghost" },
+      ],
+    });
   };
 
   const handleToggleNotifications = async (value: boolean) => {
@@ -131,33 +156,61 @@ export const SettingsScreen = ({ navigation }: any) => {
         await refreshUser();
     } catch (e) {
         setNotifications(!value);
-        Alert.alert("Error", "Failed to update notification settings.");
+        showNotice({ title: "Error", message: "Failed to update notification settings.", variant: "error" });
     } finally {
         setUpdatingNotifs(false);
     }
   };
 
+  const handleToggleDiscoverable = async (value: boolean) => {
+    setDiscoverable(value);
+    setUpdatingDiscoverable(true);
+    try {
+        await apiClient.post("/users/me/settings", { discoverable: value });
+        await refreshUser();
+        if (!value) {
+            showNotice({ title: "Invisible", message: "Nobody can find you in chat search now. Your existing chats keep working.", variant: "info" });
+        }
+    } catch (e) {
+        setDiscoverable(!value);
+        showNotice({ title: "Error", message: "Failed to update chat visibility.", variant: "error" });
+    } finally {
+        setUpdatingDiscoverable(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.email) return;
+    try {
+        await forgotPassword(user.email);
+        navigation.navigate("OTP", { email: user.email, type: "password", from: "settings" });
+    } catch (e) {
+        showNotice({ title: "Error", message: "Could not send the reset code. Please try again.", variant: "error" });
+    }
+  };
+
   const handleDeleteAccount = () => {
-    Alert.alert(
-        "Delete Account",
-        "This is PERMANENT. All your library, streaks, and XP will be gone forever. Are you absolutely sure?",
-        [
-            { text: "Cancel", style: "cancel" },
-            { 
-                text: "DELETE EVERYTHING", 
-                style: "destructive", 
+    showNotice({
+        title: "Delete Account",
+        message: "This is PERMANENT. All your library, streaks, and XP will be gone forever. Are you absolutely sure?",
+        variant: "error",
+        actions: [
+            { label: "Cancel", kind: "ghost" },
+            {
+                label: "DELETE EVERYTHING",
+                kind: "destructive",
                 onPress: async () => {
                     setDeleting(true);
                     try {
                         await apiClient.delete("/auth/account");
                         logout();
                     } catch (e) {
-                        Alert.alert("Error", "Could not delete account. Try again later.");
+                        showNotice({ title: "Error", message: "Could not delete account. Try again later.", variant: "error" });
                     } finally { setDeleting(false); }
-                } 
-            }
-        ]
-    );
+                }
+            },
+        ],
+    });
   };
 
   const handleLogout = () => {
@@ -166,20 +219,30 @@ export const SettingsScreen = ({ navigation }: any) => {
             logout();
         }
     } else {
-        Alert.alert("Logout", "Are you sure you want to leave the nest?", [
-            { text: "Stay", style: "cancel" },
-            { text: "Logout", style: "destructive", onPress: logout }
-        ]);
+        showNotice({
+            title: "Logout",
+            message: "Are you sure you want to leave the nest?",
+            variant: "info",
+            actions: [
+                { label: "Stay", kind: "ghost" },
+                { label: "Logout", kind: "destructive", onPress: logout },
+            ],
+        });
     }
   };
 
   const handleTestNotification = async () => {
       await triggerLocalNotification("Test Alert", "This is how StoryNest sounds on your device!");
       if (Platform.OS === 'android') {
-          Alert.alert("Did it ring?", "If not, check your 'StoryNest Alerts' channel in System Settings.", [
-              { text: "Settings", onPress: () => Linking.openSettings() },
-              { text: "OK" }
-          ]);
+          showNotice({
+              title: "Did it ring?",
+              message: "If not, check your 'StoryNest Alerts' channel in System Settings.",
+              variant: "info",
+              actions: [
+                  { label: "Settings", kind: "primary", onPress: () => Linking.openSettings() },
+                  { label: "OK", kind: "ghost" },
+              ],
+          });
       }
   };
 
@@ -212,8 +275,8 @@ export const SettingsScreen = ({ navigation }: any) => {
   };
 
   const checkForUpdates = async (isAuto = false) => {
-    if (__DEV__ || !Updates.isEnabled) {
-      setUpdateStatus("upToDate");
+    if (resolveUpdateAvailability(__DEV__, Updates.isEnabled) === "disabled") {
+      setUpdateStatus("disabled");
       return;
     }
     setUpdateStatus("checking");
@@ -241,15 +304,68 @@ export const SettingsScreen = ({ navigation }: any) => {
     try {
       await Updates.fetchUpdateAsync();
       stopSpin();
-      Alert.alert(
-        "Update Ready",
-        "The latest code from GitHub has been downloaded. The app will restart to apply it.",
-        [{ text: "Restart Now", onPress: () => Updates.reloadAsync() }]
-      );
+      showNotice({
+        title: "Update Ready",
+        message: "The latest code from GitHub has been downloaded. The app will restart to apply it.",
+        variant: "success",
+        actions: [{ label: "Restart Now", kind: "primary", onPress: () => Updates.reloadAsync() }],
+      });
     } catch {
       stopSpin();
       setIsUpdating(false);
-      Alert.alert("Update Failed", "Could not download the update. Please try again later.");
+      showNotice({ title: "Update Failed", message: "Could not download the update. Please try again later.", variant: "error" });
+    }
+  };
+
+  const currentVersion = Constants.expoConfig?.version ?? "0.0.0";
+
+  const checkGitHubUpdates = async (isAuto = false) => {
+    if (isAuto && !(await shouldCheckGitHub())) return;
+    if (ghStatus === "checking") return;
+    setGhStatus("checking");
+    try {
+      const rel = await fetchLatestRelease();
+      if (!rel) {
+        setGhStatus("error");
+        return;
+      }
+      if (isNewerRelease(rel.tag, currentVersion)) {
+        setGhRelease(rel);
+        setGhStatus("available");
+        startGhPulse();
+        if (await markGitHubChecked(rel.tag)) {
+          showNotice({
+            title: "New Release Available",
+            message: `${rel.name} is out on GitHub. Tap below to view and download it.`,
+            variant: "info",
+          });
+        }
+      } else {
+        setGhStatus("upToDate");
+        await markGitHubChecked(rel.tag);
+      }
+    } catch {
+      setGhStatus("error");
+    }
+  };
+
+  const startGhPulse = () => {
+    if (ghPulseLoop.current) return;
+    ghPulseLoop.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ghPulseAnim, { toValue: 1.03, duration: 700, useNativeDriver: true }),
+        Animated.timing(ghPulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    ghPulseLoop.current.start();
+  };
+
+  const openGitHubRelease = async () => {
+    if (!ghRelease?.url) return;
+    try {
+      await WebBrowser.openBrowserAsync(ghRelease.url);
+    } catch {
+      showNotice({ title: "Error", message: "Could not open the release page.", variant: "error" });
     }
   };
 
@@ -261,12 +377,19 @@ export const SettingsScreen = ({ navigation }: any) => {
     available: { color: "#FF4444",        label: "Update Available – Tap to Install", bg: isDarkMode ? "rgba(255,68,68,0.15)" : "#FFF0F0",    sub: "New code is ready to apply." },
     upToDate:  { color: "#27AE60",        label: "Up to Date",                  bg: isDarkMode ? "rgba(39,174,96,0.15)"  : "#F0FFF4",         sub: "You're running the latest code." },
     error:     { color: Colors.mutedTeal, label: "Could Not Check – Retry",     bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "Tap to try again." },
+    disabled:  { color: Colors.mutedTeal, label: "Updates Unavailable",          bg: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, sub: "OTA updates are off in this build." },
   };
   const cfg = cfgMap[updateStatus];
 
   const handleUpdatePress = () => {
     if (updateStatus === "available") applyUpdate();
-    else checkForUpdates();
+    else if (updateStatus === "disabled") {
+      showNotice({
+        title: "Updates Unavailable",
+        message: "Over-the-air updates are turned off in this build. Install a newer release to get the latest fixes.",
+        variant: "info",
+      });
+    } else checkForUpdates();
   };
 
   const UpdateIcon = () => {
@@ -298,7 +421,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         <Text style={[styles.itemTitle, { color: destructive ? "#FF6B6B" : (isDarkMode ? Colors.accent : Colors.primary) }]}>{title}</Text>
       </View>
       <View style={styles.itemRight}>
-        {loading ? <ActivityIndicator size="small" color={Colors.primary} /> : (
+        {loading ? <Text style={{ color: Colors.mutedTeal }}>...</Text> : (
             isSwitch ? (
             <Switch
                 value={switchValue}
@@ -379,10 +502,16 @@ export const SettingsScreen = ({ navigation }: any) => {
         {/* ── Community & Earn ── */}
         <Text style={styles.sectionTitle}>COMMUNITY & REWARDS</Text>
         <SettingItem
+          icon={<Globe size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
+          title="Let Others Find Me to Chat"
+          isSwitch switchValue={discoverable} onValueChange={handleToggleDiscoverable}
+          loading={updatingDiscoverable}
+        />
+        <SettingItem
           icon={<MessageCircle size={20} color="#25D366" />}
           title="Join WhatsApp Channel"
           value="Official"
-          onPress={openWhatsAppChannel}
+          onPress={() => openWhatsAppChannel((message) => showNotice({ title: "WhatsApp Channel", message, variant: "error" }))}
         />
         <SettingItem
           icon={<Gift size={20} color="#D4AF37" />}
@@ -396,7 +525,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         <SettingItem
           icon={<Lock size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
           title="Change Password"
-          onPress={() => Alert.alert("Security", "Password reset link sent to your email.")}
+          onPress={handleChangePassword}
         />
         <SettingItem
           icon={<Shield size={20} color={isDarkMode ? Colors.accent : Colors.primary} />}
@@ -436,6 +565,44 @@ export const SettingsScreen = ({ navigation }: any) => {
                 </View>
                 {updateStatus !== "checking" && !isUpdating && (
                     <ChevronRight size={18} color={cfg.color} />
+                )}
+            </TouchableOpacity>
+        </Animated.View>
+
+        <Text style={[styles.sectionTitle, { marginTop: 8 }]}>GITHUB RELEASES</Text>
+        <Animated.View style={{ transform: [{ scale: ghStatus === 'available' ? ghPulseAnim : 1 }] }}>
+            <TouchableOpacity
+                style={[styles.updateCard, {
+                  backgroundColor: ghStatus === 'available'
+                    ? (isDarkMode ? "rgba(255,68,68,0.15)" : "#FFF0F0")
+                    : (isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen),
+                  borderColor: ghStatus === 'available' ? "#FF4444" : Colors.mutedTeal,
+                }]}
+                onPress={() => { if (ghStatus === 'available') openGitHubRelease(); else checkGitHubUpdates(); }}
+                activeOpacity={0.8}
+                disabled={ghStatus === "checking"}
+            >
+                <View style={styles.updateLeft}>
+                    {ghStatus === 'available'
+                      ? <AlertCircle size={20} color="#FF4444" />
+                      : ghStatus === 'upToDate'
+                        ? <CheckCircle size={20} color="#27AE60" />
+                        : <RefreshCw size={20} color={Colors.mutedTeal} />}
+                    <View style={{ marginLeft: 14, flex: 1 }}>
+                    <Text style={[styles.updateLabel, { color: ghStatus === 'available' ? "#FF4444" : Colors.mutedTeal }]}>
+                        {ghStatus === 'available' ? `${ghRelease?.name || 'New Release'} – Tap to Download`
+                          : ghStatus === 'checking' ? "Checking GitHub…"
+                          : ghStatus === 'upToDate' ? "GitHub: Up to Date"
+                          : ghStatus === 'error' ? "GitHub: Could Not Check – Retry"
+                          : "Check GitHub Releases"}
+                    </Text>
+                    <Text style={[styles.updateSub, { color: isDarkMode ? "rgba(255,255,255,0.4)" : Colors.mutedTeal }]}>
+                        {ghStatus === 'available' ? "A newer native build is published." : "Watches BrnEzekiel/StoryNest releases."}
+                    </Text>
+                    </View>
+                </View>
+                {ghStatus !== "checking" && (
+                    <ChevronRight size={18} color={Colors.mutedTeal} />
                 )}
             </TouchableOpacity>
         </Animated.View>

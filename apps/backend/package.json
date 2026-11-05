@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "test": "node --test \"__tests__/*.test.js\"",
     "worker": "node workers/index.js",
     "worker:dev": "nodemon workers/index.js",
     "postinstall": "prisma generate",

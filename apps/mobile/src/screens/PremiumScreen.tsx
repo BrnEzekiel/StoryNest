@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Zap, CheckCircle2, ShieldCheck, Star, Sparkles } from "lucide-react-native";
@@ -8,17 +9,33 @@ import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-// @ts-ignore
-import { Paystack } from 'react-native-paystack-webview';
 import apiClient from "../api/apiClient";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
+
+// Lazy-load Paystack to prevent crash in environments like Expo Go where native WebView is unavailable
+let CachedPaystack: any = undefined;
+const getPaystackComponent = () => {
+  if (CachedPaystack !== undefined) return CachedPaystack;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    CachedPaystack = require('react-native-paystack-webview').Paystack;
+  } catch (err) {
+    console.warn('[PremiumScreen] Paystack WebView not available in this runtime:', err);
+    CachedPaystack = null;
+  }
+  return CachedPaystack;
+};
 
 const { width } = Dimensions.get("window");
 
 export const PremiumScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts } = useTheme();
+  const { showNotice } = useNotice();
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
+
+  const Paystack = getPaystackComponent();
 
   const perks = [
     "Unlimited access to all premium stories",
@@ -29,15 +46,16 @@ export const PremiumScreen = ({ navigation }: any) => {
   ];
 
   const handlePaymentSuccess = async (res: any) => {
+      if (loading || !tapThrottle("premium:verify", TAP_GAP_MS)) return;
       setLoading(true);
       try {
           const { transactionRef } = res;
           await apiClient.post("/payments/verify", { reference: transactionRef.reference });
           await refreshUser();
-          Alert.alert("Success", "Welcome to StoryNest Premium! Your account has been upgraded.");
+          showNotice({ title: "Success", message: "Welcome to StoryNest Premium! Your account has been upgraded.", variant: "success" });
           navigation.goBack();
       } catch (e) {
-          Alert.alert("Verification Error", "We couldn't verify your payment. Please contact support.");
+          showNotice({ title: "Verification Error", message: "We couldn't verify your payment. Please contact support.", variant: "error" });
       } finally {
           setLoading(false);
       }
@@ -86,25 +104,35 @@ export const PremiumScreen = ({ navigation }: any) => {
               </LinearGradient>
           </View>
 
-          {loading ? <ActivityIndicator color={Colors.accent} size="large" style={{ marginTop: 20 }} /> : (
-              <View style={styles.btnWrapper}>
-                <Paystack  
-                    paystackKey="pk_live_efc960f0010feefe0610d7e422324a0197edae1e"
-                    amount={'499.00'}
-                    billingEmail={user?.email || "guest@storynest.com"}
-                    activityIndicatorColor={Colors.accent}
-                    onCancel={() => {}}
-                    onSuccess={handlePaymentSuccess}
-                    autoStart={false}
-                    renderButton={({ onPress }: any) => (
-                        <TouchableOpacity style={styles.upgradeBtn} onPress={onPress}>
-                            <Zap size={20} color={Colors.primary} />
-                            <Text style={[styles.upgradeText, { fontFamily: fonts.heading }]}>INITIALIZE PREMIUM</Text>
-                        </TouchableOpacity>
-                    )}
-                />
-              </View>
-          )}
+          <View style={[styles.btnWrapper, { opacity: loading ? 0.6 : 1 }]} pointerEvents={loading ? "none" : "auto"}>
+            {Paystack ? (
+              <Paystack
+                  paystackKey="pk_live_efc960f0010feefe0610d7e422324a0197edae1e"
+                  amount={'499.00'}
+                  billingEmail={user?.email || "guest@storynest.com"}
+                  activityIndicatorColor={Colors.accent}
+                  onCancel={() => {}}
+                  onSuccess={handlePaymentSuccess}
+                  autoStart={false}
+                  renderButton={({ onPress }: any) => (
+                      <TouchableOpacity style={styles.upgradeBtn} onPress={onPress}>
+                          <Zap size={20} color={Colors.primary} />
+                          <Text style={[styles.upgradeText, { fontFamily: fonts.heading }]}>
+                              {loading ? "VERIFYING PAYMENT..." : "INITIALIZE PREMIUM"}
+                          </Text>
+                      </TouchableOpacity>
+                  )}
+              />
+            ) : (
+              <TouchableOpacity
+                  style={styles.upgradeBtn}
+                  onPress={() => showNotice({ title: "Paystack Notice", message: "Payments via Paystack require native modules available in the installed StoryNest APK. It is not supported in the Expo Go client.", variant: "info" })}
+              >
+                  <Zap size={20} color={Colors.primary} />
+                  <Text style={[styles.upgradeText, { fontFamily: fonts.heading }]}>INITIALIZE PREMIUM</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.securityNote}>
               <ShieldCheck size={16} color={Colors.mutedTeal} />

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, FlatList, Image } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, FlatList, Image } from "react-native";
+import { useNotice } from "../context/NoticeContext";
+import { ActivityLog } from "../utils/activityLog";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Plus, X, FolderHeart, Bookmark, ChevronRight, LayoutList } from "lucide-react-native";
@@ -9,37 +11,36 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { Cache } from "../utils/Cache";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 
 export const PlaylistsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
 
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const playlistsQuery = useCachedQuery<any[]>("playlists:me", async () => {
+    const res = await apiClient.get("/playlists/me");
+    return res.data;
+  });
+  const playlists = playlistsQuery.data || [];
+
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
 
-  useEffect(() => {
-    fetchPlaylists();
-  }, []);
-
-  const fetchPlaylists = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get("/playlists/me");
-      setPlaylists(res.data);
-    } catch (error) { console.log(error); }
-    finally { setLoading(false); }
-  };
-
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
+    if (!tapThrottle("playlists:create", TAP_GAP_MS)) return;
     try {
-        await apiClient.post("/playlists", { title: newTitle, description: newDesc });
+        const res = await apiClient.post("/playlists", { title: newTitle, description: newDesc });
+        const next = [res.data, ...playlists];
+        playlistsQuery.setData(next);
+        Cache.set("playlists:me", next).catch(() => {});
         setNewTitle(""); setNewDesc(""); setIsAdding(false);
-        fetchPlaylists();
-    } catch (e) { Alert.alert("Error", "Could not create playlist."); }
+        ActivityLog.log({ kind: "PLAYLIST", title: res.data?.title || newTitle });
+    } catch (e) { showNotice({ title: "Error", message: "Could not create playlist.", variant: "error" }); }
   };
 
   return (
@@ -52,24 +53,24 @@ export const PlaylistsScreen = ({ navigation }: any) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {loading ? <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} /> : (
-              playlists.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                      <FolderHeart size={64} color={Colors.mutedTeal} strokeWidth={1} />
-                      <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No playlists yet. Create one to organize your favorites!</Text>
-                  </View>
-              ) : (
-                  playlists.map(p => (
-                      <TouchableOpacity key={p.id} style={[styles.playlistCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen }]}>
-                          <View style={styles.playlistIcon}><LayoutList size={24} color={theme.primary} /></View>
-                          <View style={{ flex: 1, marginLeft: 16 }}>
-                              <Text style={[styles.playlistTitle, { color: theme.black, fontFamily: fonts.heading }]}>{p.title}</Text>
-                              <Text style={[styles.playlistCount, { fontFamily: fonts.body }]}>{p.stories.length} stories</Text>
-                          </View>
-                          <ChevronRight size={20} color={Colors.mutedTeal} />
-                      </TouchableOpacity>
-                  ))
-              )
+          {playlists.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                  <FolderHeart size={64} color={Colors.mutedTeal} strokeWidth={1} />
+                  <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>
+                      {playlistsQuery.isFirstLoad ? "Opening your playlists..." : "No playlists yet. Create one to organize your favorites!"}
+                  </Text>
+              </View>
+          ) : (
+              playlists.map(p => (
+                  <TouchableOpacity key={p.id} style={[styles.playlistCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen }]}>
+                      <View style={styles.playlistIcon}><LayoutList size={24} color={theme.primary} /></View>
+                      <View style={{ flex: 1, marginLeft: 16 }}>
+                          <Text style={[styles.playlistTitle, { color: theme.black, fontFamily: fonts.heading }]}>{p.title}</Text>
+                          <Text style={[styles.playlistCount, { fontFamily: fonts.body }]}>{p.stories.length} stories</Text>
+                      </View>
+                      <ChevronRight size={20} color={Colors.mutedTeal} />
+                  </TouchableOpacity>
+              ))
           )}
       </ScrollView>
 

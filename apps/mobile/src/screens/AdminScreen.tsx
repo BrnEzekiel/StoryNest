@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Platform, Modal, TextInput, RefreshControl, Dimensions, KeyboardAvoidingView } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Modal, TextInput, RefreshControl, Dimensions, KeyboardAvoidingView } from "react-native";
+import { useNotice } from "../context/NoticeContext";
+import { useAuth } from "../context/AuthContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Trash2, Edit2, ArrowLeft, Camera, ChevronDown, Plus, X, FolderPlus, Zap, Bold, Italic, Heading, Quote, List, Eye, Edit3, Globe, Sparkles, Wand2, History, RotateCcw, UserPlus, Users, FileText, BarChart3, RefreshCw, Image as ImageIcon } from "lucide-react-native";
@@ -8,147 +10,134 @@ import { TextField } from "../components/TextField";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import axios from "axios";
+import * as ImagePicker from "expo-image-picker";
+import { validateStoryCover } from "../utils/storyCover";
 
 const { width } = Dimensions.get("window");
-const PEXELS_API_KEY = process.env.EXPO_PUBLIC_PEXELS_API_KEY;
 
 export const AdminScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { fonts, theme, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
+  const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [stories, setStories] = useState<any[]>([]);
-  const [stats, setStats] = useState({ storyCount: 0, totalReads: 0, userCount: 0 });
-  
+
+  const adminQuery = useCachedQuery<{ stories: any[]; stats: any }>("admin:dashboard", async () => {
+    try {
+      const [storiesRes, statsRes] = await Promise.all([
+        apiClient.get("/admin/my-stories"),
+        apiClient.get("/admin/stats")
+      ]);
+      return { stories: storiesRes.data, stats: statsRes.data };
+    } catch {
+      // Fallback until the backend ships the admin endpoints: list from the
+      // public catalog filtered to this author.
+      const res = await apiClient.get("/stories");
+      const all = Array.isArray(res.data) ? res.data : [];
+      const mine = user ? all.filter((s: any) => s.ownerId === user.id) : [];
+      const list = user?.role === "ADMIN" ? all : mine;
+      return {
+        stories: list,
+        stats: {
+          storyCount: list.length,
+          totalReads: list.reduce((n: number, s: any) => n + (s.readCount || 0), 0),
+          userCount: 0,
+        },
+      };
+    }
+  });
+  const stories = adminQuery.data?.stories || [];
+  const stats = adminQuery.data?.stats || { storyCount: 0, totalReads: 0, userCount: 0 };
+  const isFirstLoad = adminQuery.isFirstLoad && !adminQuery.data;
+
   // Editor State
   const [availableGenres, setAvailableGenres] = useState(["Fiction", "Romance", "Thriller", "Faith", "Mystery", "Poetry", "Sci-Fi"]);
   const [showGenreDropdown, setShowGenreDropdown] = useState(false);
-  
+
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versions, setVersions] = useState<any[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [showCollabModal, setShowCollabModal] = useState(false);
   const [collabUsername, setCollabUsername] = useState("");
   const [collabLoading, setCollabLoading] = useState(false);
-  
+
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("Fiction");
   const [body, setBody] = useState("");
   const [authorName, setAuthorName] = useState("");
+  const [coverUri, setCoverUri] = useState<string | null>(null);
+  const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminData();
-  }, []);
-
-  const fetchAdminData = async () => {
-    try {
-      setLoading(true);
-      const [storiesRes, statsRes] = await Promise.all([
-        apiClient.get("/admin/my-stories"),
-        apiClient.get("/admin/stats")
-      ]);
-      setStories(storiesRes.data);
-      setStats(statsRes.data);
-    } catch (error) { console.log("Error fetching admin data:", error); }
-    finally { 
-        setLoading(false); 
-        setRefreshing(false);
-    }
-  };
+  const fetchAdminData = () => adminQuery.refresh();
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchAdminData();
-  }, []);
+    if (!tapThrottle("admin:refresh", TAP_GAP_MS)) return;
+    adminQuery.refresh({ showIndicator: true });
+  }, [adminQuery]);
 
-  const fetchPexelsUrl = async (query: string, storyGenre: string) => {
-    const key = PEXELS_API_KEY || "cKmC9mSkKyOKfmCA9PNqTm19LZthrh8xOJfXske5adPwhN4R5bpSrt0c";
-    if (!key) {
-        console.error("[Pexels] API Key is missing!");
-        return null;
-    }
-    try {
-        // Attempt 1: Title + cinematic
-        const randomPage = Math.floor(Math.random() * 10) + 1;
-        const res = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&page=${randomPage}&orientation=portrait`, {
-            headers: { Authorization: key }
-        });
-        
-        if (res.data.photos?.length > 0) {
-            const randomIndex = Math.floor(Math.random() * res.data.photos.length);
-            return res.data.photos[randomIndex].src.large2x;
-        }
-        
-        // Attempt 2: Genre + aesthetic
-        const fallback = await axios.get(`https://api.pexels.com/v1/search?query=${encodeURIComponent(storyGenre + " cinematic")}&per_page=10&orientation=portrait`, {
-            headers: { Authorization: key }
-        });
-        if (fallback.data.photos?.length > 0) {
-            const randomIndex = Math.floor(Math.random() * fallback.data.photos.length);
-            return fallback.data.photos[randomIndex].src.large2x;
-        }
-        
-        // Attempt 3: Pure Atmosphere
-        const atmosphere = await axios.get(`https://api.pexels.com/v1/search?query=cinematic+atmosphere&per_page=15&orientation=portrait`, {
-            headers: { Authorization: key }
-        });
-        if (atmosphere.data.photos?.length > 0) {
-            const randomIndex = Math.floor(Math.random() * atmosphere.data.photos.length);
-            return atmosphere.data.photos[randomIndex].src.large2x;
-        }
-        
-        return null;
-    } catch (e) {
-        console.log("[Pexels] Fetch failed:", (e as any).message);
-        return null;
-    }
+  const pickCover = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+    if (!result.canceled) setCoverUri(result.assets[0].uri);
   };
 
   const handleSave = async () => {
     if (!title || !genre || !authorName) {
-      Alert.alert("Error", "Please fill in all required fields.");
+      showNotice({ title: "Error", message: "Please fill in all required fields.", variant: "error" });
       return;
     }
+    const coverError = validateStoryCover({ isEditing, coverUri, existingCoverUrl });
+    if (coverError) {
+      showNotice({ title: "Cover Required", message: coverError, variant: "error" });
+      return;
+    }
+    if (submitLoading || !tapThrottle("admin:save", TAP_GAP_MS)) return;
     setSubmitLoading(true);
     try {
-      // SILENTLY FETCH UNIQUE COVER FROM PEXELS
-      let coverUrl = await fetchPexelsUrl(title, genre);
-      
-      const payload: any = { 
-        title, 
-        genre, 
-        authorName, 
-        summary: "",
-        coverUrl: coverUrl
-      };
-      if (body) payload.body = body;
-
-      if (isEditing && editingId) {
-        // If editing and no new cover was fetched (failed), keep old one if exists
-        const currentStory = stories.find(s => s.id === editingId);
-        if (!payload.coverUrl && currentStory?.coverUrl) {
-            payload.coverUrl = currentStory.coverUrl;
+      if (coverUri) {
+        // Newly picked image: multipart upload, the server stores it as coverUrl.
+        const formData = new FormData();
+        formData.append("title", title);
+        formData.append("genre", genre);
+        formData.append("authorName", authorName);
+        formData.append("summary", "");
+        if (body) formData.append("body", body);
+        const filename = coverUri.split('/').pop() || 'cover.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : `image`;
+        // @ts-ignore
+        formData.append("cover", { uri: coverUri, name: filename, type });
+        const headers = { 'Content-Type': 'multipart/form-data' };
+        if (isEditing && editingId) {
+          await apiClient.put(`/stories/${editingId}`, formData, { headers });
+        } else {
+          await apiClient.post("/stories", formData, { headers });
         }
+      } else if (isEditing && editingId) {
+        // Edit without a new pick: keep the existing cover.
+        const payload: any = { title, genre, authorName, summary: "" };
         await apiClient.put(`/stories/${editingId}`, payload);
-      } else {
-        await apiClient.post("/stories", payload);
       }
-      
-      Alert.alert("Success", `Story ${isEditing ? 'updated' : 'published'} successfully!`);
+
+      showNotice({ title: "Success", message: `Story ${isEditing ? 'updated' : 'published'} successfully!`, variant: "success" });
       setIsAdding(false);
       setIsEditing(false);
       resetForm();
       fetchAdminData();
     } catch (error: any) {
       console.error("[Admin] Save Error:", error.response?.data || error.message);
-      Alert.alert("Error", "Action failed. Check your connection.");
+      showNotice({ title: "Error", message: "Action failed. Check your connection.", variant: "error" });
     } finally { setSubmitLoading(false); }
   };
 
@@ -159,19 +148,27 @@ export const AdminScreen = ({ navigation }: any) => {
     setEditingId(story.id);
     setIsEditing(true);
     setIsAdding(true);
+    setCoverUri(null);
+    setExistingCoverUrl(story.coverUrl || null);
   };
 
   const resetForm = () => {
     setTitle(""); setGenre("Fiction"); setBody(""); setAuthorName(""); setEditingId(null); setIsEditing(false);
+    setCoverUri(null); setExistingCoverUrl(null);
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert("Delete Story", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-          try { await apiClient.delete(`/stories/${id}`); fetchAdminData(); } catch (e) { Alert.alert("Error", "Failed to delete."); }
-      }}
-    ]);
+    showNotice({
+      title: "Delete Story",
+      message: "Are you sure?",
+      variant: "error",
+      actions: [
+        { label: "Cancel", kind: "ghost" },
+        { label: "Delete", kind: "destructive", onPress: async () => {
+            try { await apiClient.delete(`/stories/${id}`); fetchAdminData(); } catch (e) { showNotice({ title: "Error", message: "Failed to delete.", variant: "error" }); }
+        }},
+      ],
+    });
   };
 
   const fetchVersions = async (storyId: string) => {
@@ -186,24 +183,26 @@ export const AdminScreen = ({ navigation }: any) => {
   };
 
   const handleRestoreVersion = async (version: any) => {
+      if (!tapThrottle(`admin:restore:${version.id}`, TAP_GAP_MS)) return;
       try {
           await apiClient.post(`/versions/${version.id}/restore`);
-          Alert.alert("Restored", "Content reverted.");
+          showNotice({ title: "Restored", message: "Content reverted.", variant: "success" });
           setShowVersionHistory(false);
           fetchAdminData();
-      } catch (e) { Alert.alert("Error", "Failed."); }
+      } catch (e) { showNotice({ title: "Error", message: "Failed.", variant: "error" }); }
   };
 
   const handleAddCollaborator = async () => {
       if (!collabUsername.trim()) return;
+      if (collabLoading || !tapThrottle("admin:collab", TAP_GAP_MS)) return;
       setCollabLoading(true);
       try {
           await apiClient.post(`/stories/${editingId}/collaborators`, { username: collabUsername });
-          Alert.alert("Added", `${collabUsername} is now a co-author.`);
+          showNotice({ title: "Added", message: `${collabUsername} is now a co-author.`, variant: "success" });
           setCollabUsername("");
           setShowCollabModal(false);
           fetchAdminData();
-      } catch (e) { Alert.alert("Error", "Failed."); }
+      } catch (e) { showNotice({ title: "Error", message: "Failed.", variant: "error" }); }
       finally { setCollabLoading(false); }
   };
 
@@ -222,13 +221,13 @@ export const AdminScreen = ({ navigation }: any) => {
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
                 <TextField label="Story Title" value={title} onChangeText={setTitle} placeholder="Enter title" />
                 <TextField label="Author Name" value={authorName} onChangeText={setAuthorName} placeholder="Author name" />
-                
+
                 <Text style={[styles.dropdownLabel, { color: theme.primary, fontFamily: fonts.heading, marginTop: 10 }]}>GENRE</Text>
                 <TouchableOpacity style={[styles.dropdown, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.lightForest }]} onPress={() => setShowGenreDropdown(!showGenreDropdown)}>
                     <Text style={[styles.dropdownText, { color: theme.black, fontFamily: fonts.body }]}>{genre}</Text>
                     <ChevronDown size={20} color={theme.primary} />
                 </TouchableOpacity>
-                
+
                 {showGenreDropdown && (
                     <View style={[styles.dropdownMenu, { backgroundColor: isDarkMode ? "#1a2e2c" : Colors.white, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
                     {availableGenres.map((g) => (
@@ -239,21 +238,40 @@ export const AdminScreen = ({ navigation }: any) => {
                     </View>
                 )}
 
+                <Text style={[styles.dropdownLabel, { color: theme.primary, fontFamily: fonts.heading, marginTop: 10 }]}>COVER IMAGE (REQUIRED)</Text>
+                <TouchableOpacity
+                    style={[styles.coverPicker, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.lightForest }]}
+                    onPress={pickCover}
+                    activeOpacity={0.8}
+                >
+                    {coverUri || existingCoverUrl ? (
+                        <Image source={{ uri: (coverUri || existingCoverUrl) as string }} style={styles.coverPreview} resizeMode="cover" />
+                    ) : (
+                        <View style={styles.coverPlaceholder}>
+                            <Camera size={28} color={Colors.mutedTeal} />
+                            <Text style={[styles.coverHint, { fontFamily: fonts.body }]}>Tap to choose a cover image</Text>
+                        </View>
+                    )}
+                    {(coverUri || existingCoverUrl) ? (
+                        <View style={styles.coverBadge}>
+                            <Text style={[styles.coverBadgeText, { fontFamily: fonts.heading }]}>TAP TO CHANGE</Text>
+                        </View>
+                    ) : null}
+                </TouchableOpacity>
+
                 {!isEditing && (
                     <TextField label="First Chapter Content" value={body} onChangeText={setBody} placeholder="Once upon a time..." multiline style={{ height: 250, textAlignVertical: "top", marginTop: 20 }} />
                 )}
 
-            {submitLoading ? (
-                <View style={{ marginVertical: 30, alignItems: 'center' }}>
-                    <ActivityIndicator color={Colors.primary} size="large" />
-                    <Text style={{ marginTop: 12, fontFamily: fonts.body, color: theme.primary }}>Optimizing & Publishing...</Text>
-                </View>
-            ) : (
                 <View style={{ marginTop: 20, marginBottom: 40 }}>
-                <Button title={isEditing ? "UPDATE STORY" : "PUBLISH TO NEST"} onPress={handleSave} type="primary" />
-                <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
+                    <Button
+                        title={submitLoading ? "OPTIMIZING & PUBLISHING..." : (isEditing ? "UPDATE STORY" : "PUBLISH TO NEST")}
+                        onPress={handleSave}
+                        type="primary"
+                        disabled={submitLoading}
+                    />
+                    <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
                 </View>
-            )}
             </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -273,7 +291,7 @@ export const AdminScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />} showsVerticalScrollIndicator={false}>
+      <ScrollView refreshControl={<RefreshControl refreshing={adminQuery.refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />} showsVerticalScrollIndicator={false}>
         <View style={styles.statsGrid}>
           <View style={[styles.statBox, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
             <Text style={[styles.statValue, { color: theme.primary, fontFamily: fonts.heading }]}>{stats.storyCount}</Text>
@@ -293,7 +311,7 @@ export const AdminScreen = ({ navigation }: any) => {
           <Button title="UPLOAD NEW STORY" onPress={() => setIsAdding(true)} type="primary" style={{ marginBottom: 24 }} />
           <Text style={[styles.sectionTitle, { color: theme.primary, fontFamily: fonts.heading }]}>PUBLISHED WORKS</Text>
           <View style={{ paddingBottom: insets.bottom + 40 }}>
-            {loading && !refreshing ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
+            {isFirstLoad ? [1, 2, 3].map(i => <SkeletonCard key={i} />) : (
               stories.map((story) => (
                 <View key={story.id} style={[styles.storyRow, { borderBottomColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}>
                   <View style={styles.storyInfo}>
@@ -308,7 +326,7 @@ export const AdminScreen = ({ navigation }: any) => {
                 </View>
               ))
             )}
-            {!loading && stories.length === 0 && <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories published yet.</Text>}
+            {!isFirstLoad && stories.length === 0 && <Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories published yet.</Text>}
           </View>
         </View>
       </ScrollView>
@@ -348,6 +366,12 @@ const styles = StyleSheet.create({
   dropdownMenu: { borderRadius: 8, borderWidth: 1, marginTop: -15, marginBottom: 20, padding: 8, elevation: 4 },
   dropdownItem: { paddingVertical: 10, paddingHorizontal: 12 },
   dropdownItemText: { fontSize: 14 },
+  coverPicker: { height: 190, borderRadius: 12, borderWidth: 0.5, marginBottom: 20, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
+  coverPreview: { width: '100%', height: '100%' },
+  coverPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  coverHint: { fontSize: 13, color: Colors.mutedTeal, marginTop: 10 },
+  coverBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  coverBadgeText: { fontSize: 10, color: Colors.white, letterSpacing: 1 },
   statsGrid: { flexDirection: "row", paddingHorizontal: 24, paddingVertical: 20, justifyContent: "space-between" },
   statBox: { width: "31%", padding: 12, borderRadius: 12, alignItems: "center" },
   statValue: { fontSize: 18 },

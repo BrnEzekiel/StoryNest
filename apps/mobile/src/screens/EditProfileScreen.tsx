@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Camera, User, Mail, FileText, Check } from "lucide-react-native";
@@ -11,12 +12,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 
 export const EditProfileScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, updateUser } = useAuth();
   const { isDarkMode, theme } = useTheme();
-  
+  const { showNotice } = useNotice();
+
   const [username, setUsername] = useState(user?.username || "");
   const [bio, setBio] = useState("Avid reader and story lover.");
   const [loading, setLoading] = useState(false);
@@ -24,10 +27,17 @@ export const EditProfileScreen = ({ navigation }: any) => {
 
   const handleSave = async () => {
     if (!username.trim()) {
-        Alert.alert("Error", "Username cannot be empty.");
+        showNotice({ title: "Error", message: "Username cannot be empty.", variant: "error" });
         return;
     }
+    if (loading || !tapThrottle("profile:save", TAP_GAP_MS)) return;
     setLoading(true);
+
+    // Optimistic identity: the new avatar + name appear everywhere instantly.
+    const prevAvatar = user?.avatarUrl;
+    const prevUsername = user?.username;
+    updateUser({ avatarUrl: image || undefined, username: username.trim() }).catch(() => {});
+
     try {
       const formData = new FormData();
       formData.append("username", username);
@@ -41,16 +51,20 @@ export const EditProfileScreen = ({ navigation }: any) => {
           formData.append("avatar", { uri: image, name: filename, type });
       }
 
-      await apiClient.put("/users/me/profile", formData, {
+      // The server returns the updated user: apply it directly instead of
+      // waiting for a second round-trip.
+      const res = await apiClient.put("/users/me/profile", formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
       });
+      if (res.data) updateUser(res.data).catch(() => {});
 
-      await refreshUser();
-      Alert.alert("Success", "Profile identity updated!");
+      showNotice({ title: "Success", message: "Profile identity updated!", variant: "success" });
       navigation.goBack();
     } catch (error: any) {
+      // Roll back the optimistic change so the UI never lies.
+      updateUser({ avatarUrl: prevAvatar, username: prevUsername }).catch(() => {});
       const msg = error.response?.data?.error || "Failed to update profile.";
-      Alert.alert("Error", msg);
+      showNotice({ title: "Error", message: msg, variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -74,8 +88,8 @@ export const EditProfileScreen = ({ navigation }: any) => {
           <ArrowLeft size={24} color={Colors.accent} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>EDIT IDENTITY</Text>
-        <TouchableOpacity onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator size="small" color={Colors.accent} /> : <Check size={24} color={Colors.accent} />}
+        <TouchableOpacity onPress={handleSave} disabled={loading} style={{ opacity: loading ? 0.4 : 1 }}>
+            <Check size={24} color={Colors.accent} />
         </TouchableOpacity>
       </View>
 
@@ -90,17 +104,17 @@ export const EditProfileScreen = ({ navigation }: any) => {
             <Text style={styles.avatarHint}>Tap to change your nest avatar</Text>
         </View>
 
-        <TextField 
-            label="USERNAME" 
-            value={username} 
-            onChangeText={setUsername} 
-            icon="user" 
+        <TextField
+            label="USERNAME"
+            value={username}
+            onChangeText={setUsername}
+            icon="user"
             placeholder="Your handle"
         />
 
         <View style={styles.bioContainer}>
             <Text style={[styles.label, { color: isDarkMode ? Colors.accent : Colors.primary }]}>PERSONAL BIO</Text>
-            <TextInput 
+            <TextInput
                 style={[styles.bioInput, { color: isDarkMode ? Colors.white : Colors.primary, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
                 value={bio}
                 onChangeText={setBio}
@@ -116,10 +130,11 @@ export const EditProfileScreen = ({ navigation }: any) => {
             <Text style={styles.infoText}>{user?.email}</Text>
         </View>
 
-        <Button 
-            title={loading ? "SAVING..." : "UPDATE PROFILE"} 
-            onPress={handleSave} 
-            type="primary" 
+        <Button
+            title={loading ? "SAVING..." : "UPDATE PROFILE"}
+            onPress={handleSave}
+            type="primary"
+            disabled={loading}
             style={{ marginTop: 40 }}
         />
       </ScrollView>

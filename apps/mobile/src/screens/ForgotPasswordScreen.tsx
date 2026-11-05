@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -14,13 +15,14 @@ import { StatusBar } from "expo-status-bar";
 export const ForgotPasswordScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { fonts, theme, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const { forgotPassword } = useAuth();
 
   const handleRequest = async () => {
     if (!email.trim()) {
-      Alert.alert("Email Required", "Please enter your email to find your nest account.");
+      showNotice({ title: "Email Required", message: "Please enter your email to find your nest account.", variant: "info" });
       return;
     }
 
@@ -29,7 +31,7 @@ export const ForgotPasswordScreen = ({ navigation }: any) => {
       await forgotPassword(email.trim());
       navigation.navigate("OTP", { email: email.trim(), type: 'password' });
     } catch (err: any) {
-      Alert.alert("Account Not Found", "We couldn't find an account with that email in our nest.");
+      showNotice({ title: "Account Not Found", message: "We couldn't find an account with that email in our nest.", variant: "info" });
     } finally {
       setLoading(false);
     }

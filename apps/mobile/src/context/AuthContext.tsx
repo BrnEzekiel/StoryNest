@@ -1,21 +1,30 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth } from "../api/firebaseConfig";
 import apiClient from "../api/apiClient";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Storage } from "../utils/Storage";
 import { triggerLocalNotification } from "../utils/NotificationService";
+import { resetLimits } from "../utils/rateLimit";
+import { shouldSignOutOnRestoreError } from "../utils/session";
+import { warmupServer } from "../utils/warmup";
+import { ensureChatKeys } from "../utils/crypto";
 import { Audio } from 'expo-av';
+
+const USER_SNAPSHOT_KEY = "@sn_auth_user";
 
 interface User {
   id: string;
   email: string;
   username: string;
-  role: "READER" | "ADMIN";
+  role: "READER" | "WRITER" | "ADMIN";
   avatarUrl?: string | null;
   totalReadTime?: number;
   streakCount?: number;
   notificationsOn?: boolean;
+  discoverable?: boolean;
+  publicKey?: string | null;
   isPremium?: boolean;
   coins?: number;
   readerTheme?: string;
@@ -34,7 +43,11 @@ interface AuthContextType {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  
+  /** Instant local update (e.g. avatar) + persisted snapshot. */
+  updateUser: (patch: Partial<User>) => Promise<void>;
+  /** Null on success, human-readable error otherwise. */
+  upgradeToWriter: () => Promise<string | null>;
+
   // v2.0 Methods
   initiateRegistration: (email: string, dob: Date) => Promise<void>;
   verifyOTP: (email: string, otp: string) => Promise<void>;
@@ -44,14 +57,16 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null, 
-  loading: true, 
+  user: null,
+  loading: true,
   hasUnreadMessages: false,
   setHasUnreadMessages: () => {},
-  login: async () => {}, 
+  login: async () => {},
   loginWithGoogle: async () => {},
-  logout: async () => {}, 
+  logout: async () => {},
   refreshUser: async () => {},
+  updateUser: async () => {},
+  upgradeToWriter: async () => "Not signed in.",
   initiateRegistration: async () => {},
   verifyOTP: async () => {},
   finalizeRegistration: async () => {},
@@ -59,11 +74,25 @@ const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => {},
 });
 
+const persistSnapshot = async (u: User | null) => {
+  try {
+    if (u) await AsyncStorage.setItem(USER_SNAPSHOT_KEY, JSON.stringify(u));
+    else await AsyncStorage.removeItem(USER_SNAPSHOT_KEY);
+  } catch {}
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [lastMessageCount, setLastMessageCount] = useState(0);
+  // Synchronous mirror of the user for persistence: setState updaters run
+  // at render time (not inside the setState call), so persistence must
+  // never read values computed inside an updater.
+  const userRef = useRef<User | null>(null);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // --- PERSISTENCE LOGIC ---
   useEffect(() => {
@@ -95,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
           const res = await apiClient.get("/messages/conversations");
           const totalMsgs = res.data.length;
-          
+
           if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
               setHasUnreadMessages(true);
               triggerLocalNotification("StoryNest", "You have new messages waiting in the nest!");
@@ -107,23 +136,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const restoreSession = async () => {
     console.log("[Auth] restoreSession started...");
+    // Wake a sleeping backend while the app boots (fire-and-forget).
+    warmupServer();
     try {
-      console.log("[Auth] Checking for accessToken in storage...");
-      const accessToken = await Storage.getItem("accessToken");
-      console.log("[Auth] Access token found:", accessToken ? "YES" : "NO");
-      
+      // 1. Instant paint from the locally saved snapshot — the app opens
+      // signed-in immediately, even on a cold backend or flaky network.
+      const [snapshotRaw, accessToken] = await Promise.all([
+        AsyncStorage.getItem(USER_SNAPSHOT_KEY),
+        Storage.getItem("accessToken"),
+      ]);
+      if (snapshotRaw) {
+        try {
+          setUser(JSON.parse(snapshotRaw));
+          console.log("[Auth] Restored user from local snapshot.");
+        } catch {}
+      }
+      setLoading(false);
+
+      // 2. Silent background revalidation (never blocks the UI).
       if (accessToken) {
-        console.log("[Auth] Verifying session with backend...");
-        const res = await apiClient.get("/users/me");
-        console.log("[Auth] Session verified, user:", res.data?.username);
-        setUser(res.data);
-      } else {
+        try {
+          const res = await apiClient.get("/users/me");
+          setUser(res.data);
+          persistSnapshot(res.data);
+          ensureChatKeys(res.data?.id, res.data?.publicKey).catch(() => {});
+          console.log("[Auth] Session verified, user:", res.data?.username);
+        } catch (err: any) {
+          // Definitive rejection => session is truly dead, sign out.
+          // Anything else (timeout, sleepy server, inconclusive refresh)
+          // => keep the snapshot.
+          if (shouldSignOutOnRestoreError(err)) {
+            console.log("[Auth] Session rejected by server, signing out.");
+            await Storage.removeItem("accessToken");
+            await Storage.removeItem("refreshToken");
+            await persistSnapshot(null);
+            setUser(null);
+          } else {
+            console.log("[Auth] Background revalidation failed, keeping local session:", err.message);
+          }
+        }
+      } else if (!snapshotRaw) {
         console.log("[Auth] No active session found.");
       }
     } catch (err: any) {
-      console.log("[Auth] Session restoration failed/expired:", err.message);
-    } finally {
-      console.log("[Auth] restoreSession finished, setting loading to false.");
+      console.log("[Auth] Session restoration failed:", err.message);
       setLoading(false);
     }
   };
@@ -131,26 +187,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     console.log(`[Auth] Attempting login for ${email}...`);
     try {
-        let idToken = null;
-        try {
-            console.log(`[Auth] STEP 1: Trying Firebase Sign-In (5s timeout)...`);
-            const firebaseAuthPromise = signInWithEmailAndPassword(auth, email, password);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase Timeout")), 5000));
-            const { user: firebaseUser } = await Promise.race([firebaseAuthPromise, timeoutPromise]) as any;
-            console.log(`[Auth] Firebase User authenticated: ${firebaseUser.uid}`);
-            idToken = await firebaseUser.getIdToken();
-        } catch (firebaseErr: any) {
-            console.log(`[Auth] Firebase sign-in skipped/failed: ${firebaseErr.message}`);
-        }
-        
-        console.log(`[Auth] STEP 2: Backend Authentication...`);
-        const res = await apiClient.post("/auth/login", idToken ? { idToken } : { email, password });
+        console.log(`[Auth] Direct backend authentication...`);
+        const res = await apiClient.post("/auth/login", { email, password });
         console.log(`[Auth] Backend Login Success`);
-        
+
         const { user: backendUser, accessToken, refreshToken } = res.data;
         await Storage.setItem("accessToken", accessToken);
         await Storage.setItem("refreshToken", refreshToken);
+        await persistSnapshot(backendUser);
         setUser(backendUser);
+        // Chat keys: create once, publish the public half (never blocks login).
+        ensureChatKeys(backendUser.id, backendUser.publicKey).catch(() => {});
     } catch (err: any) {
         console.error(`[Auth] Login Failed:`, err.message || err);
         throw err;
@@ -158,15 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async (idToken: string) => {
-    const credential = GoogleAuthProvider.credential(idToken);
-    const { user: firebaseUser } = await signInWithCredential(auth, credential);
-    const firebaseIdToken = await firebaseUser.getIdToken();
-    const res = await apiClient.post("/auth/login", { idToken: firebaseIdToken });
-    
-    const { user: backendUser, accessToken, refreshToken } = res.data;
-    await Storage.setItem("accessToken", accessToken);
-    await Storage.setItem("refreshToken", refreshToken);
-    setUser(backendUser);
+    throw new Error("Google Sign-In is temporarily disabled.");
   };
 
   const initiateRegistration = async (email: string, dob: Date) => {
@@ -196,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw firebaseErr;
             }
         }
-        
+
         // 2. Complete Backend Registration
         console.log(`[Auth] STEP 2: Completing backend registration...`);
         const res = await apiClient.post("/auth/register", {
@@ -208,7 +247,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { user: backendUser, accessToken, refreshToken } = res.data;
         await Storage.setItem("accessToken", accessToken);
         await Storage.setItem("refreshToken", refreshToken);
+        await persistSnapshot(backendUser);
         setUser(backendUser);
+        ensureChatKeys(backendUser.id, backendUser.publicKey).catch(() => {});
     } catch (err: any) {
         console.log("[Auth] Finalization error details:", {
             message: err.message,
@@ -236,6 +277,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signOut(auth);
     await Storage.removeItem("accessToken");
     await Storage.removeItem("refreshToken");
+    await persistSnapshot(null);
+    resetLimits();
     setUser(null);
   };
 
@@ -244,16 +287,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("[Auth] Refreshing user data from backend...");
       const res = await apiClient.get("/users/me");
       setUser(res.data);
+      persistSnapshot(res.data);
       console.log("[Auth] User data refreshed:", res.data.username);
     } catch (e: any) {
       console.log("[Auth] Refresh failed:", e.message);
     }
   };
 
+  const updateUser = async (patch: Partial<User>) => {
+    const prev = userRef.current;
+    const next: User = prev ? { ...prev, ...patch } : (patch as User);
+    userRef.current = next;
+    setUser(next);
+    await persistSnapshot(next);
+  };
+
+  // Readers can promote themselves to writers (never to admin: the server
+  // enforces that). Fresh tokens carry the new role immediately.
+  const upgradeToWriter = async (): Promise<string | null> => {
+    try {
+      const res = await apiClient.post("/users/me/role", { role: "WRITER" });
+      const { user: updated, accessToken, refreshToken } = res.data;
+      if (accessToken) await Storage.setItem("accessToken", accessToken);
+      if (refreshToken) await Storage.setItem("refreshToken", refreshToken);
+      setUser({ ...updated, token: accessToken });
+      userRef.current = { ...updated, token: accessToken };
+      await persistSnapshot({ ...updated, token: accessToken });
+      return null;
+    } catch (e: any) {
+      return e?.response?.data?.error || "Could not upgrade your account. Check your connection and try again.";
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, loading, hasUnreadMessages, setHasUnreadMessages, 
-      login, loginWithGoogle, logout, refreshUser,
+    <AuthContext.Provider value={{
+      user, loading, hasUnreadMessages, setHasUnreadMessages,
+      login, loginWithGoogle, logout, refreshUser, updateUser, upgradeToWriter,
       initiateRegistration, verifyOTP, finalizeRegistration,
       forgotPassword, resetPassword
     }}>

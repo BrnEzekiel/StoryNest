@@ -3,7 +3,7 @@
     "name": "StoryNest",
     "slug": "mobile",
     "jsEngine": "hermes",
-    "version": "1.0.2",
+    "version": "1.0.6",
     "scheme": "storynest",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.storynest.mobile",
-      "buildNumber": "3"
+      "buildNumber": "6"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +25,7 @@
       },
       "package": "com.storynest.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 3,
+      "versionCode": 7,
       "permissions": [
         "INTERNET",
         "VIBRATE",
@@ -40,15 +40,16 @@
     "extra": {
       "eas": {
         "projectId": "8a588efb-64b8-4d60-9e9b-205403b2b363"
-      }
+      },
+      "apiUrl": "http://localhost:5000"
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
-      "enabled": false,
-      "checkOnLaunch": "NEVER",
+      "enabled": true,
+      "checkAutomatically": "NEVER",
       "fallbackToCacheTimeout": 0
     },
     "owner": "brnezekiel",

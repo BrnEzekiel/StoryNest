@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -14,7 +15,8 @@ import { StatusBar } from "expo-status-bar";
 export const ResetPasswordScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { fonts, theme, isDarkMode } = useTheme();
-  const { email, otp } = route.params;
+  const { showNotice } = useNotice();
+  const { email, otp, from } = route.params;
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,28 +24,31 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
 
   const handleReset = async () => {
     if (!newPassword || !confirmPassword) {
-      Alert.alert("Required", "Please fill in both fields.");
+      showNotice({ title: "Required", message: "Please fill in both fields.", variant: "info" });
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Weak Password", "Security first! Please use at least 6 characters.");
+      showNotice({ title: "Weak Password", message: "Security first! Please use at least 6 characters.", variant: "info" });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Mismatch", "Passwords do not match.");
+      showNotice({ title: "Mismatch", message: "Passwords do not match.", variant: "info" });
       return;
     }
 
     setLoading(true);
     try {
       await resetPassword({ email, otp, newPassword });
-      Alert.alert("Success", "Your password has been updated. You can now login.", [
-        { text: "Go to Login", onPress: () => navigation.navigate("Login") }
-      ]);
+      showNotice({
+        title: "Success",
+        message: "Your password has been updated. You can now login.",
+        variant: "success",
+        actions: [{ label: from === "settings" ? "Back to Settings" : "Go to Login", kind: "primary", onPress: () => navigation.navigate(from === "settings" ? "Settings" : "Login") }],
+      });
     } catch (err: any) {
-      Alert.alert("Error", "Failed to reset password. The code might have expired.");
+      showNotice({ title: "Error", message: "Failed to reset password. The code might have expired.", variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -65,21 +70,27 @@ export const ResetPasswordScreen = ({ route, navigation }: any) => {
 
         <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
             <ScrollView contentContainerStyle={styles.formContent}>
-                <TextField 
-                    label="NEW PASSWORD" 
-                    value={newPassword} 
-                    onChangeText={setNewPassword} 
-                    placeholder="••••••••" 
-                    secureTextEntry 
+                <TextField
+                    label="NEW PASSWORD"
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="••••••••"
+                    secureTextEntry
                     icon="lock"
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                    importantForAutofill="yes"
                 />
-                <TextField 
-                    label="CONFIRM PASSWORD" 
-                    value={confirmPassword} 
-                    onChangeText={setConfirmPassword} 
-                    placeholder="••••••••" 
-                    secureTextEntry 
+                <TextField
+                    label="CONFIRM PASSWORD"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="••••••••"
+                    secureTextEntry
                     icon="lock"
+                    autoComplete="password-new"
+                    textContentType="newPassword"
+                    importantForAutofill="yes"
                 />
 
                 <Button 

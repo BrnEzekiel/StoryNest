@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, Bell, X, Sparkles, Users } from "lucide-react-native";
@@ -9,7 +10,8 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { NotificationDot } from "../components/NotificationDot";
 import apiClient from "../api/apiClient";
-import { useFocusEffect } from "@react-navigation/native";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
@@ -19,18 +21,34 @@ export const HomeScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { user, hasUnreadMessages } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
-  
-  const [stories, setStories] = useState<any[]>([]);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [recsLoading, setRecsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { showNotice } = useNotice();
+
   const [activeGenre, setActiveGenre] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [greeting, setGreeting] = useState("");
-  
+
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
+
+  // Cached queries: instant paint from device, silent background sync.
+  // Navigating away and back never blanks or reloads the screen.
+  const storiesQuery = useCachedQuery<any[]>(
+    searchQuery ? null : `home:stories:${activeGenre}`,
+    async () => {
+      const url = activeGenre === "All" ? "/stories" : `/stories?genre=${activeGenre}`;
+      const res = await apiClient.get(url);
+      return res.data;
+    }
+  );
+  const recsQuery = useCachedQuery<any[]>("home:recs", async () => {
+    const res = await apiClient.get("/stories/recommendations");
+    return res.data;
+  });
+
+  const stories = searchQuery ? (searchResults || []) : (storiesQuery.data || []);
+  const recommendations = recsQuery.data || [];
+  const isFirstLoad = !searchQuery && storiesQuery.isFirstLoad && storiesQuery.data === null;
 
   useEffect(() => {
     const hours = new Date().getHours();
@@ -43,63 +61,41 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
   const resetHome = useCallback(() => {
     setSearchQuery("");
+    setSearchResults(null);
     setActiveGenre("All");
-    fetchData("All", "");
     if (searchInputRef.current) searchInputRef.current.blur();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-      fetchRecommendations();
-      if (route.params?.reset) {
-        resetHome();
-        navigation.setParams({ reset: undefined });
-      }
-    }, [route.params?.reset])
-  );
-
-  const fetchData = async (genre = activeGenre, q = searchQuery) => {
-    try {
-      setLoading(true);
-      let url = genre === "All" ? "/stories" : `/stories?genre=${genre}`;
-      if (q) url += (url.includes("?") ? "&" : "?") + `q=${q}`;
-      const res = await apiClient.get(url);
-      setStories(res.data);
-    } catch (error: any) {
-      console.log("Error fetching home data:", error);
-      Alert.alert("Connection Problem", "We had trouble reaching the nest. Please check your internet and try again.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchRecommendations = async () => {
-    try {
-      setRecsLoading(true);
-      const res = await apiClient.get("/stories/recommendations");
-      setRecommendations(res.data);
-    } catch (e) { 
-      console.log(e); 
-      // Silently fail for recommendations unless it's a critical error
-    }
-    finally { setRecsLoading(false); }
-  };
-
+  // Handle explicit reset requests without refetching on every focus.
   useEffect(() => {
-    fetchData(activeGenre, searchQuery);
-    fetchRecommendations();
-  }, [activeGenre]);
+    if (route.params?.reset) {
+      resetHome();
+      navigation.setParams({ reset: undefined });
+    }
+  }, [route.params?.reset]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchData(activeGenre, searchQuery);
-    fetchRecommendations();
+    if (!tapThrottle("home:refresh", TAP_GAP_MS)) return;
+    storiesQuery.refresh({ showIndicator: true });
+    recsQuery.refresh();
   };
 
-  const handleSearch = () => {
-    fetchData(activeGenre, searchQuery);
+  const handleSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    if (!tapThrottle("home:search", TAP_GAP_MS)) return;
+    try {
+      // Keep old results visible while searching; empty only if none yet.
+      const url = activeGenre === "All" ? `/stories?q=${encodeURIComponent(q)}` : `/stories?genre=${activeGenre}&q=${encodeURIComponent(q)}`;
+      const res = await apiClient.get(url);
+      setSearchResults(res.data);
+    } catch (error: any) {
+      console.log("Error searching:", error);
+      showNotice({ title: "Connection Problem", message: "We had trouble reaching the nest. Please check your internet and try again.", variant: "error" });
+    }
   };
 
   const onSearchFocus = () => {
@@ -123,17 +119,17 @@ export const HomeScreen = ({ navigation, route }: any) => {
                 <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary }]}>RECOMMENDED FOR YOU</Text>
                 <Sparkles size={16} color={Colors.accent} />
               </View>
-              <FlatList 
+              <FlatList
                 data={recommendations}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={item => item.id + '_rec'}
                 renderItem={({ item, index }) => (
-                    <StoryCard 
+                    <StoryCard
                         story={item}
                         variant="compact"
                         index={index}
-                        onPress={() => navigation.navigate("Reader", { storyId: item.id })}
+                        onPress={() => navigation.navigate("Reader", { storyId: item.id, story: item })}
                     />
                 )}
               />
@@ -141,11 +137,11 @@ export const HomeScreen = ({ navigation, route }: any) => {
       )}
 
       {!searchQuery && featuredStory && (
-        <StoryCard 
-          story={featuredStory} 
-          variant="featured" 
+        <StoryCard
+          story={featuredStory}
+          variant="featured"
           index={0}
-          onPress={() => navigation.navigate("Reader", { storyId: featuredStory.id })} 
+          onPress={() => navigation.navigate("Reader", { storyId: featuredStory.id, story: featuredStory })}
         />
       )}
 
@@ -157,13 +153,13 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <TouchableOpacity onPress={resetHome}><Text style={[styles.clearText, { color: Colors.mutedTeal, fontFamily: fonts.body }]}>Clear</Text></TouchableOpacity>
         )}
       </View>
-      
+
       {!searchQuery && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
           {GENRES.map((genre) => (
-            <TouchableOpacity 
-              key={genre} 
-              onPress={() => setActiveGenre(genre)} 
+            <TouchableOpacity
+              key={genre}
+              onPress={() => setActiveGenre(genre)}
               style={[styles.genreChip, activeGenre === genre ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
             >
               <Text style={[styles.genreText, { fontFamily: fonts.body }, activeGenre === genre ? { color: theme.white, fontWeight: "600" } : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
@@ -184,12 +180,12 @@ export const HomeScreen = ({ navigation, route }: any) => {
             keyExtractor={(item) => item.id + '_nr'}
             contentContainerStyle={styles.carouselContent}
             renderItem={({ item, index }) => (
-              <StoryCard 
-                story={item} 
-                variant="compact" 
+              <StoryCard
+                story={item}
+                variant="compact"
                 index={index}
                 style={styles.carouselItem}
-                onPress={() => navigation.navigate("Reader", { storyId: item.id })} 
+                onPress={() => navigation.navigate("Reader", { storyId: item.id, story: item })}
               />
             )}
           />
@@ -210,14 +206,14 @@ export const HomeScreen = ({ navigation, route }: any) => {
             <Text style={[styles.username, { fontFamily: fonts.heading }]}>StoryNest</Text>
           </TouchableOpacity>
           <View style={styles.headerIcons}>
-            <TouchableOpacity 
-                style={styles.iconCircle} 
+            <TouchableOpacity
+                style={styles.iconCircle}
                 onPress={() => navigation.navigate("ActivityFeed")}
             >
               <Bell size={20} color={Colors.accent} />
               {hasUnreadMessages && <NotificationDot />}
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.avatarCircle}
               onPress={() => navigation.navigate("Profile")}
             >
@@ -235,13 +231,16 @@ export const HomeScreen = ({ navigation, route }: any) => {
         <View style={styles.searchWrapper}>
           <View style={styles.searchUnderlineRow}>
             <Search size={18} color={Colors.mutedTeal} style={styles.searchIcon} />
-            <TextInput 
+            <TextInput
               ref={searchInputRef}
-              placeholder="Search stories..." 
-              placeholderTextColor="rgba(255, 255, 255, 0.4)" 
+              placeholder="Search stories..."
+              placeholderTextColor="rgba(255, 255, 255, 0.4)"
               style={[styles.searchInput, { fontFamily: fonts.body }, Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })]}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(t) => {
+                setSearchQuery(t);
+                if (!t) setSearchResults(null);
+              }}
               onSubmitEditing={handleSearch}
               onFocus={onSearchFocus}
               onBlur={onSearchBlur}
@@ -268,7 +267,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
         </View>
       </View>
 
-      {loading && !refreshing ? (
+      {isFirstLoad ? (
         <View style={{ flex: 1, paddingHorizontal: Spacing.l, marginTop: Spacing.m }}>
           <SkeletonCard variant="featured" />
           <Text style={[styles.subSectionTitle, { color: isDarkMode ? Colors.mutedTeal : Colors.primary, marginBottom: 20, fontFamily: fonts.heading }]}>NEW RELEASES</Text>
@@ -284,16 +283,16 @@ export const HomeScreen = ({ navigation, route }: any) => {
           ListHeaderComponent={renderHeader}
           keyExtractor={(item) => item.id + '_all'}
           renderItem={({ item, index }) => (
-            <StoryCard 
-              story={item} 
+            <StoryCard
+              story={item}
               index={index}
-              onPress={() => navigation.navigate("Reader", { storyId: item.id })} 
+              onPress={() => navigation.navigate("Reader", { storyId: item.id, story: item })}
             />
           )}
           style={styles.body}
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+          refreshControl={<RefreshControl refreshing={storiesQuery.refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
           ListEmptyComponent={<Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories found in the nest.</Text>}
         />
       )}

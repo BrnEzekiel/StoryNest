@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { warmupServer } from "../utils/warmup";
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, KeyboardAvoidingView, Platform, Dimensions, ScrollView } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
@@ -12,26 +11,16 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { HeaderWave } from "../components/HeaderWave";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Check, Info } from "lucide-react-native";
-import Svg, { Path } from "react-native-svg";
-
-WebBrowser.maybeCompleteAuthSession();
-
-const GoogleIcon = () => (
-  <Svg width="20" height="20" viewBox="0 0 24 24">
-    <Path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-    <Path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-    <Path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-    <Path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-  </Svg>
-);
+import { Check, Info, BookOpen, PenLine } from "lucide-react-native";
+import { getFriendlyErrorMessage } from "../utils/ErrorHandler";
 
 const { height, width } = Dimensions.get("window");
 
 export const SignupScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { fonts, theme: appTheme, isDarkMode } = useTheme();
-  const { initiateRegistration, loginWithGoogle } = useAuth();
+  const { showNotice } = useNotice();
+  const { initiateRegistration } = useAuth();
   
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState("");
@@ -42,48 +31,13 @@ export const SignupScreen = ({ navigation }: any) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [accountType, setAccountType] = useState<"reader" | "writer">("reader");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Web / Default
-    androidClientId: '564839035602-t7nivq9jjg0og2t2a7tt8ttbu6ilcrip.apps.googleusercontent.com',
-    iosClientId: '564839035602-4704jm195dn39rlefq2fjc0u32ibehnd.apps.googleusercontent.com', // Placeholder
-  });
-
   useEffect(() => {
-    if (request) {
-      console.log("[Google Auth] Redirect URI:", request.redirectUri);
-    }
-  }, [request]);
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      handleGoogleLogin(id_token!);
-    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
-      setGoogleLoading(false);
-    } else if (response?.type === 'error') {
-      setGoogleLoading(false);
-      console.error("[Google Auth Response Error]", response.error);
-      if (response.error?.message?.indexOf("state") === -1) {
-        Alert.alert("Google Auth", "Handshake failed. Try clearing your phone's browser cache.");
-      }
-    }
-  }, [response]);
-
-  const handleGoogleLogin = async (idToken: string) => {
-    setLoading(true);
-    try {
-      await loginWithGoogle(idToken);
-    } catch (err: any) {
-      Alert.alert("Google Auth", "Google sign-in failed. Please try again.");
-    } finally {
-      setLoading(false);
-      setGoogleLoading(false);
-    }
-  };
+    warmupServer();
+  }, []);
 
   const handleNext = async () => {
     if (step === 1) {
@@ -114,16 +68,17 @@ export const SignupScreen = ({ navigation }: any) => {
             username: username.trim(), 
             password: password.trim(), 
             dob: dob.toISOString(), 
-            tosAccepted, 
+            tosAccepted,
             privacyAccepted,
+            accountType,
             referralCode: referralCode.trim() ? referralCode.trim().toUpperCase() : undefined
           }
         });
       } catch (err: any) {
         if (err.response?.status === 403) {
-            Alert.alert("Age Restriction", err.response.data.message);
+            showNotice({ title: "Age Restriction", message: err.response?.data?.message || "You must be 13 or older to join StoryNest.", variant: "info" });
         } else {
-            setError(err.response?.data?.error || "Registration failed. Try again.");
+            setError(getFriendlyErrorMessage(err, "Registration failed. Please check your details."));
         }
       } finally {
         setLoading(false);
@@ -139,46 +94,57 @@ export const SignupScreen = ({ navigation }: any) => {
   const renderStep1 = () => (
     <View style={styles.form}>
       <TextField label="Username" value={username} onChangeText={setUsername} placeholder="Choose your handle" icon="user" />
-      <TextField label="Email" value={email} onChangeText={setEmail} placeholder="email@example.com" icon="mail" keyboardType="email-address" />
-      <TextField 
-        label="Password" 
-        value={password} 
-        onChangeText={setPassword} 
-        placeholder="••••••••" 
-        secureTextEntry 
+      <TextField label="Email" value={email} onChangeText={setEmail} placeholder="email@example.com" icon="mail" keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" importantForAutofill="yes" />
+      <TextField
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        placeholder="••••••••"
+        secureTextEntry
         icon="lock"
+        autoComplete="password-new"
+        textContentType="newPassword"
+        importantForAutofill="yes"
       />
-      <TextField 
-        label="Invite Code (Optional)" 
-        value={referralCode} 
-        onChangeText={(text) => setReferralCode(text.toUpperCase())} 
-        placeholder="e.g. NEST-ALEX-1234" 
+      <TextField
+        label="Invite Code (Optional)"
+        value={referralCode}
+        onChangeText={(text) => setReferralCode(text.toUpperCase())}
+        placeholder="e.g. NEST-ALEX-1234"
         icon="gift"
         autoCapitalize="characters"
       />
-      {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
-      <Button title="Continue" onPress={handleNext} style={styles.signupBtn} />
-
-      <View style={styles.socialSection}>
-        <Text style={[styles.socialText, { fontFamily: fonts.heading }]}>OR JOIN WITH</Text>
-        <TouchableOpacity 
-          style={[styles.googleBtn, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.white }]} 
-          onPress={() => {
-            setGoogleLoading(true);
-            promptAsync();
-          }}
-          disabled={loading || googleLoading}
+      <Text style={[styles.roleLabel, { fontFamily: fonts.heading, color: appTheme.black }]}>I AM JOINING AS</Text>
+      <View style={styles.roleRow}>
+        <TouchableOpacity
+          style={[
+            styles.roleCard,
+            { borderColor: isDarkMode ? "rgba(255,255,255,0.15)" : "rgba(0,54,49,0.2)" },
+            accountType === "reader" && { backgroundColor: appTheme.primary, borderColor: appTheme.primary },
+          ]}
+          onPress={() => setAccountType("reader")}
+          activeOpacity={0.85}
         >
-          {googleLoading ? (
-            <ActivityIndicator size="small" color={appTheme.primary} />
-          ) : (
-            <>
-              <GoogleIcon />
-              <Text style={[styles.googleBtnText, { fontFamily: fonts.heading, color: appTheme.black }]}>Google</Text>
-            </>
-          )}
+          <BookOpen size={22} color={accountType === "reader" ? Colors.accent : appTheme.primary} />
+          <Text style={[styles.roleTitle, { fontFamily: fonts.heading, color: accountType === "reader" ? Colors.accent : appTheme.black }]}>READER</Text>
+          <Text style={[styles.roleSub, { fontFamily: fonts.body }]}>Read & listen</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.roleCard,
+            { borderColor: isDarkMode ? "rgba(255,255,255,0.15)" : "rgba(0,54,49,0.2)" },
+            accountType === "writer" && { backgroundColor: appTheme.primary, borderColor: appTheme.primary },
+          ]}
+          onPress={() => setAccountType("writer")}
+          activeOpacity={0.85}
+        >
+          <PenLine size={22} color={accountType === "writer" ? Colors.accent : appTheme.primary} />
+          <Text style={[styles.roleTitle, { fontFamily: fonts.heading, color: accountType === "writer" ? Colors.accent : appTheme.black }]}>WRITER</Text>
+          <Text style={[styles.roleSub, { fontFamily: fonts.body }]}>Create stories & podcasts</Text>
         </TouchableOpacity>
       </View>
+      {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
+      <Button title="Continue" onPress={handleNext} style={styles.signupBtn} />
     </View>
   );
 
@@ -234,7 +200,7 @@ export const SignupScreen = ({ navigation }: any) => {
 
       {error ? <Text style={[styles.errorText, { fontFamily: fonts.body }]}>{error}</Text> : null}
 
-      <Button title={loading ? "PREPARING..." : "Verify Email"} onPress={handleNext} disabled={loading} style={styles.signupBtn} />
+      <Button title={loading ? "Sending code..." : "Verify Email"} onPress={handleNext} disabled={loading} style={styles.signupBtn} />
       
       <TouchableOpacity onPress={() => setStep(1)} style={styles.backLink}>
         <Text style={[styles.backLinkText, { fontFamily: fonts.body }]}>Back to details</Text>
@@ -308,6 +274,11 @@ const styles = StyleSheet.create({
   headerUnderline: { height: 3, marginTop: 4, marginBottom: 30, width: '100%' },
   form: { width: '100%' },
   errorText: { color: Colors.error, marginBottom: 16, textAlign: "center" },
+  roleLabel: { fontSize: 11, letterSpacing: 1, marginTop: 8, marginBottom: 10 },
+  roleRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
+  roleCard: { flex: 1, borderWidth: 1.5, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 12, alignItems: "center" },
+  roleTitle: { fontSize: 14, letterSpacing: 1, marginTop: 8 },
+  roleSub: { fontSize: 11, color: Colors.mutedTeal, marginTop: 2, textAlign: "center" },
   signupBtn: { height: 56, borderRadius: 12, width: '100%' },
   complianceHeader: { fontSize: 16, marginBottom: 20 },
   datePickerBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderRadius: 12, marginBottom: 24, backgroundColor: 'rgba(0,54,49,0.02)' },

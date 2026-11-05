@@ -6,10 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
   Share,
-  Alert,
 } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Shadows } from "../theme/colors";
 import {
   ArrowLeft,
@@ -22,6 +21,9 @@ import {
   Share2,
 } from "lucide-react-native";
 import apiClient from "../api/apiClient";
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { Cache } from "../utils/Cache";
+import { checkLimit, tapThrottle, LIMITS, TAP_GAP_MS } from "../utils/rateLimit";
 import { useTheme } from "../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -31,31 +33,27 @@ export const UserProfileScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { userId } = route.params;
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
 
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const profileQuery = useCachedQuery<any>(`users:profile:${userId}`, async () => {
+    const res = await apiClient.get(`/users/${userId}/profile`);
+    return res.data;
+  });
+  const profile = profileQuery.data;
+
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-  }, [userId]);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get(`/users/${userId}/profile`);
-      setProfile(res.data);
-      setIsFollowing(Boolean(res.data?.isFollowing));
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (profile) setIsFollowing(Boolean(profile.isFollowing));
+  }, [profile?.isFollowing]);
 
   const handleFollow = async () => {
+    if (!tapThrottle(`follow:${userId}`, TAP_GAP_MS)) return;
+    const verdict = checkLimit(`follow:${userId}`, LIMITS.follow.max, LIMITS.follow.windowMs);
+    if (!verdict.allowed) return;
     const next = !isFollowing;
     setIsFollowing(next);
+    if (profile) Cache.set(`users:profile:${userId}`, { ...profile, isFollowing: next }).catch(() => {});
     try {
       await apiClient.post(`/users/${userId}/follow`);
     } catch (e) {
@@ -70,14 +68,14 @@ export const UserProfileScreen = ({ route, navigation }: any) => {
         title: "StoryNest",
       });
     } catch (e) {
-      Alert.alert("Share", "Could not open share sheet");
+      showNotice({ title: "Share", message: "Could not open share sheet", variant: "error" });
     }
   };
 
-  if (loading || !profile) {
+  if (!profile) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.white, justifyContent: "center" }]}>
-        <ActivityIndicator color={theme.primary} size="large" />
+      <View style={[styles.container, { backgroundColor: theme.white, justifyContent: "center", alignItems: "center" }]}>
+        <Text style={{ color: Colors.mutedTeal }}>Opening profile...</Text>
       </View>
     );
   }

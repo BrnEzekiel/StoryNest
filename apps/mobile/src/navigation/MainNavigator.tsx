@@ -165,6 +165,9 @@ export const MainNavigator = ({ onReady }: { onReady: () => void }) => {
           <Stack.Screen name="Explore" component={ExploreScreen} />
           <Stack.Screen name="Bookmarks" component={BookmarksScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Legal" component={LegalScreen} />
+          <Stack.Screen name="OTP" component={OTPScreen} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </>
       )}
     </Stack.Navigator>

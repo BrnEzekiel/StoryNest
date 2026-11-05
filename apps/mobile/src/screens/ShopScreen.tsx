@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, Dimensions } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Dimensions } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Zap, Crown, Check, ShoppingCart, Sparkles, Star, Palette, Image as ImageIcon, Frame } from "lucide-react-native";
@@ -10,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { HeaderWave } from "../components/HeaderWave";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 
 const { width } = Dimensions.get("window");
 
@@ -29,16 +31,18 @@ export const ShopScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
   const [loading, setLoading] = useState<string | null>(null);
 
   const handleBuyCoins = async (plan: any) => {
+    if (loading || !tapThrottle(`shop:coins:${plan.id}`, TAP_GAP_MS)) return;
     setLoading(plan.id);
     try {
         await apiClient.post("/monetization/coins/purchase", { amount: plan.amount, planId: plan.id });
         await refreshUser();
-        Alert.alert("Success!", `You've added ${plan.amount} Nest Coins to your satchel.`);
+        showNotice({ title: "Success!", message: `You've added ${plan.amount} Nest Coins to your satchel.`, variant: "success" });
     } catch (e) {
-        Alert.alert("Error", "Purchase failed. Please try again.");
+        showNotice({ title: "Error", message: "Purchase failed. Please try again.", variant: "error" });
     } finally {
         setLoading(null);
     }
@@ -46,30 +50,32 @@ export const ShopScreen = ({ navigation }: any) => {
 
   const handleBuyItem = async (item: any) => {
       if ((user?.coins || 0) < item.price) {
-          Alert.alert("Need more coins", "You don't have enough coins for this item.");
+          showNotice({ title: "Need more coins", message: "You don't have enough coins for this item.", variant: "info" });
           return;
       }
+      if (loading || !tapThrottle(`shop:item:${item.id}`, TAP_GAP_MS)) return;
 
       setLoading(item.id);
       try {
           await apiClient.post("/gamification/shop/purchase", { itemId: item.id, price: item.price, name: item.name });
           await refreshUser();
-          Alert.alert("Unlocked!", `${item.name} is now yours. You can activate it in settings.`);
+          showNotice({ title: "Unlocked!", message: `${item.name} is now yours. You can activate it in settings.`, variant: "success" });
       } catch (e) {
-          Alert.alert("Error", "Purchase failed.");
+          showNotice({ title: "Error", message: "Purchase failed.", variant: "error" });
       } finally {
           setLoading(null);
       }
   };
 
   const handleSubscribe = async () => {
+    if (loading || !tapThrottle("shop:subscribe", TAP_GAP_MS)) return;
     setLoading('sub');
     try {
         await apiClient.post("/monetization/subscribe");
         await refreshUser();
-        Alert.alert("Welcome to the Elite!", "Your Nest Plus subscription is now active.");
+        showNotice({ title: "Welcome to the Elite!", message: "Your Nest Plus subscription is now active.", variant: "success" });
     } catch (e) {
-        Alert.alert("Error", "Subscription failed. Please try again.");
+        showNotice({ title: "Error", message: "Subscription failed. Please try again.", variant: "error" });
     } finally {
         setLoading(null);
     }
@@ -93,7 +99,7 @@ export const ShopScreen = ({ navigation }: any) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-        
+
         {/* Nest Plus Section */}
         <View style={styles.section}>
             <LinearGradient
@@ -129,14 +135,14 @@ export const ShopScreen = ({ navigation }: any) => {
                 </View>
 
                 {!user?.isPremium && (
-                    <TouchableOpacity 
-                        style={styles.subBtn} 
+                    <TouchableOpacity
+                        style={[styles.subBtn, { opacity: loading === 'sub' ? 0.6 : 1 }]}
                         onPress={handleSubscribe}
                         disabled={loading === 'sub'}
                     >
-                        {loading === 'sub' ? <ActivityIndicator color={Colors.primary} /> : (
-                            <Text style={[styles.subBtnText, { fontFamily: fonts.heading }]}>JOIN THE ELITE</Text>
-                        )}
+                        <Text style={[styles.subBtnText, { fontFamily: fonts.heading }]}>
+                            {loading === 'sub' ? "JOINING..." : "JOIN THE ELITE"}
+                        </Text>
                     </TouchableOpacity>
                 )}
             </LinearGradient>
@@ -150,9 +156,9 @@ export const ShopScreen = ({ navigation }: any) => {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 20 }}>
                 {SHOP_ITEMS.map((item) => (
-                    <TouchableOpacity 
-                        key={item.id} 
-                        style={[styles.itemCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white }, Shadows.s]}
+                    <TouchableOpacity
+                        key={item.id}
+                        style={[styles.itemCard, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : Colors.white, opacity: loading === item.id ? 0.6 : 1 }, Shadows.s]}
                         onPress={() => handleBuyItem(item)}
                         disabled={!!loading}
                     >
@@ -164,11 +170,9 @@ export const ShopScreen = ({ navigation }: any) => {
                             <Zap size={12} color={Colors.accent} fill={Colors.accent} />
                             <Text style={[styles.itemPriceText, { color: theme.primary, fontFamily: fonts.heading }]}>{item.price}</Text>
                         </View>
-                        {loading === item.id ? <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 10 }} /> : (
-                            <View style={[styles.itemBuyBtn, { backgroundColor: theme.primary }]}>
-                                <Text style={[styles.itemBuyText, { fontFamily: fonts.heading }]}>BUY</Text>
-                            </View>
-                        )}
+                        <View style={[styles.itemBuyBtn, { backgroundColor: theme.primary }]}>
+                            <Text style={[styles.itemBuyText, { fontFamily: fonts.heading }]}>{loading === item.id ? "..." : "BUY"}</Text>
+                        </View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -183,9 +187,9 @@ export const ShopScreen = ({ navigation }: any) => {
 
             <View style={styles.coinGrid}>
                 {COIN_PLANS.map((plan) => (
-                    <TouchableOpacity 
-                        key={plan.id} 
-                        style={[styles.coinCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white }, Shadows.s]}
+                    <TouchableOpacity
+                        key={plan.id}
+                        style={[styles.coinCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : Colors.white, opacity: loading === plan.id ? 0.6 : 1 }, Shadows.s]}
                         onPress={() => handleBuyCoins(plan)}
                         disabled={!!loading}
                     >
@@ -200,13 +204,13 @@ export const ShopScreen = ({ navigation }: any) => {
                         </View>
                         <Text style={[styles.coinAmount, { color: theme.black, fontFamily: fonts.heading }]}>{plan.amount}</Text>
                         <Text style={[styles.coinPrice, { fontFamily: fonts.body }]}>${plan.price}</Text>
-                        {loading === plan.id ? (
-                            <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 12 }} />
-                        ) : (
-                            <View style={[styles.buyBtn, { backgroundColor: theme.primary }]}>
+                        <View style={[styles.buyBtn, { backgroundColor: theme.primary }]}>
+                            {loading === plan.id ? (
+                                <Text style={[styles.itemBuyText, { fontFamily: fonts.heading }]}>...</Text>
+                            ) : (
                                 <ShoppingCart size={14} color={theme.white} />
-                            </View>
-                        )}
+                            )}
+                        </View>
                     </TouchableOpacity>
                 ))}
             </View>

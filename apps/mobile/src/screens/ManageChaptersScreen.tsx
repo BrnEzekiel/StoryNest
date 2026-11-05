@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { ArrowLeft, Plus, Trash2, Edit2, ChevronUp, ChevronDown, Check, X, FileText, Send, Calendar } from "lucide-react-native";
@@ -10,14 +11,22 @@ import { StatusBar } from "expo-status-bar";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useCachedQuery } from "../hooks/useCachedQuery";
+import { tapThrottle, TAP_GAP_MS } from "../utils/rateLimit";
 
 export const ManageChaptersScreen = ({ route, navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { storyId, storyTitle } = route.params;
   const { theme, fonts, isDarkMode } = useTheme();
+  const { showNotice } = useNotice();
 
-  const [chapters, setChapters] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const chaptersQuery = useCachedQuery<any[]>(`chapters:${storyId}`, async () => {
+    const res = await apiClient.get(`/stories/${storyId}/chapters`);
+    return res.data;
+  });
+  const chapters = chaptersQuery.data || [];
+  const isFirstLoad = chaptersQuery.isFirstLoad && !chaptersQuery.data;
+
   const [editingChapter, setEditingChapter] = useState<any>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -28,21 +37,11 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
   const [publishedAt, setPublishedAt] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  useEffect(() => {
-    fetchChapters();
-  }, [storyId]);
-
-  const fetchChapters = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get(`/stories/${storyId}/chapters`);
-      setChapters(res.data);
-    } catch (error) { console.log(error); }
-    finally { setLoading(false); }
-  };
+  const fetchChapters = () => chaptersQuery.refresh();
 
   const handleSave = async () => {
     if (!title.trim() || !body.trim()) return;
+    if (submitLoading || !tapThrottle(`chapters:save:${storyId}`, TAP_GAP_MS)) return;
     setSubmitLoading(true);
     try {
       const payload = { title, body, publishedAt: publishedAt?.toISOString() || null };
@@ -54,7 +53,7 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
       fetchChapters();
       setIsAdding(false);
       resetForm();
-    } catch (e) { Alert.alert("Error", "Failed to save chapter."); }
+    } catch (e) { showNotice({ title: "Error", message: "Failed to save chapter.", variant: "error" }); }
     finally { setSubmitLoading(false); }
   };
 
@@ -74,15 +73,20 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
   };
 
   const handleDelete = (id: string) => {
-      Alert.alert("Delete Chapter", "Permanent action. Confirm?", [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: async () => {
-              try {
-                  await apiClient.delete(`/chapters/${id}`);
-                  fetchChapters();
-              } catch (e) { console.log(e); }
-          }}
-      ]);
+      showNotice({
+          title: "Delete Chapter",
+          message: "Permanent action. Confirm?",
+          variant: "error",
+          actions: [
+              { label: "Cancel", kind: "ghost" },
+              { label: "Delete", kind: "destructive", onPress: async () => {
+                  try {
+                      await apiClient.delete(`/chapters/${id}`);
+                      fetchChapters();
+                  } catch (e) { console.log(e); }
+              }},
+          ],
+      });
   };
 
   if (isAdding) {
@@ -99,10 +103,10 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                   <ScrollView style={styles.formContent} contentContainerStyle={{ paddingBottom: 40 }}>
                       <TextField label="Chapter Title" value={title} onChangeText={setTitle} placeholder="e.g. The Beginning" />
-                      
+
                       <View style={styles.scheduleRow}>
                           <Text style={[styles.fieldLabel, { color: theme.primary, fontFamily: fonts.heading }]}>PUBLISH DATE</Text>
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             style={[styles.dateBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen }]}
                             onPress={() => setShowDatePicker(true)}
                           >
@@ -132,21 +136,19 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
                           <Text style={[styles.fieldLabel, { color: theme.primary, fontFamily: fonts.heading }]}>CHAPTER BODY</Text>
                           <Text style={[styles.wordCount, { color: Colors.mutedTeal, fontFamily: fonts.body }]}>{body.trim() ? body.trim().split(/\s+/).length : 0} words</Text>
                       </View>
-                      <TextInput 
-                        style={[styles.modalInput, { height: 400, textAlignVertical: 'top', paddingTop: 16, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : Colors.lightForest, color: theme.black, fontFamily: fonts.body, padding: 16, borderRadius: 12, borderWidth: 0.5 }]} 
-                        value={body} 
-                        onChangeText={setBody} 
-                        placeholder="Write your chapter here..." 
+                      <TextInput
+                        style={[styles.modalInput, { height: 400, textAlignVertical: 'top', paddingTop: 16, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : Colors.lightForest, color: theme.black, fontFamily: fonts.body, padding: 16, borderRadius: 12, borderWidth: 0.5 }]}
+                        value={body}
+                        onChangeText={setBody}
+                        placeholder="Write your chapter here..."
                         placeholderTextColor={Colors.mutedTeal}
-                        multiline 
+                        multiline
                       />
-                      
-                      {submitLoading ? <ActivityIndicator color={Colors.accent} style={{ marginTop: 20 }} /> : (
-                          <View style={{ marginTop: 20 }}>
-                              <Button title="SAVE CHAPTER" onPress={handleSave} type="primary" />
-                              <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
-                          </View>
-                      )}
+
+                      <View style={{ marginTop: 20 }}>
+                          <Button title={submitLoading ? "SAVING..." : "SAVE CHAPTER"} onPress={handleSave} type="primary" disabled={submitLoading} />
+                          <Button title="CANCEL" onPress={() => { setIsAdding(false); resetForm(); }} type="ghost" style={{ marginTop: 12 }} />
+                      </View>
                   </ScrollView>
               </KeyboardAvoidingView>
           </View>
@@ -170,7 +172,7 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
       </View>
 
       <ScrollView style={styles.listContent}>
-          {loading ? [1, 2].map(i => <View key={i} style={[styles.skeleton, { backgroundColor: theme.primary + '10' }]} />) : (
+          {isFirstLoad ? [1, 2].map(i => <View key={i} style={[styles.skeleton, { backgroundColor: theme.primary + '10' }]} />) : (
               chapters.length === 0 ? (
                   <View style={styles.emptyContainer}>
                       <FileText size={64} color={Colors.mutedTeal} strokeWidth={1} />

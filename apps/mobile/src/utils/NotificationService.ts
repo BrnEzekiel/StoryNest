@@ -39,6 +39,32 @@ export const initNotifications = async () => {
   }
 };
 
+/**
+ * Playback indicator: sits quietly in the tray while audio plays.
+ * Returns the notification id so the caller can dismiss it on pause/stop.
+ */
+export const presentPlaybackNotification = async (title: string, body: string): Promise<string | undefined> => {
+  try {
+    if (Platform.OS === "web") return undefined;
+    return await Notifications.scheduleNotificationAsync({
+      content: { title, body, data: { screen: "Podcasts" } },
+      trigger: null,
+    });
+  } catch (err) {
+    console.log("[NotificationService] playback notification error:", err);
+    return undefined;
+  }
+};
+
+export const dismissPlaybackNotification = async (id?: string | null): Promise<void> => {
+  try {
+    if (Platform.OS === "web" || !id) return;
+    await Notifications.dismissNotificationAsync(id);
+  } catch (err) {
+    console.log("[NotificationService] dismiss notification error:", err);
+  }
+};
+
 export const triggerLocalNotification = async (title: string, body: string) => {
   try {
     if (Platform.OS === "web") return;

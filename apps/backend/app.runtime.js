@@ -148,6 +148,23 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 // make valid OTP codes report as "expired").
 const normalizeEmail = (value) => (value === null || value === undefined ? "" : String(value)).toLowerCase().trim();
 
+// Common freemail domain typos -> correction. Catches "did you mean" cases
+// (e.g. gmaill.com) whose OTP emails would otherwise vanish into the void.
+const EMAIL_TYPO_DOMAINS = {
+    "gmaill.com": "gmail.com", "gmial.com": "gmail.com", "gamil.com": "gmail.com",
+    "gnail.com": "gmail.com", "gmail.con": "gmail.com", "gmali.com": "gmail.com",
+    "yahooo.com": "yahoo.com", "yaho.com": "yahoo.com", "yahoo.con": "yahoo.com",
+    "hotmai.com": "hotmail.com", "hotnail.com": "hotmail.com", "hotmail.con": "hotmail.com",
+    "outlook.con": "outlook.com", "outlok.com": "outlook.com",
+    "icloud.con": "icloud.com", "iclod.com": "icloud.com",
+};
+const suggestEmailCorrection = (email) => {
+    const at = email.lastIndexOf("@");
+    if (at === -1) return null;
+    const fix = EMAIL_TYPO_DOMAINS[email.slice(at + 1).toLowerCase()];
+    return fix ? email.slice(0, at + 1) + fix : null;
+};
+
 const generateReferralCode = (username = "NEST") => {
     const clean = (username || "NEST").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5) || "NEST";
     const rand = Math.floor(1000 + Math.random() * 9000);
@@ -350,6 +367,8 @@ app.post("/auth/otp/initiate", otpLimiter, async (req, res) => {
     const { dob } = req.body;
     const email = normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ error: "Email is required" });
+    const typoFix = suggestEmailCorrection(email);
+    if (typoFix) return res.status(400).json({ error: `Did you mean ${typoFix}? Please check your email address.`, suggestion: typoFix });
     try {
         const otp = generateOTP();
         const expiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -392,6 +411,8 @@ app.post("/auth/otp/verify", otpLimiter, async (req, res) => {
 app.post("/auth/password/forgot", otpLimiter, async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ error: "Email is required" });
+    const typoFix = suggestEmailCorrection(email);
+    if (typoFix) return res.status(400).json({ error: `Did you mean ${typoFix}? Please check your email address.`, suggestion: typoFix });
     try {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return res.status(404).json({ error: "No account with that email" });

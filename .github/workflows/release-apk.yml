@@ -1,8 +1,8 @@
 name: Release APK
 
 # Public distribution without a Play Store account. The release APK is built
-# and device-verified locally, committed under dist/, and attached here when
-# a version tag is pushed:
+# and device-verified locally, committed under releases/, and attached here
+# when a version tag is pushed:
 #   git tag v1.0.6 && git push origin v1.0.6
 # (Cloud builds were tried and shelved: the Gradle step fails on runners for
 # reasons invisible without repo-admin log access. Local builds are reliable.)
@@ -26,7 +26,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: "dist/*.apk"
+          files: "releases/*.apk"
           generate_release_notes: true
           body: |
             ## Install on Android

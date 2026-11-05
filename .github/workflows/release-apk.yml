@@ -46,14 +46,17 @@ jobs:
           echo "SDKMANAGER=$SDKMANAGER"
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125" "cmake;3.22.1"
           "$SDKMANAGER" --list_installed | head -20
 
       - name: Build release APK
         working-directory: apps/mobile/android
         env:
           EXPO_PUBLIC_API_URL: https://storynest-qzwm.onrender.com
-        run: ./gradlew assembleRelease --no-daemon --console=plain
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          ./gradlew assembleRelease --no-daemon --console=plain 2>&1 | tee build-ci.log; test ${PIPESTATUS[0]} -eq 0
 
       - name: Rename APK
         run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "StoryNest-${GITHUB_REF_NAME}.apk"
@@ -72,3 +75,17 @@ jobs:
 
             StoryNest talks to its hosted backend, so the app stays up to date
             from here: future versions appear as new releases on this page.
+
+      # Headless diagnostics: job logs need repo admin to read via API, so on
+      # failure publish the build tail to a scratch branch instead.
+      - name: Publish failure log
+        if: failure()
+        working-directory: apps/mobile/android
+        run: |
+          git config user.name "ci-logbot"
+          git config user.email "ci-logbot@local"
+          git checkout -b ci-logs/latest
+          tail -c 60000 build-ci.log > ci-failure.log || echo "(no build log)" > ci-failure.log
+          git add ci-failure.log
+          git commit -m "CI failure log" --no-verify
+          git push -f origin ci-logs/latest

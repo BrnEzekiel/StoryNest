@@ -5,6 +5,7 @@ import type { ReactTestRenderer } from "react-test-renderer";
 (global as any).IS_REACT_ACT_ENVIRONMENT = true;
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthProvider, useAuth } from "../AuthContext";
+import { triggerLocalNotification } from "../../utils/NotificationService";
 
 jest.mock("firebase/auth", () => ({
   GoogleAuthProvider: jest.fn(),
@@ -107,6 +108,72 @@ describe("AuthContext session persistence", () => {
     expect(snap.avatarUrl).toBe("https://x/y.png");
     await act(async () => {
       root!.unmount();
+    });
+  });
+});
+
+describe("AuthContext message notifications", () => {
+  const apiClient: any = require("../../api/apiClient").default;
+  const notifyCalls = () => (triggerLocalNotification as any).mock.calls.length;
+  const convo = (lastMessage: any) => [{ user: { id: "u2", username: "bea" }, lastMessage }];
+
+  beforeEach(() => {
+    (jest as any).useFakeTimers();
+    (triggerLocalNotification as any).mockClear();
+    apiClient.get.mockReset();
+  });
+  afterEach(() => {
+    (jest as any).useRealTimers();
+  });
+
+  const mountWith = async (first: any[]) => {
+    apiClient.get.mockImplementation(async () => ({ data: first }));
+    await AsyncStorage.setItem(SNAPSHOT_KEY, JSON.stringify(seedUser));
+    let root: ReactTestRenderer | undefined;
+    await act(async () => {
+      root = renderer.create(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>,
+        createOptions
+      );
+    });
+    await act(async () => {});
+    return root!;
+  };
+  const tickPoll = async () => {
+    await act(async () => {
+      (jest as any).advanceTimersByTime(15000);
+    });
+    await act(async () => {});
+  };
+
+  test("notifies when a new message arrives in an existing conversation", async () => {
+    const root = await mountWith(
+      convo({ id: "m1", senderId: "u2", createdAt: "2026-01-01T00:00:00Z", content: "hi" })
+    );
+    expect(notifyCalls()).toBe(0);
+    apiClient.get.mockImplementation(async () => ({
+      data: convo({ id: "m2", senderId: "u2", createdAt: "2026-01-01T00:00:01Z", content: "yo" }),
+    }));
+    await tickPoll();
+    expect(notifyCalls()).toBe(1);
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("stays silent for own messages", async () => {
+    const root = await mountWith(
+      convo({ id: "m1", senderId: "u2", createdAt: "2026-01-01T00:00:00Z", content: "hi" })
+    );
+    apiClient.get.mockImplementation(async () => ({
+      data: convo({ id: "m3", senderId: "u1", createdAt: "2026-01-01T00:00:02Z", content: "mine" }),
+    }));
+    await tickPoll();
+    expect(notifyCalls()).toBe(0);
+    await act(async () => {
+      root.unmount();
     });
   });
 });

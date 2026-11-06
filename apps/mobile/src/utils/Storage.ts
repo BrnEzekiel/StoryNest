@@ -1,16 +1,22 @@
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import { withTimeout } from "./promise";
+
+// The system keystore can stall forever on some devices (seen as the app
+// freezing on "VERIFIED! ENTERING NEST"). Every SecureStore call gets a hard
+// deadline and then falls back to AsyncStorage instead of hanging the app.
+const SECURE_STORE_TIMEOUT_MS = 8000;
 
 export const Storage = {
-  setItem: async (key: string, value: string): Promise<void> => {
+  setItem: async (key: string, value: string, timeoutMs: number = SECURE_STORE_TIMEOUT_MS): Promise<void> => {
     try {
       if (Platform.OS === 'web') {
         localStorage.setItem(key, value);
         return;
       }
       try {
-        await SecureStore.setItemAsync(key, value);
+        await withTimeout(SecureStore.setItemAsync(key, value), timeoutMs, `SecureStore set ${key} timed out`);
       } catch (secErr) {
         // Fallback to AsyncStorage on older Android versions or devices without KeyStore
         await AsyncStorage.setItem(key, value);
@@ -23,13 +29,13 @@ export const Storage = {
     }
   },
 
-  getItem: async (key: string): Promise<string | null> => {
+  getItem: async (key: string, timeoutMs: number = SECURE_STORE_TIMEOUT_MS): Promise<string | null> => {
     try {
       if (Platform.OS === 'web') {
         return localStorage.getItem(key);
       }
       try {
-        const val = await SecureStore.getItemAsync(key);
+        const val = await withTimeout(SecureStore.getItemAsync(key), timeoutMs, `SecureStore get ${key} timed out`);
         if (val !== null) return val;
       } catch (secErr) {
         // Fallback to AsyncStorage
@@ -47,14 +53,14 @@ export const Storage = {
     }
   },
 
-  removeItem: async (key: string): Promise<void> => {
+  removeItem: async (key: string, timeoutMs: number = SECURE_STORE_TIMEOUT_MS): Promise<void> => {
     try {
       if (Platform.OS === 'web') {
         localStorage.removeItem(key);
         return;
       }
       try {
-        await SecureStore.deleteItemAsync(key);
+        await withTimeout(SecureStore.deleteItemAsync(key), timeoutMs, `SecureStore delete ${key} timed out`);
       } catch (secErr) {}
       await AsyncStorage.removeItem(key);
     } catch (e: any) {

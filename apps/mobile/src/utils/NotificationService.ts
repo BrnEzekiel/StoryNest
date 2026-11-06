@@ -75,7 +75,7 @@ export const triggerLocalNotification = async (title: string, body: string) => {
         body,
         sound: 'notification.wav',
         priority: Notifications.AndroidNotificationPriority.MAX,
-        data: { screen: 'ActivityFeed' }
+        data: { screen: 'Messages' }
       },
       trigger: null, // Show immediately
     });

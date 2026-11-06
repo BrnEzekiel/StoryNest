@@ -50,6 +50,7 @@ export const MessagesScreen = ({ route, navigation }: any) => {
 
   const flatListRef = useRef<FlatList>(null);
   const sendingRef = useRef(false);
+  const lastMsgIdRef = useRef<string | null>(null);
 
   // Cached: conversations paint instantly, threads sync silently per chat.
   const convosQuery = useCachedQuery<any[]>("messages:conversations", async () => {
@@ -128,6 +129,7 @@ export const MessagesScreen = ({ route, navigation }: any) => {
   }, [conversations]);
 
   useEffect(() => {
+      lastMsgIdRef.current = null;
       if (activeChat) {
           markAllAsRead(activeChat.id);
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 200);
@@ -136,6 +138,38 @@ export const MessagesScreen = ({ route, navigation }: any) => {
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChat?.id]);
+
+  // Live sync: the open thread refreshes every few seconds so replies land
+  // without leaving the chat; the inbox refreshes while it is visible.
+  // Polling pauses mid-send so the optimistic bubble never flickers out.
+  useEffect(() => {
+      if (showOptions || isEditing) return;
+      const t = setInterval(() => {
+          if (sendingRef.current) return;
+          if (activeChat) threadQuery.refresh();
+          else convosQuery.refresh();
+      }, activeChat ? 4000 : 15000);
+      return () => clearInterval(t);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChat?.id, showOptions, isEditing]);
+
+  // A fresh message from the peer scrolls into view and clears the badge.
+  useEffect(() => {
+      if (!activeChat || messages.length === 0) return;
+      const last = messages[messages.length - 1];
+      if (lastMsgIdRef.current === null) {
+          lastMsgIdRef.current = last.id;
+          return;
+      }
+      if (last.id !== lastMsgIdRef.current) {
+          lastMsgIdRef.current = last.id;
+          if (last.senderId !== user?.id && !last._pending) {
+              markAllAsRead(activeChat.id);
+              flatListRef.current?.scrollToEnd({ animated: true });
+          }
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, activeChat?.id]);
 
   const markAllAsRead = async (userId: string) => {
       try {

@@ -10,6 +10,7 @@ import { resetLimits } from "../utils/rateLimit";
 import { shouldSignOutOnRestoreError } from "../utils/session";
 import { warmupServer } from "../utils/warmup";
 import { ensureChatKeys } from "../utils/crypto";
+import { withTimeout } from "../utils/promise";
 import { Audio } from 'expo-av';
 
 const USER_SNAPSHOT_KEY = "@sn_auth_user";
@@ -85,7 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const [lastMessageCount, setLastMessageCount] = useState(0);
+  // Id of the newest message seen by the poller. A ref (not state): the
+  // 15s interval would otherwise keep comparing against a stale snapshot.
+  const lastSeenMessageIdRef = useRef<string | null>(null);
   // Synchronous mirror of the user for persistence: setState updaters run
   // at render time (not inside the setState call), so persistence must
   // never read values computed inside an updater.
@@ -123,14 +126,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkNewMessages = async () => {
       try {
           const res = await apiClient.get("/messages/conversations");
-          const totalMsgs = res.data.length;
-
-          if (totalMsgs > lastMessageCount && lastMessageCount !== 0) {
-              setHasUnreadMessages(true);
-              triggerLocalNotification("StoryNest", "You have new messages waiting in the nest!");
-              playNotificationSound();
+          const convos = Array.isArray(res.data) ? res.data : [];
+          // Newest message across every conversation: a reply inside an
+          // old chat must notify too (the old conversation count never did).
+          let newest: any = null;
+          for (const c of convos) {
+              const lm = c?.lastMessage;
+              if (!lm?.id) continue;
+              if (!newest || new Date(lm.createdAt).getTime() > new Date(newest.createdAt).getTime()) newest = lm;
           }
-          setLastMessageCount(totalMsgs);
+          if (!newest) return;
+          const myId = userRef.current?.id;
+          if (lastSeenMessageIdRef.current === null) {
+              // Baseline: adopt history silently, but light the badge when
+              // unread mail from others is already waiting.
+              lastSeenMessageIdRef.current = newest.id;
+              if (convos.some((c: any) => c?.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== myId)) {
+                  setHasUnreadMessages(true);
+              }
+              return;
+          }
+          if (newest.id !== lastSeenMessageIdRef.current) {
+              lastSeenMessageIdRef.current = newest.id;
+              if (newest.senderId !== myId) {
+                  setHasUnreadMessages(true);
+                  triggerLocalNotification("StoryNest", "You have new messages waiting in the nest!");
+                  playNotificationSound();
+              }
+          }
       } catch (e) {}
   };
 
@@ -220,16 +243,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
         let firebaseUid = "";
         try {
-            // 1. Create Firebase User
+            // 1. Create Firebase User (bounded: a stalled network must surface
+            //    an error, never freeze the UI on "VERIFIED! ENTERING NEST").
             console.log(`[Auth] STEP 1: Creating Firebase user for ${data.email}...`);
-            const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, data.email, data.password);
+            const { user: firebaseUser } = await withTimeout(
+                createUserWithEmailAndPassword(auth, data.email, data.password),
+                25000,
+                "Firebase signup took too long"
+            );
             firebaseUid = firebaseUser.uid;
             console.log(`[Auth] Firebase User Created: ${firebaseUid}`);
         } catch (firebaseErr: any) {
             // If user already exists in Firebase, just sign in to get the UID
             if (firebaseErr.code === 'auth/email-already-in-use') {
                 console.log(`[Auth] Firebase user already exists, signing in...`);
-                const { user: firebaseUser } = await signInWithEmailAndPassword(auth, data.email, data.password);
+                const { user: firebaseUser } = await withTimeout(
+                    signInWithEmailAndPassword(auth, data.email, data.password),
+                    25000,
+                    "Firebase sign-in took too long"
+                );
                 firebaseUid = firebaseUser.uid;
             } else {
                 throw firebaseErr;

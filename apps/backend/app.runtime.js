@@ -215,11 +215,12 @@ const sendOTPEmail = async (email, otp, type = "registration") => {
         await sendOTPEmailSMTP(email, subject, html, otp);
         return;
     } catch (e) { /* fall through to Resend */ }
-    // 2. Resend (fallback for when SMTP is down and a domain is verified).
+    // 2. Resend (last resort; without a verified domain it only delivers
+    //    to the API key owner's own inbox, so gmail.com senders are invalid).
     if (config.resendApiKey) {
         try {
             await axios.post("https://api.resend.com/emails",
-                { from: config.smtp.from, to: [email], subject, html },
+                { from: "StoryNest <onboarding@resend.dev>", to: [email], subject, html },
                 { headers: { Authorization: `Bearer ${config.resendApiKey}` }, timeout: 15000 });
             console.log(`[OTP] code emailed to ${email} via Resend`);
             return;
@@ -245,8 +246,10 @@ const sendOTPEmailSMTP = async (email, subject, html, otp) => {
             secure: config.smtp.secure,
             auth: { user: config.smtp.auth.user, pass: config.smtp.auth.pass },
         });
+        // Gmail only delivers reliably when the sender is the authenticated
+        // account, so SMTP_FROM is ignored here on purpose.
         await transporter.sendMail({
-            from: config.smtp.from,
+            from: `"StoryNest" <${config.smtp.auth.user}>`,
             to: email,
             subject,
             text: `Your StoryNest verification code is: ${otp}\nIt expires in 10 minutes. If you didn't ask for it, ignore this message.`,
@@ -320,7 +323,7 @@ const canEditStory = async (req, res, next) => {
 
 // --- ROUTES ---
 
-app.get("/health", (req, res) => res.json({ status: "ok", version: "3.8.1", schema: "social_master_v3_stable", bullmq: true, timestamp: new Date().toISOString() }));
+app.get("/health", (req, res) => res.json({ status: "ok", version: "3.8.2", schema: "social_master_v3_stable", bullmq: true, timestamp: new Date().toISOString() }));
 
 // --- QUEUE DEBUG / TEST (protect or remove in production later) ---
 app.post("/queues/test-welcome", async (req, res) => {
@@ -390,7 +393,12 @@ app.post("/auth/otp/initiate", otpLimiter, async (req, res) => {
                 coins: 0
             }
         });
-        sendOTPEmail(email, otp).catch(e => console.error(e));
+        try {
+            await sendOTPEmail(email, otp);
+        } catch (e) {
+            console.error("[OTP] code email failed:", e.message);
+            return res.status(502).json({ error: "Could not send the code to that address. Please try again later." });
+        }
         res.json({ message: "OTP sent" });
     } catch (error) { handleError(res, error); }
 });

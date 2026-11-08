@@ -17,6 +17,45 @@ import { BiometricGate } from "./src/components/BiometricGate";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import * as Notifications from "expo-notifications";
 import { initNotifications } from "./src/utils/NotificationService";
+import { runAutoUpdate } from "./src/utils/UpdateService";
+import "./src/i18n";
+import { initAppLanguage } from "./src/i18n";
+import { AppState } from "react-native";
+import { Outbox } from "./src/utils/Outbox";
+import apiClient from "./src/api/apiClient";
+import { scheduleRecurring, foregroundChecks } from "./src/utils/EngagementService";
+import { refreshFlags } from "./src/utils/Flags";
+
+const linking = {
+  prefixes: ["storynest://", "https://storynest.app"],
+  config: {
+    screens: {
+      Reader: "s/:storyId",
+      UserProfile: "user/:userId",
+      Clubs: "clubs",
+      ClubDetail: "clubs/:clubId",
+      Requests: "requests",
+      Main: {
+        screens: {
+          Home: "home",
+          Read: "explore",
+          Podcasts: "podcasts",
+        },
+      },
+    },
+  },
+};
+
+const flushOutbox = () =>
+  Outbox.flush(async (item) => {
+    if (item.kind === "like" || item.kind === "unlike") {
+      await apiClient.post(`/stories/${item.storyId}/like`);
+    } else if (item.kind === "bookmark" || item.kind === "unbookmark") {
+      await apiClient.post(`/stories/${item.storyId}/bookmark`, { progress: item.payload?.progress ?? 0 });
+    } else if (item.kind === "comment") {
+      await apiClient.post(`/stories/${item.storyId}/comments`, item.payload);
+    }
+  }).catch(() => 0);
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -47,13 +86,37 @@ export default function App() {
   useEffect(() => {
     try {
       initGlobalHandler();
+      initAppLanguage().catch(() => {});
       initNotifications().catch(() => {});
+      // Self-update: silently install OTA + APK updates when enabled.
+      setTimeout(() => runAutoUpdate(() => {}).catch(() => {}), 3000);
     } catch (e) {
       console.log("[App] Init error:", e);
     }
 
     const timer = setTimeout(() => setFontTimeoutPassed(true), 2000);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    flushOutbox();
+    scheduleRecurring().catch(() => {});
+    refreshFlags().catch(() => {});
+    const t = setTimeout(() => {
+      foregroundChecks().catch(() => {});
+      flushOutbox();
+    }, 8000);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        foregroundChecks().catch(() => {});
+        flushOutbox();
+        refreshFlags().catch(() => {});
+      }
+    });
+    return () => {
+      clearTimeout(t);
+      sub.remove();
+    };
   }, []);
 
   const readyToRender = fontsLoaded || !!fontError || fontTimeoutPassed;
@@ -77,7 +140,7 @@ export default function App() {
           <NoticeProvider>
           <AuthProvider>
             <BiometricGate>
-              <NavigationContainer
+              <NavigationContainer linking={linking as any}
                 theme={{
                   ...DefaultTheme,
                   colors: {

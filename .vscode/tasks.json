@@ -53,6 +53,22 @@
       "problemMatcher": []
     },
     {
+      "label": "Android: start emulator (StoryNest_Phone)",
+      "type": "shell",
+      "command": "emulator -avd StoryNest_Phone",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "group": "services" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: install release APK on emulator",
+      "type": "shell",
+      "command": "adb -s emulator-5554 install -r \"${workspaceFolder}/apps/mobile/android/app/build/outputs/apk/release/app-release.apk\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "group": "build" },
+      "problemMatcher": []
+    },
+    {
       "label": "Android: logcat (StoryNest)",
       "type": "shell",
       "command": "adb logcat -v time | findstr /i \"ReactNativeJS storynest\"",

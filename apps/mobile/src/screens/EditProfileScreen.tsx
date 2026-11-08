@@ -22,6 +22,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
 
   const [username, setUsername] = useState(user?.username || "");
   const [bio, setBio] = useState("Avid reader and story lover.");
+  const [dob, setDob] = useState((user as any)?.dateOfBirth ? String((user as any).dateOfBirth).slice(0, 10) : "");
   const [loading, setLoading] = useState(false);
   const [image, setImage] = useState(user?.avatarUrl || null);
 
@@ -42,6 +43,7 @@ export const EditProfileScreen = ({ navigation }: any) => {
       const formData = new FormData();
       formData.append("username", username);
       formData.append("bio", bio);
+      if (dob.trim()) formData.append("dateOfBirth", dob.trim());
 
       if (image && image !== user?.avatarUrl) {
           const filename = image.split('/').pop() || 'avatar.jpg';
@@ -110,6 +112,13 @@ export const EditProfileScreen = ({ navigation }: any) => {
             onChangeText={setUsername}
             icon="user"
             placeholder="Your handle"
+        />
+
+        <TextField
+            label="DATE OF BIRTH (UNLOCKS 18+ STORIES)"
+            value={dob}
+            onChangeText={setDob}
+            placeholder="YYYY-MM-DD"
         />
 
         <View style={styles.bioContainer}>

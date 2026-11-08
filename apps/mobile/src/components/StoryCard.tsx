@@ -1,10 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { getDataSaver } from "../utils/DataSaver";
 import { View, Text, StyleSheet, Image, TouchableOpacity, ViewStyle, Animated } from "react-native";
 import { Colors, Radii, Shadows, Spacing } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Clock, Lock } from "lucide-react-native";
+import { Clock, Lock, EyeOff } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
+import { useHiddenStories } from "../hooks/useHiddenStories";
 
 interface Story {
   id: string;
@@ -21,12 +23,19 @@ interface StoryCardProps {
   onPress: () => void;
   variant?: "list" | "featured" | "compact";
   style?: ViewStyle;
-  index?: number; 
+  index?: number;
 }
 
 export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }: StoryCardProps) => {
   const { theme, fonts, isDarkMode } = useTheme();
+  const { hide } = useHiddenStories();
+  const [gone, setGone] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [saver, setSaver] = useState(false);
+
+  useEffect(() => {
+    getDataSaver().then(setSaver).catch(() => {});
+  }, []);
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
@@ -37,11 +46,11 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
   }, []);
 
   const renderContent = () => {
-    const coverSource = story.coverUrl ? { uri: story.coverUrl } : null;
+    const coverSource = !saver && story.coverUrl ? { uri: story.coverUrl } : null;
 
     if (variant === "featured") {
       return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.featuredContainer, { backgroundColor: theme.primary }, Shadows.m, style]}>
+        <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.featuredContainer, { backgroundColor: theme.primary }, Shadows.m, style]} accessibilityLabel={`Featured: ${story.title} by ${story.authorName}`} accessibilityRole="button">
           {coverSource && <Image source={coverSource} style={styles.featuredCover} resizeMode="cover" />}
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFill} />
           <View style={styles.featuredInfo}>
@@ -59,7 +68,7 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
 
     if (variant === "compact") {
       return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.compactContainer, style]}>
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.compactContainer, style]} accessibilityLabel={`${story.title} by ${story.authorName}`} accessibilityRole="button">
           <View style={[styles.compactCover, { backgroundColor: theme.primary + '20' }]}>
             {coverSource && <Image source={coverSource} style={StyleSheet.absoluteFill} resizeMode="cover" />}
             {!coverSource && <Text style={{ color: theme.primary, fontSize: 8, textAlign: 'center', padding: 10, fontFamily: fonts.heading }}>{story.title}</Text>}
@@ -70,7 +79,7 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
     }
 
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.container, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white }, Shadows.s, style]}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={[styles.container, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white }, Shadows.s, style]} accessibilityLabel={`${story.title} by ${story.authorName}`} accessibilityRole="button">
         <View style={styles.cover}>
             {coverSource ? (
                 <Image source={coverSource} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -87,7 +96,12 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
         </View>
         <View style={styles.info}>
           <Text style={[styles.genre, { fontFamily: fonts.body, color: theme.primary }]}>{story.genre}</Text>
-          <Text style={[styles.title, { fontFamily: fonts.heading, color: theme.black }]} numberOfLines={2}>{story.title}</Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text style={[styles.title, { fontFamily: fonts.heading, color: theme.black, flex: 1 }]} numberOfLines={2}>{story.title}</Text>
+            <TouchableOpacity onPress={() => { hide(story.id).catch(() => {}); setGone(true); }} hitSlop={10} accessibilityLabel={`Hide ${story.title}`} accessibilityRole="button">
+              <EyeOff size={14} color={Colors.mutedTeal} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.meta}>
             <Text style={[styles.author, { fontFamily: fonts.body }]}>{story.authorName}</Text>
             <View style={styles.timeContainer}>
@@ -99,6 +113,8 @@ export const StoryCard = ({ story, onPress, variant = "list", style, index = 0 }
       </TouchableOpacity>
     );
   };
+
+  if (gone) return null;
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>

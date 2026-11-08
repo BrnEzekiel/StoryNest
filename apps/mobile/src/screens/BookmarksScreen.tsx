@@ -1,8 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, Dimensions } from "react-native";
 import { Colors, Radii, Spacing, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Trash2, Bookmark, Compass, Cloud, DownloadCloud } from "lucide-react-native";
+import { Trash2, Bookmark, Compass, Cloud, DownloadCloud, HardDrive } from "lucide-react-native";
+import { useNotice } from "../context/NoticeContext";
+import { getDataSaver, setDataSaver } from "../utils/DataSaver";
+
+const fmtBytes = (b: number): string => {
+  if (!b || b <= 0) return "0 B";
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1048576).toFixed(1)} MB`;
+};
 import apiClient from "../api/apiClient";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { Button } from "../components/Button";
@@ -21,6 +30,10 @@ export const BookmarksScreen = ({ navigation }: any) => {
   const { theme, fonts, isDarkMode } = useTheme();
 
   const [tab, setTab] = useState<"online" | "offline">("online");
+  const { showNotice } = useNotice();
+  const [storage, setStorage] = useState({ totalBytes: 0, count: 0 });
+  const [autoDl, setAutoDl] = useState(false);
+  const [saver, setSaver] = useState(false);
 
   // Saved bookmarks live on the device: opening the library is instant and
   // switching tabs never blanks the list.
@@ -64,6 +77,54 @@ export const BookmarksScreen = ({ navigation }: any) => {
     const next = offlineStories.filter(s => s.id !== storyId);
     offlineQuery.setData(next);
     Cache.set("bookmarks:offline", next).catch(() => {});
+    loadDlMeta();
+  };
+
+  const loadDlMeta = async () => {
+    const [info, auto, ds] = await Promise.all([
+      OfflineManager.getStorageInfo().catch(() => ({ totalBytes: 0, count: 0 })),
+      OfflineManager.getAutoDownload().catch(() => false),
+      getDataSaver().catch(() => false),
+    ]);
+    setStorage({ totalBytes: info.totalBytes, count: info.count });
+    setAutoDl(auto);
+    setSaver(ds);
+  };
+
+  useEffect(() => {
+    loadDlMeta();
+    if (tab === "offline" && tapThrottle("bookmarks:autodl", 60000)) {
+      OfflineManager.autoDownloadBookmarks().then((r) => {
+        if (r.downloaded > 0) {
+          offlineQuery.refresh();
+          loadDlMeta();
+          showNotice({ title: "Auto-downloaded", message: `${r.downloaded} bookmarked stor${r.downloaded === 1 ? "y" : "ies"} refreshed over Wi-Fi.`, variant: "success" });
+        }
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const toggleAuto = async () => {
+    const next = !autoDl;
+    setAutoDl(next);
+    await OfflineManager.setAutoDownload(next);
+  };
+
+  const toggleSaver = async () => {
+    const next = !saver;
+    setSaver(next);
+    await setDataSaver(next);
+    showNotice({ title: next ? "Data saver on" : "Data saver off", message: next ? "Covers and prefetch are minimized." : "Full quality restored.", variant: "info" });
+  };
+
+  const handleClearFinished = async () => {
+    const progressMap: Record<string, number> = {};
+    bookmarks.forEach((b: any) => { progressMap[b.storyId] = b.progress || 0; });
+    const n = await OfflineManager.clearFinished(progressMap).catch(() => 0);
+    offlineQuery.refresh();
+    loadDlMeta();
+    showNotice({ title: "Storage cleaned", message: n > 0 ? `Removed ${n} finished download${n === 1 ? "" : "s"}.` : "No finished downloads to remove.", variant: "info" });
   };
 
   const renderEmptyState = () => (
@@ -158,7 +219,25 @@ export const BookmarksScreen = ({ navigation }: any) => {
               </View>
             )
           ) : (
-            offlineStories.length === 0 ? renderEmptyState() : (
+            <>
+            <View style={[styles.dlCard, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : theme.white, borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}>
+              <View style={styles.dlRow}>
+                <HardDrive size={18} color={theme.primary} />
+                <Text style={[styles.dlText, { color: theme.black, fontFamily: fonts.body }]}>{fmtBytes(storage.totalBytes)} • {storage.count} stories</Text>
+              </View>
+              <View style={styles.dlRow}>
+                <TouchableOpacity style={styles.dlToggle} onPress={toggleAuto}>
+                  <Text style={[styles.dlToggleText, { fontFamily: fonts.heading, color: autoDl ? Colors.accent : Colors.mutedTeal }]}>AUTO {autoDl ? "ON" : "OFF"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dlToggle} onPress={toggleSaver}>
+                  <Text style={[styles.dlToggleText, { fontFamily: fonts.heading, color: saver ? Colors.accent : Colors.mutedTeal }]}>SAVER {saver ? "ON" : "OFF"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dlToggle} onPress={handleClearFinished}>
+                  <Text style={[styles.dlToggleText, { fontFamily: fonts.heading, color: Colors.error }]}>CLEAR FINISHED</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            {offlineStories.length === 0 ? renderEmptyState() : (
                 <View style={styles.listContainer}>
                   {offlineStories.map((story) => (
                     <TouchableOpacity
@@ -172,7 +251,7 @@ export const BookmarksScreen = ({ navigation }: any) => {
                         <Text style={[styles.genre, { color: theme.primary, fontFamily: fonts.body }]}>{story.genre}</Text>
                         <Text style={[styles.title, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{story.title}</Text>
                         <Text style={[styles.author, { fontFamily: fonts.body }]}>by {story.authorName}</Text>
-                        <Text style={[styles.progressText, { fontFamily: fonts.body, marginTop: 4 }]}>Offline Ready</Text>
+                        <Text style={[styles.progressText, { fontFamily: fonts.body, marginTop: 4 }]}>{story.sizeBytes ? `${fmtBytes(story.sizeBytes)} • ` : ""}Offline Ready</Text>
                       </View>
                       <TouchableOpacity onPress={() => removeOffline(story.id)} style={styles.removeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Trash2 size={18} color={Colors.error} />
@@ -180,7 +259,7 @@ export const BookmarksScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                   ))}
                 </View>
-              )
+              )}</>
           )
         )}
       </ScrollView>
@@ -209,6 +288,11 @@ const styles = StyleSheet.create({
   progressBarFill: { height: "100%", borderRadius: 2 },
   progressText: { fontSize: 11, color: Colors.mutedTeal },
   removeBtn: { padding: 8 },
+  dlCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginHorizontal: 24, marginBottom: 16 },
+  dlRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  dlText: { fontSize: 13, marginLeft: 10 },
+  dlToggle: { marginRight: 18, paddingVertical: 6 },
+  dlToggleText: { fontSize: 11, letterSpacing: 1 },
   emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: Spacing.xxl },
   emptyIconContainer: { width: 100, height: 100, borderRadius: Radii.round, justifyContent: "center", alignItems: "center", marginBottom: Spacing.xl, ...Shadows.m },
   emptyTitle: { fontSize: 24, marginBottom: Spacing.s },

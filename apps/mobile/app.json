@@ -3,7 +3,7 @@
     "name": "StoryNest",
     "slug": "mobile",
     "jsEngine": "hermes",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "scheme": "storynest",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.storynest.mobile",
-      "buildNumber": "6"
+      "buildNumber": "7"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,13 +25,32 @@
       },
       "package": "com.storynest.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 9,
+      "versionCode": 10,
       "permissions": [
         "INTERNET",
         "VIBRATE",
         "RECEIVE_BOOT_COMPLETED",
         "USE_BIOMETRIC",
-        "USE_FINGERPRINT"
+        "USE_FINGERPRINT",
+        "REQUEST_INSTALL_PACKAGES",
+        "RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "storynest.app",
+              "pathPrefix": "/s/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -41,7 +60,7 @@
       "eas": {
         "projectId": "8a588efb-64b8-4d60-9e9b-205403b2b363"
       },
-      "apiUrl": "http://localhost:5000"
+      "apiUrl": "https://storynest-qzwm.onrender.com"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -59,7 +78,9 @@
         {
           "icon": "./assets/icon.png",
           "color": "#FFEDA8",
-          "sounds": ["./assets/notification.wav"]
+          "sounds": [
+            "./assets/notification.wav"
+          ]
         }
       ],
       [
@@ -75,7 +96,8 @@
             "useLegacyPackaging": true
           }
         }
-      ]
+      ],
+      "@react-native-voice/voice"
     ]
   }
 }

@@ -2,9 +2,13 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated } from "react-native";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { ArrowLeft, TrendingUp, Calendar, Clock, BarChart2, Zap, Target, Award, Rocket } from "lucide-react-native";
+import { ArrowLeft, TrendingUp, Calendar, Clock, BarChart2, Zap, Target, Award, Rocket, Snowflake } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useNotice } from "../context/NoticeContext";
+import apiClient from "../api/apiClient";
+import { levelForXp } from "../utils/levels";
+import { Svg, Circle } from "react-native-svg";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,7 +18,38 @@ const { width } = Dimensions.get("window");
 export const StatisticsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { theme, fonts, isDarkMode } = useTheme();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { showNotice } = useNotice();
+  const [freezing, setFreezing] = useState(false);
+  const level = levelForXp(user?.xp || 0);
+  const goalProgress = Math.min(1, (user?.todayReadTime || 0) / (user?.dailyGoalMinutes || 30));
+
+  const handleFreeze = async () => {
+    if (freezing) return;
+    setFreezing(true);
+    try {
+      const res = await apiClient.post("/gamification/streak-freeze");
+      refreshUser();
+      showNotice({ title: "Streak frozen", message: `${res.data.streak}-day streak saved. Balance: ${res.data.coins} coins.`, variant: "success" });
+    } catch (e: any) {
+      showNotice({ title: "Freeze unavailable", message: e.response?.data?.error || "Could not freeze.", variant: "info" });
+    } finally { setFreezing(false); }
+  };
+
+  const GoalRing = () => {
+    const size = 120;
+    const stroke = 10;
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    return (
+      <Svg width={size} height={size}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={Colors.accent} strokeWidth={stroke} fill="none"
+          strokeDasharray={`${c}`} strokeDashoffset={c * (1 - goalProgress)} strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      </Svg>
+    );
+  };
 
   const StatCard = ({ icon: Icon, title, value, sub, color, delay }: any) => {
     const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -101,6 +136,22 @@ export const StatisticsScreen = ({ navigation }: any) => {
             />
         </View>
 
+        <View style={styles.goalRow}>
+            <View style={styles.ringBox}>
+                <GoalRing />
+                <Text style={[styles.ringLabel, { fontFamily: fonts.heading }]}>{user?.todayReadTime || 0}/{user?.dailyGoalMinutes || 30}m</Text>
+            </View>
+            <View style={styles.levelBox}>
+                <Text style={[styles.levelName, { fontFamily: fonts.heading }]}>LVL {level.level} • {level.name.toUpperCase()}</Text>
+                <View style={styles.levelTrack}><View style={[styles.levelFill, { width: `${Math.round(level.progress * 100)}%` }]} /></View>
+                <Text style={[styles.levelSub, { fontFamily: fonts.body }]}>{user?.xp || 0} XP</Text>
+                <TouchableOpacity style={styles.freezeBtn} onPress={handleFreeze} disabled={freezing}>
+                    <Snowflake size={16} color={Colors.accent} />
+                    <Text style={[styles.freezeText, { fontFamily: fonts.heading }]}>{freezing ? "FREEZING..." : "FREEZE STREAK • 50"}</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+
         <View style={styles.chartWrapper}>
             <LinearGradient 
                 colors={['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.01)']} 
@@ -177,5 +228,15 @@ const styles = StyleSheet.create({
   quoteGradient: { padding: 32, alignItems: 'center' },
   quoteIcon: { position: 'absolute', top: 20, left: 20 },
   quoteText: { color: Colors.white, fontSize: 15, fontStyle: 'italic', lineHeight: 22, textAlign: 'center', opacity: 0.9 },
-  quoteAuthor: { color: Colors.accent, fontSize: 11, textAlign: 'center', marginTop: 16, letterSpacing: 2 }
+  quoteAuthor: { color: Colors.accent, fontSize: 11, textAlign: 'center', marginTop: 16, letterSpacing: 2 },
+  goalRow: { flexDirection: 'row', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)', padding: 20, marginBottom: 24, alignItems: 'center' },
+  ringBox: { alignItems: 'center', marginRight: 20 },
+  ringLabel: { fontSize: 12, color: Colors.accent, marginTop: 8, letterSpacing: 1 },
+  levelBox: { flex: 1 },
+  levelName: { fontSize: 13, color: Colors.accent, letterSpacing: 1 },
+  levelTrack: { height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 10, overflow: 'hidden' },
+  levelFill: { height: '100%', backgroundColor: Colors.accent, borderRadius: 4 },
+  levelSub: { fontSize: 11, color: Colors.mutedTeal, marginTop: 6 },
+  freezeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: Colors.accent, paddingVertical: 10, marginTop: 14 },
+  freezeText: { fontSize: 11, color: Colors.accent, letterSpacing: 1, marginLeft: 8 }
 });

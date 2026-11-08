@@ -56,7 +56,26 @@ describe("fetchLatestRelease", () => {
       name: "StoryNest 1.0.7",
       url: "https://github.com/BrnEzekiel/StoryNest/releases/tag/v1.0.7",
       publishedAt: "2026-11-05T00:00:00Z",
+      apkUrl: null,
     });
+  });
+
+  test("picks the APK asset for in-app installs", async () => {
+    (global as any).fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        tag_name: "v1.0.8",
+        name: "StoryNest 1.0.8",
+        html_url: "https://github.com/BrnEzekiel/StoryNest/releases/tag/v1.0.8",
+        published_at: "2026-11-08T00:00:00Z",
+        assets: [
+          { name: "checksums.txt", browser_download_url: "https://example.com/checksums.txt" },
+          { name: "storynest-v1.0.8.APK", browser_download_url: "https://example.com/app.apk" },
+        ],
+      }),
+    }));
+    const rel = await fetchLatestRelease();
+    expect(rel?.apkUrl).toBe("https://example.com/app.apk");
   });
 
   test("returns null on HTTP errors, malformed bodies, and network failure", async () => {

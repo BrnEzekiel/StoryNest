@@ -11,3 +11,9 @@ ios/build/
 .claude/
 .antigravitycli/
 /expo_qr.png
+apps/mobile/src/api/buildEnv.ts
+.tmp-jest/
+.vs/
+.artifacts/
+*.bak
+tools/tiktok-cleaner/tt-session/

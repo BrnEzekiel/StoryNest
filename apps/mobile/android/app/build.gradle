@@ -39,8 +39,6 @@ react {
     // works correctly with Expo projects.
     cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
     bundleCommand = "export:embed"
-    // Cap Metro workers: cold-cache transforms OOM on 8GB machines otherwise.
-    extraPackagerArgs = ["--max-workers", "2"]
 
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '..'
@@ -116,9 +114,8 @@ android {
         applicationId 'com.storynest.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.0.7"
-        multiDexEnabled true
+        versionCode 10
+        versionName "1.0.8"
     }
     signingConfigs {
         debug {
@@ -126,6 +123,14 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
+        }
+        release {
+            // Local GitHub-release signing. Pass -PSTORYNEST_STORE_FILE=... etc.,
+            // or it falls back to the debug key (sideload-only, do not ship to Play).
+            storeFile findProperty('STORYNEST_STORE_FILE') ? file(findProperty('STORYNEST_STORE_FILE')) : file('debug.keystore')
+            storePassword findProperty('STORYNEST_STORE_PASSWORD') ?: 'android'
+            keyAlias findProperty('STORYNEST_KEY_ALIAS') ?: 'androiddebugkey'
+            keyPassword findProperty('STORYNEST_KEY_PASSWORD') ?: 'android'
         }
     }
     buildTypes {
@@ -135,8 +140,8 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            shrinkResources false
+            signingConfig signingConfigs.release
+            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
@@ -204,16 +209,3 @@ if (rnVersion < versionToNumber(0, 75, 0)) {
 }
 
 apply plugin: 'com.google.gms.google-services'
-
-// Bake the API URL into src/api/buildEnv.ts before every JS bundle: Gradle
-// never forwards shell env to Metro, so EXPO_PUBLIC_* inlining can't work and
-// the URL must travel through a generated source file instead.
-tasks.register("writeBuildEnv", Exec) {
-    workingDir rootDir
-    commandLine "node", new File(rootDir, "../scripts/write-build-env.js").absolutePath
-}
-afterEvaluate {
-    tasks.matching { it.name.startsWith("createBundle") }.configureEach {
-        dependsOn("writeBuildEnv")
-    }
-}

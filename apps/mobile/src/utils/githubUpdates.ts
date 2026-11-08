@@ -16,6 +16,7 @@ export interface ReleaseInfo {
   name: string;
   url: string;
   publishedAt: string;
+  apkUrl: string | null;
 }
 
 /** Numeric version compare: 1 if a>b, -1 if a<b, 0 if equal. Tolerates "v" prefixes. */
@@ -40,10 +41,31 @@ export const fetchLatestRelease = async (): Promise<ReleaseInfo | null> => {
     if (!res.ok) return null;
     const j = await res.json();
     if (!j || typeof j.tag_name !== "string") return null;
-    return { tag: j.tag_name, name: j.name || j.tag_name, url: j.html_url, publishedAt: j.published_at };
+    const assets = Array.isArray(j.assets) ? j.assets : [];
+    const apk = assets.find((a: any) => typeof a?.name === "string" && a.name.toLowerCase().endsWith(".apk"));
+    const apkUrl = apk && typeof apk.browser_download_url === "string" ? apk.browser_download_url : null;
+    return { tag: j.tag_name, name: j.name || j.tag_name, url: j.html_url, publishedAt: j.published_at, apkUrl };
   } catch {
     return null;
   }
+};
+
+const AUTO_INSTALL_KEY = "updates:autoInstall";
+
+/** Auto-install is ON unless the user explicitly disabled it. */
+export const getAutoInstall = async (): Promise<boolean> => {
+  try {
+    const v = await AsyncStorage.getItem(AUTO_INSTALL_KEY);
+    return v !== "false";
+  } catch {
+    return true;
+  }
+};
+
+export const setAutoInstall = async (v: boolean): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(AUTO_INSTALL_KEY, v ? "true" : "false");
+  } catch {}
 };
 
 export const shouldCheckGitHub = async (now: number = Date.now()): Promise<boolean> => {

@@ -3,7 +3,7 @@
 buildscript {
     ext {
         buildToolsVersion = findProperty('android.buildToolsVersion') ?: '34.0.0'
-        minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '21')
+        minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '23')
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '34')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
         kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.23'
@@ -23,6 +23,22 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// Force every native module onto the project's NDK so Gradle never tries to
+// download AGP's default NDK (25.x) for libraries that don't pin one.
+def forceNdk = { proj ->
+    def androidExt = proj.extensions.findByName("android")
+    if (androidExt != null && rootProject.ext.has("ndkVersion")) {
+        androidExt.ndkVersion = rootProject.ext.ndkVersion
+    }
+}
+subprojects { proj ->
+    if (proj.state.executed) {
+        forceNdk(proj)
+    } else {
+        proj.afterEvaluate { forceNdk(it) }
+    }
+}
 
 allprojects {
     repositories {

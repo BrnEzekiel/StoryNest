@@ -106,7 +106,16 @@ export default function StoryPage() {
             const bms = await api.myBookmarks();
             const bm = bms.find((b) => b.storyId === id);
             setBookmarked(!!bm);
-            if (bm?.progress) setProgress(bm.progress / 100);
+            if (bm?.progress) {
+              setProgress(bm.progress / 100);
+              // Cross-device resume: jump to the synced position once laid out.
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  const el = scrollRef.current;
+                  if (el) el.scrollTop = (bm.progress / 100) * (el.scrollHeight - el.clientHeight);
+                }, 350);
+              });
+            }
           } catch {
             /* guest */
           }
@@ -188,6 +197,19 @@ export default function StoryPage() {
     localStorage.setItem("sn_reader_font", size);
     if (hasToken()) api.preferences({ readerFontSize: size });
   }
+
+  const jsonLd = story
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Book",
+        name: story.title,
+        author: story.authorName ? { "@type": "Person", name: story.authorName } : undefined,
+        genre: story.genre,
+        description: story.summary,
+        image: (story as any).coverUrl,
+        url: `https://storynest.app/stories/${id}`,
+      }
+    : null;
 
   if (loading) return <ReaderSkeleton />;
 
@@ -350,6 +372,9 @@ export default function StoryPage() {
         className="flex-1 overflow-y-auto"
         style={{ maxHeight: "calc(100vh - 8rem)" }}
       >
+        {jsonLd && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        )}
         <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           <header className="mb-10 space-y-2">
             {story?.genre && (

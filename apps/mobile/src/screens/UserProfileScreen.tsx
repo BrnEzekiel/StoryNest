@@ -19,7 +19,10 @@ import {
   Mail,
   Trophy,
   Share2,
+  Ban,
+  Flag,
 } from "lucide-react-native";
+import { ReportSheet } from "../components/ReportSheet";
 import apiClient from "../api/apiClient";
 import { useCachedQuery } from "../hooks/useCachedQuery";
 import { Cache } from "../utils/Cache";
@@ -42,6 +45,22 @@ export const UserProfileScreen = ({ route, navigation }: any) => {
   const profile = profileQuery.data;
 
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+
+  const handleBlock = async () => {
+    if (!tapThrottle(`block:${userId}`, TAP_GAP_MS)) return;
+    const next = !isBlocked;
+    setIsBlocked(next);
+    try {
+      const res = await apiClient.post(`/users/${userId}/block`);
+      setIsBlocked(res.data.isBlocked);
+      showNotice({ title: res.data.isBlocked ? "Blocked" : "Unblocked", message: res.data.isBlocked ? "You will no longer see their comments." : "User unblocked.", variant: "info" });
+    } catch (e) {
+      setIsBlocked(!next);
+      showNotice({ title: "Error", message: "Could not update block.", variant: "error" });
+    }
+  };
 
   useEffect(() => {
     if (profile) setIsFollowing(Boolean(profile.isFollowing));
@@ -178,6 +197,36 @@ export const UserProfileScreen = ({ route, navigation }: any) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.messageBtn, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}
+            onPress={handleBlock}
+          >
+            <Ban size={18} color={isBlocked ? Colors.error : theme.primary} />
+            <Text style={[styles.messageBtnText, { color: isBlocked ? Colors.error : theme.primary, fontFamily: fonts.heading }]}>
+              {isBlocked ? "UNBLOCK" : "BLOCK"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.messageBtn, { backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : Colors.paleGreen }]}
+            onPress={() => setShowReport(true)}
+          >
+            <Flag size={18} color={theme.primary} />
+            <Text style={[styles.messageBtnText, { color: theme.primary, fontFamily: fonts.heading }]}>
+              REPORT
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <ReportSheet
+          visible={showReport}
+          onClose={() => setShowReport(false)}
+          targetType="user"
+          targetId={userId}
+          targetTitle={profile?.username}
+        />
 
         <Text style={[styles.hint, { fontFamily: fonts.body }]}>
           Subscribe is free follow. Nest Plus unlocks premium perks.

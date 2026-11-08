@@ -1,9 +1,102 @@
 {
-  "expo": {
-    "extra": {
-      "eas": {
-        "projectId": "f37bd924-da30-456b-a1f2-7c826f8bd582"
-      }
-    }
-  }
+    "expo":  {
+                 "name":  "StoryNest",
+                 "slug":  "mobile",
+                 "jsEngine":  "hermes",
+                 "version":  "1.0.7",
+                 "scheme":  "storynest",
+                 "orientation":  "portrait",
+                 "icon":  "./assets/icon.png",
+                 "userInterfaceStyle":  "light",
+                 "splash":  {
+                                "image":  "./assets/splash-icon.png",
+                                "resizeMode":  "contain",
+                                "backgroundColor":  "#003631"
+                            },
+                 "ios":  {
+                             "supportsTablet":  true,
+                             "bundleIdentifier":  "com.storynest.mobile",
+                             "buildNumber":  "6"
+                         },
+                 "android":  {
+                                 "adaptiveIcon":  {
+                                                      "foregroundImage":  "./assets/adaptive-icon.png",
+                                                      "backgroundColor":  "#003631"
+                                                  },
+                                 "package":  "com.storynest.mobile",
+                                 "googleServicesFile":  "./google-services.json",
+                                 "versionCode":  9,
+                                 "permissions":  [
+                                                     "INTERNET",
+                                                     "VIBRATE",
+                                                     "RECEIVE_BOOT_COMPLETED",
+                                                     "USE_BIOMETRIC",
+                                                     "USE_FINGERPRINT",
+                                                     "RECORD_AUDIO"
+                                                 ],
+                                 "intentFilters":  [
+                                                       {
+                                                           "category":  [
+                                                                            "BROWSABLE",
+                                                                            "DEFAULT"
+                                                                        ],
+                                                           "data":  [
+                                                                        {
+                                                                            "scheme":  "https",
+                                                                            "host":  "storynest.app",
+                                                                            "pathPrefix":  "/s/"
+                                                                        }
+                                                                    ],
+                                                           "action":  "VIEW",
+                                                           "autoVerify":  true
+                                                       }
+                                                   ]
+                             },
+                 "web":  {
+                             "favicon":  "./assets/favicon.png"
+                         },
+                 "extra":  {
+                               "eas":  {
+                                           "projectId":  "8a588efb-64b8-4d60-9e9b-205403b2b363"
+                                       },
+                               "apiUrl":  "http://localhost:5000"
+                           },
+                 "runtimeVersion":  {
+                                        "policy":  "appVersion"
+                                    },
+                 "updates":  {
+                                 "url":  "https://u.expo.dev/8a588efb-64b8-4d60-9e9b-205403b2b363",
+                                 "enabled":  true,
+                                 "checkAutomatically":  "NEVER",
+                                 "fallbackToCacheTimeout":  0
+                             },
+                 "owner":  "brnezekiel",
+                 "plugins":  [
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "icon":  "./assets/icon.png",
+                                         "color":  "#FFEDA8",
+                                         "sounds":  [
+                                                        "./assets/notification.wav"
+                                                    ]
+                                     }
+                                 ],
+                                 [
+                                     "expo-build-properties",
+                                     {
+                                         "android":  {
+                                                         "minSdkVersion":  29,
+                                                         "targetSdkVersion":  34,
+                                                         "compileSdkVersion":  34,
+                                                         "buildToolsVersion":  "34.0.0",
+                                                         "enableProguardInReleaseBuilds":  true,
+                                                         "enableShrinkResourcesInReleaseBuilds":  true,
+                                                         "useLegacyPackaging":  true
+                                                     }
+                                     }
+                                 ],
+                                 "@react-native-voice/voice"
+                             ]
+             }
 }

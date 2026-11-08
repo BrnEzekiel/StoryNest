@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import * as DocumentPicker from "expo-document-picker";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
@@ -36,15 +37,39 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
   const [body, setBody] = useState("");
   const [publishedAt, setPublishedAt] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [audioUrl, setAudioUrl] = useState("");
+  const [uploadingAudio, setUploadingAudio] = useState(false);
 
   const fetchChapters = () => chaptersQuery.refresh();
+
+  const pickAudio = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: "audio/*", copyToCacheDirectory: true });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      if (editingChapter) {
+        setUploadingAudio(true);
+        const form = new FormData();
+        form.append("audio", { uri: asset.uri, name: asset.name || "narration.mp3", type: (asset as any).mimeType || "audio/mpeg" } as any);
+        const up = await apiClient.post(`/chapters/${editingChapter.id}/audio`, form, { headers: { "Content-Type": "multipart/form-data" } });
+        setAudioUrl(up.data.audioUrl || "");
+        showNotice({ title: "Narration uploaded", message: "Readers can now listen to this chapter.", variant: "success" });
+        setUploadingAudio(false);
+      } else {
+        showNotice({ title: "Save first", message: "Save the chapter, then edit it to attach narration.", variant: "info" });
+      }
+    } catch {
+      setUploadingAudio(false);
+      showNotice({ title: "Upload failed", message: "Could not upload the audio file.", variant: "error" });
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim() || !body.trim()) return;
     if (submitLoading || !tapThrottle(`chapters:save:${storyId}`, TAP_GAP_MS)) return;
     setSubmitLoading(true);
     try {
-      const payload = { title, body, publishedAt: publishedAt?.toISOString() || null };
+      const payload = { title, body, publishedAt: publishedAt?.toISOString() || null, audioUrl: audioUrl || undefined };
       if (editingChapter) {
           await apiClient.put(`/chapters/${editingChapter.id}`, payload);
       } else {
@@ -62,6 +87,7 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
       setTitle("");
       setBody("");
       setPublishedAt(null);
+      setAudioUrl("");
   };
 
   const startEdit = (chapter: any) => {
@@ -69,7 +95,23 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
       setTitle(chapter.title);
       setBody(chapter.body);
       setPublishedAt(chapter.publishedAt ? new Date(chapter.publishedAt) : null);
+      setAudioUrl(chapter.audioUrl || "");
       setIsAdding(true);
+  };
+
+  const handleMove = async (idx: number, dir: -1 | 1) => {
+      const other = idx + dir;
+      if (other < 0 || other >= chapters.length) return;
+      if (!tapThrottle(`chapters:move:${storyId}`, TAP_GAP_MS)) return;
+      const a = chapters[idx];
+      const b = chapters[other];
+      try {
+          await Promise.all([
+              apiClient.put(`/chapters/${a.id}`, { order: b.order }),
+              apiClient.put(`/chapters/${b.id}`, { order: a.order }),
+          ]);
+          fetchChapters();
+      } catch (e) { showNotice({ title: "Error", message: "Could not reorder chapters.", variant: "error" }); }
   };
 
   const handleDelete = (id: string) => {
@@ -132,6 +174,30 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
                           />
                       )}
 
+                      <View style={{ marginTop: 20 }}>
+                          <Text style={[styles.fieldLabel, { color: theme.primary, fontFamily: fonts.heading }]}>NARRATION (OPTIONAL)</Text>
+                          <TouchableOpacity
+                            style={[styles.dateBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : Colors.paleGreen, marginTop: 8 }]}
+                            onPress={pickAudio}
+                            disabled={uploadingAudio}
+                            accessibilityLabel="Upload chapter narration audio"
+                          >
+                              <Text style={[styles.dateText, { fontFamily: fonts.body, color: theme.black }]}>
+                                  {uploadingAudio ? "Uploading..." : audioUrl ? "Narration attached — tap to replace" : "Upload MP3 narration"}
+                              </Text>
+                          </TouchableOpacity>
+                          {!!audioUrl && (
+                              <TextInput
+                                style={[styles.modalInput, { marginTop: 8, color: theme.black, fontFamily: fonts.body }]}
+                                value={audioUrl}
+                                onChangeText={setAudioUrl}
+                                placeholder="...or paste an audio URL"
+                                placeholderTextColor={Colors.mutedTeal}
+                                autoCapitalize="none"
+                              />
+                          )}
+                      </View>
+
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
                           <Text style={[styles.fieldLabel, { color: theme.primary, fontFamily: fonts.heading }]}>CHAPTER BODY</Text>
                           <Text style={[styles.wordCount, { color: Colors.mutedTeal, fontFamily: fonts.body }]}>{body.trim() ? body.trim().split(/\s+/).length : 0} words</Text>
@@ -187,7 +253,7 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
                               <View style={{ flex: 1, marginLeft: 16 }}>
                                   <Text style={[styles.chapTitle, { color: theme.black, fontFamily: fonts.heading }]} numberOfLines={1}>{chap.title}</Text>
                                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                      <Text style={[styles.chapMeta, { fontFamily: fonts.body }]}>{Math.ceil(chap.body.length / 5)} words</Text>
+                                      <Text style={[styles.chapMeta, { fontFamily: fonts.body }]}>{Math.ceil(chap.body.length / 5)} words{chap.audioUrl ? " • Narrated" : ""}</Text>
                                       {chap.publishedAt && new Date(chap.publishedAt) > new Date() && (
                                           <View style={styles.scheduledBadge}><Calendar size={10} color={Colors.accent} /><Text style={styles.scheduledText}>Scheduled</Text></View>
                                       )}
@@ -195,6 +261,12 @@ export const ManageChaptersScreen = ({ route, navigation }: any) => {
                               </View>
                           </View>
                           <View style={styles.actions}>
+                              <TouchableOpacity onPress={() => handleMove(idx, -1)} disabled={idx === 0} style={[styles.actionBtn, idx === 0 && { opacity: 0.25 }]}>
+                                  <ChevronUp size={18} color={theme.primary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => handleMove(idx, 1)} disabled={idx === chapters.length - 1} style={[styles.actionBtn, idx === chapters.length - 1 && { opacity: 0.25 }]}>
+                                  <ChevronDown size={18} color={theme.primary} />
+                              </TouchableOpacity>
                               <TouchableOpacity onPress={() => startEdit(chap)} style={styles.actionBtn}>
                                   <Edit2 size={18} color={theme.primary} />
                               </TouchableOpacity>

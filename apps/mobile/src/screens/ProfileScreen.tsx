@@ -4,7 +4,7 @@ import { useNotice } from "../context/NoticeContext";
 import { canCreateContent, roleLabel } from "../utils/roles";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
-import { Settings, LogOut, Shield, Bookmark, Trophy, Mail, Star, Zap, ChevronRight, Gift, Coins, MessageCircle, PenLine } from "lucide-react-native";
+import { Settings, LogOut, Shield, Bookmark, Trophy, Mail, Star, Zap, ChevronRight, Gift, Coins, MessageCircle, PenLine, Award, Medal, Wallet, Target, BarChart3 } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import apiClient from "../api/apiClient";
@@ -156,7 +156,13 @@ export const ProfileScreen = ({ navigation }: any) => {
 
             <MenuOption icon={Gift} title="Refer & Earn" subtitle="Invite friends & earn free Story Coins" onPress={() => navigation.navigate("Referral")} color="#D4AF37" />
             <MenuOption icon={Bookmark} title="Library" subtitle="Continue reading" onPress={() => navigation.navigate("Bookmarks")} color="#34C759" />
+            <MenuOption icon={Trophy} title="Reading Wrap" subtitle="Your year in stories" onPress={() => navigation.navigate("Wrap")} color="#FF9A3D" />
             <MenuOption icon={Mail} title="Messages" subtitle="Private chats" onPress={() => navigation.navigate("Messages")} color="#E91E63" />
+            <MenuOption icon={BarChart3} title="Reading Insights" subtitle="Level, goal ring & streak" onPress={() => navigation.navigate("Statistics")} color="#4FACFE" />
+            <MenuOption icon={Award} title="Achievements" subtitle="Badges you have earned" onPress={() => navigation.navigate("Achievements")} color="#5856D6" />
+            <MenuOption icon={Medal} title="Leaderboard" subtitle="Top readers this week" onPress={() => navigation.navigate("Leaderboard")} color="#D4AF37" />
+            <MenuOption icon={Target} title="Challenges" subtitle="Quests & season pass" onPress={() => navigation.navigate("Challenges")} color="#34C759" />
+            <MenuOption icon={Wallet} title="Coin Wallet" subtitle="Balance & history" onPress={() => navigation.navigate("Wallet")} color="#FF9A3D" />
             {canCreateContent(user?.role) && <MenuOption icon={Shield} title="Creator Studio" subtitle="Manage your stories" onPress={() => navigation.navigate("Admin")} color={Colors.accent} />}
             {user?.role === 'READER' && <MenuOption icon={PenLine} title="Become a Writer" subtitle="Publish stories & podcasts" onPress={handleBecomeWriter} color="#9B59B6" />}
         </View>

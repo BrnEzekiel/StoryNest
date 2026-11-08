@@ -275,18 +275,24 @@ const handleMentions = async (content, storyId, senderId) => {
 };
 
 const generateTokens = (user) => {
-  const accessToken = jwt.sign({ id: user.id, role: user.role }, config.jwtAccessSecret, { expiresIn: "1h" });
-  const refreshToken = jwt.sign({ id: user.id }, config.jwtRefreshSecret, { expiresIn: "7d" });
+  const v = user.tokenVersion || 0;
+  const accessToken = jwt.sign({ id: user.id, role: user.role, v }, config.jwtAccessSecret, { expiresIn: "1h" });
+  const refreshToken = jwt.sign({ id: user.id, v }, config.jwtRefreshSecret, { expiresIn: "7d" });
   return { accessToken, refreshToken };
 };
 
 // --- AUTH MIDDLEWARE ---
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) return res.status(401).json({ error: "Unauthorized" });
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, config.jwtAccessSecret);
+    if (decoded.v !== undefined) {
+      const user = await prisma.user.findUnique({ where: { id: decoded.id }, select: { tokenVersion: true, isBanned: true } });
+      if (!user || (user.tokenVersion || 0) !== decoded.v) return res.status(401).json({ error: "Session revoked" });
+      if (user.isBanned) return res.status(403).json({ error: "Account suspended" });
+    }
     req.user = decoded;
     next();
   } catch (err) { res.status(401).json({ error: "Token invalid" }); }
@@ -304,9 +310,10 @@ const canCreate = (req, res, next) => {
 
 const canEditChapter = async (req, res, next) => {
     try {
-        const chapter = await prisma.chapter.findUnique({ where: { id: req.params.id }, include: { story: true } });
+        const chapter = await prisma.chapter.findUnique({ where: { id: req.params.id }, include: { story: { include: { coAuthors: { select: { id: true } } } } } });
         if (!chapter) return res.status(404).json({ error: "Chapter not found" });
-        if (chapter.story.ownerId === req.user.id || req.user.role === "ADMIN") return next();
+        const isCoAuthor = (chapter.story.coAuthors || []).some((c) => c.id === req.user.id);
+        if (chapter.story.ownerId === req.user.id || isCoAuthor || req.user.role === "ADMIN") return next();
         return res.status(403).json({ error: "No edit access" });
     } catch (e) { return res.status(403).json({ error: "No edit access" }); }
 };
@@ -314,16 +321,63 @@ const canEditChapter = async (req, res, next) => {
 const canEditStory = async (req, res, next) => {
     try {
         const storyId = req.params.id || req.body.storyId;
-        const story = await prisma.story.findUnique({ where: { id: storyId } });
+        const story = await prisma.story.findUnique({ where: { id: storyId }, include: { coAuthors: { select: { id: true } } } });
         if (!story) return res.status(404).json({ error: "Story not found" });
-        if (story.ownerId === req.user.id || req.user.role === "ADMIN") next();
+        const isCoAuthor = (story.coAuthors || []).some((c) => c.id === req.user.id);
+        if (story.ownerId === req.user.id || isCoAuthor || req.user.role === "ADMIN") next();
         else res.status(403).json({ error: "No edit access" });
     } catch (e) { handleError(res, e); }
 };
 
+// --- GAMIFICATION HELPERS ---
+const ACHIEVEMENT_CATALOG = [
+  { title: "First Steps", desc: "Read your first story", icon: "BookOpen" },
+  { title: "Bookworm", desc: "Read 10 stories", icon: "Zap" },
+  { title: "Getting Warm", desc: "Reach a 3-day streak", icon: "Flame" },
+  { title: "On Fire", desc: "Reach a 7-day streak", icon: "Flame" },
+  { title: "Unstoppable", desc: "Reach a 30-day streak", icon: "Trophy" },
+  { title: "Marathon", desc: "Read for 500 total minutes", icon: "Clock" },
+  { title: "Goal Crusher", desc: "Hit your daily reading goal", icon: "Target" },
+];
+
+const awardAchievement = async (userId, title) => {
+  try {
+    const def = ACHIEVEMENT_CATALOG.find((a) => a.title === title);
+    const existing = await prisma.achievement.findFirst({ where: { userId, title } });
+    if (existing) return null;
+    return await prisma.achievement.create({ data: { userId, title, icon: def ? def.icon : "Award" } });
+  } catch (e) { return null; }
+};
+
+const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
+
+const weekKey = (d = new Date()) => {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  return `${dt.getUTCFullYear()}-W${week}`;
+};
+
+// --- TRUST & SAFETY HELPERS (pure logic lives in utils/trust.js, covered by __tests__/trust.test.js) ---
+const { verifyTotp, newTotpSecret, containsBlocked, containmentScore, ageFromDob } = require("./utils/trust");
+
 // --- ROUTES ---
 
 app.get("/health", (req, res) => res.json({ status: "ok", version: "3.8.2", schema: "social_master_v3_stable", bullmq: true, timestamp: new Date().toISOString() }));
+
+app.get("/health/detailed", async (req, res) => {
+  const started = Date.now();
+  let db = "down";
+  let latencyMs = -1;
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    db = "up";
+    latencyMs = Date.now() - started;
+  } catch (e) { db = "down"; }
+  res.json({ status: db === "up" ? "ok" : "degraded", version: "3.8.2", db, latencyMs, uptimeSec: Math.round(process.uptime()), timestamp: new Date().toISOString() });
+});
 
 // --- QUEUE DEBUG / TEST (protect or remove in production later) ---
 app.post("/queues/test-welcome", async (req, res) => {
@@ -356,11 +410,17 @@ app.get("/queues/health", async (req, res) => {
   }
 });
 
-app.post("/logs/error", (req, res) => {
+app.post("/logs/error", async (req, res) => {
     const { error, stack, device, isFatal } = req.body;
     console.error(`[Client-Side Error] Fatal: ${isFatal} | Device: ${device}`);
     console.error(`Error: ${error}`);
     console.error(`Stack: ${stack}`);
+    try {
+        const message = String(error || "Unknown error").slice(0, 2000);
+        const existing = await prisma.errorLog.findFirst({ where: { message, device: device || null } });
+        if (existing) await prisma.errorLog.update({ where: { id: existing.id }, data: { count: { increment: 1 } } });
+        else await prisma.errorLog.create({ data: { message, stack: stack ? String(stack).slice(0, 8000) : null, device: device || null, isFatal: !!isFatal } });
+    } catch (e) {}
     res.json({ status: "logged" });
 });
 
@@ -564,7 +624,16 @@ app.post("/auth/login", authLimiter, async (req, res) => {
         user = await prisma.user.findUnique({ where: { email } });
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: "Invalid credentials" });
     }
+    if (user.isBanned) return res.status(403).json({ error: "This account has been suspended." });
+    if (user.totpEnabled && !idToken) {
+        const { totpCode: code } = req.body;
+        if (!code) return res.json({ requires2FA: true, userId: user.id });
+        if (!verifyTotp(user.totpSecret, code)) return res.status(401).json({ error: "Invalid 2FA code." });
+    }
     const tokens = generateTokens(user);
+    try {
+        sendGmail({ to: user.email, subject: "New login to StoryNest", html: `<p>Hi ${user.username},</p><p>Someone just logged in to your StoryNest account. If this was not you, change your password immediately.</p>` }).catch(() => {});
+    } catch (e) {}
     res.json({ user, ...tokens });
   } catch (error) { handleError(res, error, "Login failed. Please check your credentials."); }
 });
@@ -576,6 +645,8 @@ app.post("/auth/refresh", authLimiter, async (req, res) => {
         const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
         const user = await prisma.user.findUnique({ where: { id: decoded.id } });
         if (!user) throw new Error();
+        if (decoded.v !== undefined && (user.tokenVersion || 0) !== decoded.v) return res.status(401).json({ error: "Session revoked" });
+        if (user.isBanned) return res.status(403).json({ error: "Account suspended" });
         const tokens = generateTokens(user);
         res.json(tokens);
     } catch (e) { res.status(401).json({ error: "Invalid refresh token" }); }
@@ -588,11 +659,15 @@ app.post("/auth/refresh", authLimiter, async (req, res) => {
     // --- STORIES ---
 
 app.get("/stories", async (req, res) => {
-  const { genre, mood, q, limit } = req.query;
+  const { genre, mood, q, limit, featured } = req.query;
   try {
     const where = { isDraft: false };
     if (genre && genre !== "All") where.genre = genre;
     if (mood && mood !== "All") where.mood = mood;
+    if (featured === "true") {
+      where.isFeatured = true;
+      where.AND = [{ OR: [{ featuredUntil: null }, { featuredUntil: { gt: new Date() } }] }];
+    }
     if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { authorName: { contains: q, mode: "insensitive" } }];
     const stories = await prisma.story.findMany({ where, take: limit ? parseInt(limit) : 50, orderBy: { createdAt: "desc" }, include: { _count: { select: { likes: true, comments: true } } } });
     res.json(stories);
@@ -643,9 +718,11 @@ app.get("/stories/:id", async (req, res) => {
     let bookmarkProgress = 0;
     let canRead = true;
 
+    let blockedReason = null;
     if (story.isPremium) {
         if (!userId) {
             canRead = false;
+            blockedReason = "premium";
         } else {
             const user = await prisma.user.findUnique({ where: { id: userId } });
             if (!user.isPremium) {
@@ -655,7 +732,22 @@ app.get("/stories/:id", async (req, res) => {
                 });
                 if (!purchase) {
                     canRead = false;
+                    blockedReason = "premium";
                 }
+            }
+        }
+    }
+
+    if (story.isAdult) {
+        if (!userId) {
+            canRead = false;
+            blockedReason = "age";
+        } else {
+            const reader = await prisma.user.findUnique({ where: { id: userId }, select: { dateOfBirth: true } });
+            const age = ageFromDob(reader && reader.dateOfBirth);
+            if (age === null || age < 18) {
+                canRead = false;
+                blockedReason = "age";
             }
         }
     }
@@ -668,35 +760,57 @@ app.get("/stories/:id", async (req, res) => {
         isLiked = !!like;
         bookmarkProgress = bookmark ? bookmark.progress : 0;
     }
-    res.json({ ...story, isLiked, bookmarkProgress, canRead });
+    res.json({ ...story, isLiked, bookmarkProgress, canRead, blockedReason });
   } catch (error) { handleError(res, error); }
 });
 
 app.post("/stories", authenticate, canCreate, upload.single("cover"), async (req, res) => {
-    const { title, genre, authorName, mood, body, summary, readingTime, coverUrl } = req.body;
+    const { title, genre, authorName, mood, body, summary, readingTime, coverUrl, contentWarnings, isAdult, coverTheme } = req.body;
     try {
+        let autoFlag = containsBlocked(`${title} ${body} ${summary}`);
+        if (body && body.split(/\s+/).length > 100 && !autoFlag) {
+            const others = await prisma.story.findMany({ take: 200, orderBy: { createdAt: "desc" }, select: { body: true } });
+            autoFlag = others.some((o) => o.body && containmentScore(body, o.body) > 0.5);
+        }
         const story = await prisma.story.create({
             data: {
                 title, genre, authorName, mood, summary,
+                body: body || "",
                 ownerId: req.user.id,
                 readingTime: readingTime ? parseInt(readingTime) : 5,
                 coverUrl: req.file ? req.file.path : (typeof coverUrl === "string" && coverUrl.trim() ? coverUrl.trim() : null),
+                contentWarnings: contentWarnings || null,
+                isAdult: isAdult === true || isAdult === "true",
+                coverTheme: coverTheme || null,
                 isDraft: false,
                 publishedAt: new Date(),
+                isFlagged: autoFlag,
                 chapters: body ? { create: { title: "Chapter 1", body, order: 1 } } : undefined
             }
         });
+        if (body) await prisma.version.create({ data: { storyId: story.id, body } });
         logActivity({ userId: req.user.id, type: "PUBLISH", storyId: story.id });
         res.status(201).json(story);
     } catch (e) { handleError(res, e); }
 });
 
 app.put("/stories/:id", authenticate, canEditStory, upload.single("cover"), async (req, res) => {
-    const { title, genre, authorName, mood, summary, readingTime, coverUrl } = req.body;
+    const { title, genre, authorName, mood, summary, readingTime, coverUrl, body, contentWarnings, isAdult, coverTheme } = req.body;
     const updateData = { title, genre, authorName, mood, summary, readingTime: readingTime ? parseInt(readingTime) : undefined };
     if (req.file) updateData.coverUrl = req.file.path;
     else if (typeof coverUrl === "string" && coverUrl.trim()) updateData.coverUrl = coverUrl.trim();
+    if (contentWarnings !== undefined) updateData.contentWarnings = contentWarnings || null;
+    if (isAdult !== undefined) updateData.isAdult = isAdult === true || isAdult === "true";
+    if (coverTheme !== undefined) updateData.coverTheme = coverTheme || null;
+    if (body !== undefined) updateData.body = body;
     try {
+        // Snapshot the previous body so version history stays meaningful.
+        if (body !== undefined) {
+            const prev = await prisma.story.findUnique({ where: { id: req.params.id }, select: { body: true } });
+            if (prev && prev.body && prev.body !== body) {
+                await prisma.version.create({ data: { storyId: req.params.id, body: prev.body } });
+            }
+        }
         const story = await prisma.story.update({ where: { id: req.params.id }, data: updateData });
         res.json(story);
     } catch (e) { handleError(res, e); }
@@ -751,11 +865,18 @@ app.get("/admin/stats", authenticate, async (req, res) => {
         const where = isAdminUser ? {} : { ownerId: req.user.id };
         const stories = await prisma.story.findMany({ where, select: { id: true } });
         const ids = stories.map(s => s.id);
-        const [totalReads, userCount] = await Promise.all([
+        const dayAgo = new Date(Date.now() - 86400000);
+        const monthAgo = new Date(Date.now() - 30 * 86400000);
+        const [totalReads, userCount, dau, mau, genreGroups, revenue, openReports] = await Promise.all([
             ids.length > 0 ? prisma.history.count({ where: { storyId: { in: ids } } }) : Promise.resolve(0),
-            isAdminUser ? prisma.user.count() : Promise.resolve(0)
+            isAdminUser ? prisma.user.count() : Promise.resolve(0),
+            isAdminUser ? prisma.history.groupBy({ by: ["userId"], where: { createdAt: { gte: dayAgo } } }).then((r) => r.length) : Promise.resolve(0),
+            isAdminUser ? prisma.history.groupBy({ by: ["userId"], where: { createdAt: { gte: monthAgo } } }).then((r) => r.length) : Promise.resolve(0),
+            isAdminUser ? prisma.story.groupBy({ by: ["genre"], _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 8 }) : Promise.resolve([]),
+            isAdminUser ? prisma.purchase.aggregate({ _sum: { amount: true }, where: { status: "COMPLETED" } }).then((r) => r._sum.amount || 0) : Promise.resolve(0),
+            isAdminUser ? prisma.report.count({ where: { status: "OPEN" } }).catch(() => 0) : Promise.resolve(0)
         ]);
-        res.json({ storyCount: ids.length, totalReads, userCount });
+        res.json({ storyCount: ids.length, totalReads, userCount, dau, mau, genreGroups, revenue, openReports });
     } catch (e) { handleError(res, e); }
 });
 
@@ -769,17 +890,28 @@ app.get("/stories/:id/chapters", authenticate, canEditStory, async (req, res) =>
 });
 
 app.put("/chapters/:id", authenticate, canEditChapter, async (req, res) => {
-    const { title, body, order, isDraft } = req.body;
+    const { title, body, order, isDraft, publishedAt, audioUrl } = req.body;
     try {
-        const chapter = await prisma.chapter.update({
-            where: { id: req.params.id },
-            data: {
-                ...(title !== undefined ? { title } : {}),
-                ...(body !== undefined ? { body } : {}),
-                ...(order !== undefined ? { order: parseInt(order) } : {}),
-                ...(isDraft !== undefined ? { isDraft } : {})
+        const data = {
+            ...(title !== undefined ? { title } : {}),
+            ...(body !== undefined ? { body } : {}),
+            ...(order !== undefined ? { order: parseInt(order) } : {}),
+            ...(isDraft !== undefined ? { isDraft } : {}),
+            ...(audioUrl !== undefined ? { audioUrl: audioUrl ? String(audioUrl).slice(0, 500) : null } : {})
+        };
+        if (publishedAt !== undefined) {
+            if (publishedAt) {
+                const scheduled = new Date(publishedAt);
+                const isFuture = !isNaN(scheduled.getTime()) && scheduled.getTime() > Date.now();
+                data.publishedAt = isFuture ? scheduled : new Date();
+                if (isDraft === undefined) data.isDraft = isFuture ? true : false;
+            } else {
+                // Cleared schedule: publish immediately.
+                data.publishedAt = new Date();
+                if (isDraft === undefined) data.isDraft = false;
             }
-        });
+        }
+        const chapter = await prisma.chapter.update({ where: { id: req.params.id }, data });
         res.json(chapter);
     } catch (e) { handleError(res, e); }
 });
@@ -810,15 +942,29 @@ app.get("/chapters/:id", async (req, res) => {
             if (!user || !user.isPremium) return res.status(403).json({ error: "Premium story. Upgrade required." });
         }
 
+        if (chapter.story.isAdult) {
+            if (!userId) return res.status(403).json({ error: "This story is rated 18+.", blockedReason: "age" });
+            const reader = await prisma.user.findUnique({ where: { id: userId }, select: { dateOfBirth: true } });
+            const age = ageFromDob(reader && reader.dateOfBirth);
+            if (age === null || age < 18) return res.status(403).json({ error: "This story is rated 18+.", blockedReason: "age" });
+        }
+
         res.json(chapter);
     } catch (e) { handleError(res, e); }
 });
 
 app.post("/stories/:id/chapters", authenticate, canEditStory, async (req, res) => {
-    const { title, body, order } = req.body;
+    const { title, body, order, publishedAt, audioUrl } = req.body;
     try {
+        const scheduled = publishedAt ? new Date(publishedAt) : null;
+        const isFuture = scheduled && !isNaN(scheduled.getTime()) && scheduled.getTime() > Date.now();
         const chapter = await prisma.chapter.create({
-            data: { storyId: req.params.id, title, body, order: parseInt(order) || 0 }
+            data: {
+                storyId: req.params.id, title, body, order: parseInt(order) || 0,
+                publishedAt: isFuture ? scheduled : new Date(),
+                isDraft: isFuture ? true : false,
+                audioUrl: typeof audioUrl === "string" && audioUrl.trim() ? audioUrl.trim().slice(0, 500) : null
+            }
         });
         res.status(201).json(chapter);
     } catch (e) { handleError(res, e); }
@@ -838,10 +984,11 @@ app.get("/stories/:id/comments", async (req, res) => {
 });
 
 app.post("/stories/:id/comments", authenticate, writeLimiter, async (req, res) => {
-    const { content, parentId } = req.body;
+    const { content, parentId, paragraphIndex } = req.body;
+    if (containsBlocked(content)) return res.status(400).json({ error: "This comment goes against community guidelines." });
     try {
         const comment = await prisma.comment.create({
-            data: { userId: req.user.id, storyId: req.params.id, content, parentId: parentId || null },
+            data: { userId: req.user.id, storyId: req.params.id, content, parentId: parentId || null, paragraphIndex: paragraphIndex === undefined || paragraphIndex === null ? null : parseInt(paragraphIndex) },
             include: { user: { select: { id: true, username: true, avatarUrl: true } } }
         });
         logActivity({ userId: req.user.id, type: "COMMENT", storyId: req.params.id, content: String(content || "").slice(0, 140) || null });
@@ -975,9 +1122,46 @@ app.post("/stories/:id/like", authenticate, writeLimiter, async (req, res) => {
 
 app.post("/stories/:id/read", authenticate, async (req, res) => {
     try {
-        await prisma.history.create({ data: { userId: req.user.id, storyId: req.params.id } });
-        await prisma.user.update({ where: { id: req.user.id }, data: { xp: { increment: 10 } } });
-        res.json({ status: "success" });
+        const userId = req.user.id;
+        await prisma.history.create({ data: { userId, storyId: req.params.id } });
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { lastReadDate: true, streakCount: true } });
+        const today = dayKey(new Date());
+        const last = user && user.lastReadDate ? dayKey(user.lastReadDate) : null;
+        const yesterday = dayKey(Date.now() - 86400000);
+        let streak = 1;
+        if (last === today) streak = user.streakCount || 1;
+        else if (last === yesterday) streak = (user.streakCount || 0) + 1;
+        await prisma.user.update({ where: { id: userId }, data: { xp: { increment: 10 }, streakCount: streak, lastReadDate: new Date() } });
+        const newBadges = [];
+        const reads = await prisma.history.count({ where: { userId } });
+        if (reads === 1) { const b = await awardAchievement(userId, "First Steps"); if (b) newBadges.push(b); }
+        if (reads >= 10) { const b = await awardAchievement(userId, "Bookworm"); if (b) newBadges.push(b); }
+        if (streak >= 30) { const b = await awardAchievement(userId, "Unstoppable"); if (b) newBadges.push(b); }
+        else if (streak >= 7) { const b = await awardAchievement(userId, "On Fire"); if (b) newBadges.push(b); }
+        else if (streak >= 3) { const b = await awardAchievement(userId, "Getting Warm"); if (b) newBadges.push(b); }
+        res.json({ status: "success", streak, newBadges });
+    } catch (e) { res.json({ status: "ok" }); }
+});
+
+app.post("/stories/:id/read-time", authenticate, async (req, res) => {
+    const minutes = Math.min(Math.max(Math.round((parseInt(req.body.seconds) || 0) / 60), 0), 10);
+    if (!minutes) return res.json({ status: "ok" });
+    try {
+        const userId = req.user.id;
+        const user = await prisma.user.findUnique({ where: { id: userId }, select: { lastReadDate: true, todayReadTime: true, totalReadTime: true, dailyGoalMinutes: true } });
+        const today = dayKey(new Date());
+        const last = user && user.lastReadDate ? dayKey(user.lastReadDate) : null;
+        const todayTime = last === today ? (user.todayReadTime || 0) + minutes : minutes;
+        const totalTime = (user.totalReadTime || 0) + minutes;
+        await prisma.user.update({ where: { id: userId }, data: { todayReadTime: todayTime, totalReadTime: totalTime, lastReadDate: new Date() } });
+        const newBadges = [];
+        if (totalTime >= 500) { const b = await awardAchievement(userId, "Marathon"); if (b) newBadges.push(b); }
+        let goalHit = false;
+        if (todayTime >= (user.dailyGoalMinutes || 30)) {
+            goalHit = true;
+            const b = await awardAchievement(userId, "Goal Crusher"); if (b) newBadges.push(b);
+        }
+        res.json({ status: "success", todayReadTime: todayTime, goalHit, newBadges });
     } catch (e) { res.json({ status: "ok" }); }
 });
 
@@ -1033,7 +1217,8 @@ app.get("/users/me", authenticate, async (req, res) => {
                 id: true, email: true, username: true, avatarUrl: true, bio: true,
                 role: true, readerTheme: true, readerFontSize: true,
                 notificationsOn: true, recsEnabled: true, coins: true, xp: true,
-                isPremium: true, streakCount: true, totalReadTime: true,
+                isPremium: true, streakCount: true, totalReadTime: true, todayReadTime: true,
+                dailyGoalMinutes: true, lastReadDate: true, totpEnabled: true, showActivity: true,
                 referralCode: true, referrerId: true, discoverable: true, publicKey: true
             }
         });
@@ -1046,7 +1231,8 @@ app.get("/users/me", authenticate, async (req, res) => {
                     id: true, email: true, username: true, avatarUrl: true, bio: true,
                     role: true, readerTheme: true, readerFontSize: true,
                     notificationsOn: true, recsEnabled: true, coins: true, xp: true,
-                    isPremium: true, streakCount: true, totalReadTime: true,
+                    isPremium: true, streakCount: true, totalReadTime: true, todayReadTime: true,
+                    dailyGoalMinutes: true, lastReadDate: true, totpEnabled: true, showActivity: true,
                     referralCode: true, referrerId: true, discoverable: true, publicKey: true
                 }
             });
@@ -1188,7 +1374,7 @@ app.post("/users/me/role", authenticate, async (req, res) => {
 });
 
 app.post("/users/me/settings", authenticate, async (req, res) => {
-    const { notificationsOn, recsEnabled, discoverable } = req.body;
+    const { notificationsOn, recsEnabled, discoverable, showActivity, dateOfBirth } = req.body;
     try {
         const user = await prisma.user.update({
             where: { id: req.user.id },
@@ -1196,6 +1382,8 @@ app.post("/users/me/settings", authenticate, async (req, res) => {
                 ...(notificationsOn !== undefined ? { notificationsOn } : {}),
                 ...(recsEnabled !== undefined ? { recsEnabled } : {}),
                 ...(discoverable !== undefined ? { discoverable } : {}),
+                ...(showActivity !== undefined ? { showActivity } : {}),
+                ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
             }
         });
         res.json(user);
@@ -1280,10 +1468,14 @@ app.post("/users/me/preferences", authenticate, async (req, res) => {
 
 app.put("/users/me/profile", authenticate, writeLimiter, upload.single("avatar"), async (req, res) => {
     try {
-        const { username, bio } = req.body;
+        const { username, bio, dateOfBirth } = req.body;
         const updateData = {};
         if (username) updateData.username = username;
         if (bio) updateData.bio = bio;
+        if (dateOfBirth) {
+            const dob = new Date(dateOfBirth);
+            if (!isNaN(dob.getTime())) updateData.dateOfBirth = dob;
+        }
         if (req.file) updateData.avatarUrl = req.file.path;
         
         const user = await prisma.user.update({
@@ -1316,12 +1508,20 @@ app.get("/admin/analytics", authenticate, async (req, res) => {
             }
         });
 
-        const stats = stories.map(s => {
+        const weekAgo = new Date(Date.now() - 7 * 86400000);
+        const twoWeeksAgo = new Date(Date.now() - 14 * 86400000);
+        const stats = await Promise.all(stories.map(async (s) => {
             const reads = s._count.history;
             const engagement = s._count.likes + s._count.comments;
-            // Simulated but weighted metrics
             const retention = reads > 0 ? Math.min(95, Math.floor(60 + (engagement / reads * 100))) : 0;
-            const trend = reads > 5 ? Math.floor(Math.random() * 15) + 5 : 0;
+            const [bookmarks, finished, recentReads, priorReads] = await Promise.all([
+                prisma.bookmark.count({ where: { storyId: s.id } }),
+                prisma.bookmark.count({ where: { storyId: s.id, progress: { gte: 95 } } }),
+                prisma.history.count({ where: { storyId: s.id, createdAt: { gte: weekAgo } } }),
+                prisma.history.count({ where: { storyId: s.id, createdAt: { gte: twoWeeksAgo, lt: weekAgo } } })
+            ]);
+            const finishRate = bookmarks > 0 ? Math.round((finished / bookmarks) * 100) : 0;
+            const trendPct = priorReads > 0 ? Math.round(((recentReads - priorReads) / priorReads) * 100) : (recentReads > 0 ? 100 : 0);
 
             return {
                 id: s.id,
@@ -1330,10 +1530,12 @@ app.get("/admin/analytics", authenticate, async (req, res) => {
                 likes: s._count.likes,
                 comments: s._count.comments,
                 retention: `${retention}%`,
-                trend: `+${trend}%`,
-                publishedAt: s.publishedAt
+                trend: `${trendPct >= 0 ? "+" : ""}${trendPct}%`,
+                publishedAt: s.publishedAt,
+                finishRate: `${finishRate}%`,
+                finishBadge: finishRate >= 90 && bookmarks >= 5
             };
-        });
+        }));
 
         res.json(stats);
     } catch (e) { handleError(res, e); }
@@ -1629,6 +1831,804 @@ app.use((req, res) => {
     console.log(`[404] Unhandled: ${req.method} ${req.url}`);
     res.status(404).json({ error: "Not found", method: req.method, url: req.url });
 });
+
+// --- BATCHES 2-4: follows, versions, collaborators, reactions, clubs, requests, beta ---
+
+app.post("/users/:id/follow", authenticate, writeLimiter, async (req, res) => {
+  const targetId = req.params.id;
+  if (targetId === req.user.id) return res.status(400).json({ error: "You cannot follow yourself." });
+  try {
+    const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!target) return res.status(404).json({ error: "User not found." });
+    const key = { followerId_followingId: { followerId: req.user.id, followingId: targetId } };
+    const existing = await prisma.follows.findUnique({ where: key.followerId_followingId });
+    if (existing) {
+      await prisma.follows.delete({ where: key.followerId_followingId });
+      return res.json({ isFollowing: false });
+    }
+    await prisma.follows.create({ data: { followerId: req.user.id, followingId: targetId } });
+    res.json({ isFollowing: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/users/:id/profile", authenticate, async (req, res) => {
+  try {
+    const profile = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, username: true, avatarUrl: true, bio: true, role: true, streakCount: true, totalReadTime: true, createdAt: true, showActivity: true,
+        _count: { select: { followers: true, following: true } } }
+    });
+    if (!profile) return res.status(404).json({ error: "User not found." });
+    const activityHidden = profile.showActivity === false && req.user.id !== profile.id;
+    const [stories, achievements, follow] = await Promise.all([
+      prisma.story.findMany({ where: { ownerId: profile.id, isDraft: false }, orderBy: { createdAt: "desc" }, take: 20,
+        include: { _count: { select: { likes: true, comments: true } } } }),
+      activityHidden ? Promise.resolve([]) : prisma.achievement.findMany({ where: { userId: profile.id }, orderBy: { createdAt: "desc" }, take: 12 }),
+      prisma.follows.findUnique({ where: { followerId_followingId: { followerId: req.user.id, followingId: profile.id } } })
+    ]);
+    res.json({ ...profile, stories, achievements, isFollowing: !!follow, activityHidden });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/stories/:id/versions", authenticate, canEditStory, async (req, res) => {
+  try {
+    const versions = await prisma.version.findMany({ where: { storyId: req.params.id }, orderBy: { createdAt: "desc" }, take: 30 });
+    res.json(versions);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/versions/:id/restore", authenticate, writeLimiter, async (req, res) => {
+  try {
+    const version = await prisma.version.findUnique({ where: { id: req.params.id }, include: { story: { select: { ownerId: true, coAuthors: { select: { id: true } } } } } });
+    if (!version) return res.status(404).json({ error: "Version not found." });
+    const allowed = version.story.ownerId === req.user.id || req.user.role === "ADMIN" || version.story.coAuthors.some((c) => c.id === req.user.id);
+    if (!allowed) return res.status(403).json({ error: "No edit access" });
+    const current = await prisma.story.findUnique({ where: { id: version.storyId }, select: { body: true } });
+    if (current && current.body) await prisma.version.create({ data: { storyId: version.storyId, body: current.body } });
+    const story = await prisma.story.update({ where: { id: version.storyId }, data: { body: version.body } });
+    res.json(story);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/stories/:id/collaborators", authenticate, canEditStory, writeLimiter, async (req, res) => {
+  const { username } = req.body;
+  if (!username || !username.trim()) return res.status(400).json({ error: "Username is required." });
+  try {
+    const user = await prisma.user.findUnique({ where: { username: username.trim() } });
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (user.role !== "WRITER" && user.role !== "ADMIN") return res.status(400).json({ error: "Only writers can co-author." });
+    const story = await prisma.story.update({ where: { id: req.params.id }, data: { coAuthors: { connect: { id: user.id } } }, include: { coAuthors: { select: { id: true, username: true, avatarUrl: true } } } });
+    res.json(story.coAuthors);
+  } catch (e) { handleError(res, e); }
+});
+
+app.delete("/stories/:id/collaborators/:userId", authenticate, canEditStory, writeLimiter, async (req, res) => {
+  try {
+    await prisma.story.update({ where: { id: req.params.id }, data: { coAuthors: { disconnect: { id: req.params.userId } } } });
+    res.json({ success: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/stories/:id/reactions", async (req, res) => {
+  const { chapterId } = req.query;
+  try {
+    const reactions = await prisma.reaction.findMany({ where: { storyId: req.params.id, ...(chapterId ? { chapterId } : {}) } });
+    const counts = {};
+    reactions.forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+    let mine = [];
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const me = jwt.verify(authHeader.split(" ")[1], config.jwtAccessSecret).id;
+        mine = reactions.filter((r) => r.userId === me).map((r) => r.emoji);
+      } catch (e) {}
+    }
+    res.json({ counts, mine, total: reactions.length });
+  } catch (e) { handleError(res, e); }
+});
+
+const ALLOWED_REACTIONS = ["❤️", "😂", "😮", "😢", "🔥"];
+
+app.post("/stories/:id/reactions", authenticate, writeLimiter, async (req, res) => {
+  const { emoji, chapterId } = req.body;
+  if (!ALLOWED_REACTIONS.includes(emoji)) return res.status(400).json({ error: "Invalid reaction." });
+  try {
+    const where = { userId: req.user.id, storyId: req.params.id, chapterId: chapterId || null, emoji };
+    const existing = await prisma.reaction.findFirst({ where });
+    if (existing) await prisma.reaction.delete({ where: { id: existing.id } });
+    else await prisma.reaction.create({ data: where });
+    const reactions = await prisma.reaction.findMany({ where: { storyId: req.params.id, ...(chapterId ? { chapterId } : {}) } });
+    const counts = {};
+    reactions.forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+    res.json({ counts, mine: reactions.filter((r) => r.userId === req.user.id).map((r) => r.emoji) });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/clubs", authenticate, async (req, res) => {
+  try {
+    const clubs = await prisma.club.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
+    const withCounts = await Promise.all(clubs.map(async (c) => {
+      const [memberCount, mine] = await Promise.all([
+        prisma.clubMember.count({ where: { clubId: c.id } }),
+        prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: c.id, userId: req.user.id } } })
+      ]);
+      return { ...c, memberCount, isMember: !!mine };
+    }));
+    res.json(withCounts);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/clubs", authenticate, canCreate, writeLimiter, async (req, res) => {
+  const { name, description } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: "Club name is required." });
+  try {
+    const inviteCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+    const club = await prisma.club.create({ data: { name: name.trim(), description: description || null, ownerId: req.user.id, inviteCode } });
+    await prisma.clubMember.create({ data: { clubId: club.id, userId: req.user.id, role: "OWNER" } });
+    res.status(201).json(club);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/clubs/:id/join", authenticate, writeLimiter, async (req, res) => {
+  try {
+    const club = await prisma.club.findFirst({ where: { OR: [{ id: req.params.id }, { inviteCode: String(req.body.code || "").toUpperCase() }] } });
+    if (!club) return res.status(404).json({ error: "Club not found." });
+    await prisma.clubMember.upsert({ where: { clubId_userId: { clubId: club.id, userId: req.user.id } }, update: {}, create: { clubId: club.id, userId: req.user.id } });
+    res.json({ success: true, clubId: club.id });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/clubs/:id/messages", authenticate, async (req, res) => {
+  try {
+    const member = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: req.params.id, userId: req.user.id } } });
+    if (!member) return res.status(403).json({ error: "Join this club to read messages." });
+    const messages = await prisma.clubMessage.findMany({ where: { clubId: req.params.id }, orderBy: { createdAt: "asc" }, take: 200 });
+    res.json(messages);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/clubs/:id/messages", authenticate, writeLimiter, async (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: "Message is required." });
+  try {
+    const member = await prisma.clubMember.findUnique({ where: { clubId_userId: { clubId: req.params.id, userId: req.user.id } } });
+    if (!member) return res.status(403).json({ error: "Join this club first." });
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true, avatarUrl: true } });
+    const message = await prisma.clubMessage.create({ data: { clubId: req.params.id, userId: req.user.id, username: me.username, avatarUrl: me.avatarUrl, content: content.trim() } });
+    res.status(201).json(message);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/requests", async (req, res) => {
+  try {
+    const requests = await prisma.storyRequest.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+    res.json(requests);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/requests", authenticate, writeLimiter, async (req, res) => {
+  const { title, genre, description } = req.body;
+  if (!title || !title.trim()) return res.status(400).json({ error: "Title is required." });
+  try {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+    const request = await prisma.storyRequest.create({ data: { userId: req.user.id, username: me.username, title: title.trim(), genre: genre || "Fiction", description: description || null } });
+    res.status(201).json(request);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/requests/:id/claim", authenticate, canCreate, writeLimiter, async (req, res) => {
+  try {
+    const existing = await prisma.storyRequest.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Request not found." });
+    if (existing.status !== "OPEN") return res.status(400).json({ error: "Already claimed." });
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { username: true } });
+    const updated = await prisma.storyRequest.update({ where: { id: req.params.id }, data: { status: "CLAIMED", claimedById: req.user.id, claimedByName: me.username } });
+    res.json(updated);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/stories/:id/beta-invites", authenticate, canEditStory, writeLimiter, async (req, res) => {
+  try {
+    const code = "BETA-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+    const invite = await prisma.betaInvite.create({ data: { storyId: req.params.id, code, createdById: req.user.id } });
+    res.status(201).json(invite);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/stories/:id/beta-invites", authenticate, canEditStory, async (req, res) => {
+  try {
+    const invites = await prisma.betaInvite.findMany({ where: { storyId: req.params.id }, orderBy: { createdAt: "desc" } });
+    res.json(invites);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/beta/redeem", authenticate, async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: "Code is required." });
+  try {
+    const invite = await prisma.betaInvite.findUnique({ where: { code: String(code).trim().toUpperCase() } });
+    if (!invite) return res.status(404).json({ error: "Invalid beta code." });
+    await prisma.betaInvite.update({ where: { id: invite.id }, data: { redeemedById: req.user.id } });
+    res.json({ storyId: invite.storyId });
+  } catch (e) { handleError(res, e); }
+});
+
+// --- BATCH 5: gamification ---
+
+app.get("/gamification/leaderboard", authenticate, async (req, res) => {
+  try {
+    const leaders = await prisma.user.findMany({ orderBy: { xp: "desc" }, take: 20, select: { id: true, username: true, avatarUrl: true, xp: true, isPremium: true } });
+    res.json(leaders);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/gamification/achievements", authenticate, async (req, res) => {
+  try {
+    const unlocked = await prisma.achievement.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "desc" } });
+    const byTitle = {};
+    unlocked.forEach((a) => { byTitle[a.title] = a; });
+    res.json({ catalog: ACHIEVEMENT_CATALOG.map((c) => ({ ...c, unlocked: !!byTitle[c.title], unlockedAt: byTitle[c.title] ? byTitle[c.title].createdAt : null })), total: unlocked.length });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/gamification/streak-freeze", authenticate, writeLimiter, async (req, res) => {
+  const COST = 50;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { coins: true, streakCount: true, lastReadDate: true } });
+    if (!user || (user.streakCount || 0) <= 0) return res.status(400).json({ error: "No active streak to protect." });
+    if ((user.coins || 0) < COST) return res.status(400).json({ error: `You need ${COST} coins for a freeze.` });
+    const today = dayKey(new Date());
+    const last = user.lastReadDate ? dayKey(user.lastReadDate) : null;
+    if (last === today || last === dayKey(Date.now() - 86400000)) return res.status(400).json({ error: "Your streak is safe. Come back if you miss a day." });
+    if (last !== dayKey(Date.now() - 2 * 86400000)) return res.status(400).json({ error: "Too late — that streak is already gone." });
+    const updated = await prisma.user.update({ where: { id: req.user.id }, data: { coins: { decrement: COST }, lastReadDate: new Date() }, select: { coins: true, streakCount: true } });
+    res.json({ success: true, coins: updated.coins, streak: updated.streakCount });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/gamification/challenges", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const wk = weekKey();
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const [reads, user, claims] = await Promise.all([
+      prisma.history.findMany({ where: { userId, createdAt: { gte: weekStart } }, include: { story: { select: { genre: true } } } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { streakCount: true } }),
+      prisma.achievement.findMany({ where: { userId, title: { startsWith: "challenge:" } }, select: { title: true } })
+    ]);
+    const claimed = new Set(claims.map((c) => c.title));
+    const genres = new Set(reads.map((r) => r.story && r.story.genre).filter(Boolean));
+    const defs = [
+      { id: `challenge:weekly-reads:${wk}`, title: "Weekly Reader", desc: "Read 5 stories this week", progress: Math.min(reads.length, 5), goal: 5, reward: 30 },
+      { id: `challenge:genre-explorer:${wk}`, title: "Genre Explorer", desc: "Read 3 different genres this week", progress: Math.min(genres.size, 3), goal: 3, reward: 40 },
+      { id: `challenge:streak-keeper:${wk}`, title: "Streak Keeper", desc: "Reach a 3-day streak", progress: Math.min((user && user.streakCount) || 0, 3), goal: 3, reward: 50 },
+    ];
+    res.json(defs.map((d) => ({ ...d, claimed: claimed.has(d.id), complete: d.progress >= d.goal })));
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/gamification/claim", authenticate, writeLimiter, async (req, res) => {
+  const { key, coins, title, icon } = req.body;
+  const reward = Math.min(Math.max(parseInt(coins) || 0, 0), 200);
+  if (!key || typeof key !== "string" || !reward) return res.status(400).json({ error: "Invalid claim." });
+  if (!/^(challenge|season):[A-Za-z0-9-_:.]+$/.test(key)) return res.status(400).json({ error: "Invalid claim." });
+  try {
+    const existing = await prisma.achievement.findFirst({ where: { userId: req.user.id, title: key } });
+    if (existing) return res.status(400).json({ error: "Already claimed." });
+    await prisma.achievement.create({ data: { userId: req.user.id, title: key, icon: icon || "Gift" } });
+    const user = await prisma.user.update({ where: { id: req.user.id }, data: { coins: { increment: reward } }, select: { coins: true } });
+    res.json({ success: true, coins: user.coins, title: title || key });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/users/me/purchases", authenticate, async (req, res) => {
+  try {
+    const purchases = await prisma.purchase.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "desc" }, take: 50 });
+    const storyIds = [...new Set(purchases.map((p) => p.storyId).filter(Boolean))];
+    const stories = storyIds.length > 0 ? await prisma.story.findMany({ where: { id: { in: storyIds } }, select: { id: true, title: true } }) : [];
+    const titles = {};
+    stories.forEach((s) => { titles[s.id] = s.title; });
+    res.json(purchases.map((p) => ({ ...p, storyTitle: p.storyId ? titles[p.storyId] || null : null })));
+  } catch (e) { handleError(res, e); }
+});
+
+// --- BATCHES 10-11: trust, admin, platform ---
+
+app.post("/auth/totp/setup", authenticate, async (req, res) => {
+  try {
+    const secret = newTotpSecret();
+    await prisma.user.update({ where: { id: req.user.id }, data: { totpSecret: secret, totpEnabled: false } });
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true } });
+    const otpauth = `otpauth://totp/StoryNest:${encodeURIComponent(me.email)}?secret=${secret}&issuer=StoryNest`;
+    res.json({ secret, otpauth });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/auth/totp/verify", authenticate, async (req, res) => {
+  try {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { totpSecret: true } });
+    if (!verifyTotp(me && me.totpSecret, req.body.code)) return res.status(400).json({ error: "Invalid code." });
+    await prisma.user.update({ where: { id: req.user.id }, data: { totpEnabled: true } });
+    res.json({ success: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/auth/totp/disable", authenticate, async (req, res) => {
+  try {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { totpSecret: true, password: true } });
+    const codeOk = req.body.code ? verifyTotp(me.totpSecret, req.body.code) : false;
+    const pwOk = req.body.password ? await bcrypt.compare(req.body.password, me.password || "") : false;
+    if (!codeOk && !pwOk) return res.status(401).json({ error: "Confirm with your 2FA code or password." });
+    await prisma.user.update({ where: { id: req.user.id }, data: { totpEnabled: false, totpSecret: null } });
+    res.json({ success: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/auth/logout-all", authenticate, async (req, res) => {
+  try {
+    await prisma.user.update({ where: { id: req.user.id }, data: { tokenVersion: { increment: 1 } } });
+    res.json({ success: true, message: "All other sessions have been signed out." });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/reports", authenticate, writeLimiter, async (req, res) => {
+  const { targetType, targetId, reason, details } = req.body;
+  if (!["story", "comment", "user", "chapter"].includes(targetType) || !targetId || !reason) return res.status(400).json({ error: "Invalid report." });
+  try {
+    const report = await prisma.report.create({ data: { reporterId: req.user.id, targetType, targetId, reason: String(reason).slice(0, 120), details: details ? String(details).slice(0, 2000) : null } });
+    res.status(201).json(report);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/admin/reports", authenticate, requireRole("ADMIN"), async (req, res) => {
+  try {
+    const { status } = req.query;
+    const [reports, open] = await Promise.all([
+      prisma.report.findMany({ where: status ? { status } : {}, orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.report.count({ where: { status: "OPEN" } })
+    ]);
+    res.json({ reports, open });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/admin/reports/:id/resolve", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { action } = req.body;
+  try {
+    const report = await prisma.report.findUnique({ where: { id: req.params.id } });
+    if (!report) return res.status(404).json({ error: "Report not found." });
+    if (action === "REMOVE") {
+      if (report.targetType === "story") await prisma.story.update({ where: { id: report.targetId }, data: { isDraft: true } }).catch(() => {});
+      if (report.targetType === "comment") await prisma.comment.delete({ where: { id: report.targetId } }).catch(() => {});
+      if (report.targetType === "chapter") await prisma.chapter.update({ where: { id: report.targetId }, data: { isDraft: true } }).catch(() => {});
+    }
+    if (action === "BAN" && report.targetType === "user") {
+      await prisma.user.update({ where: { id: report.targetId }, data: { isBanned: true } }).catch(() => {});
+    }
+    await prisma.report.update({ where: { id: report.id }, data: { status: "RESOLVED" } });
+    res.json({ success: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/users/:id/block", authenticate, writeLimiter, async (req, res) => {
+  const targetId = req.params.id;
+  if (targetId === req.user.id) return res.status(400).json({ error: "You cannot block yourself." });
+  try {
+    const key = { blockerId_blockedId: { blockerId: req.user.id, blockedId: targetId } };
+    const existing = await prisma.block.findUnique({ where: key.blockerId_blockedId });
+    if (existing) {
+      await prisma.block.delete({ where: key.blockerId_blockedId });
+      return res.json({ isBlocked: false });
+    }
+    await prisma.block.create({ data: { blockerId: req.user.id, blockedId: targetId } });
+    res.json({ isBlocked: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/users/me/blocks", authenticate, async (req, res) => {
+  try {
+    const blocks = await prisma.block.findMany({ where: { blockerId: req.user.id }, select: { blockedId: true } });
+    res.json(blocks.map((b) => b.blockedId));
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/users/me/export", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [user, stories, bookmarks, history, comments, likes, achievements, purchases] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.story.findMany({ where: { ownerId: userId } }),
+      prisma.bookmark.findMany({ where: { userId } }),
+      prisma.history.findMany({ where: { userId }, take: 1000 }),
+      prisma.comment.findMany({ where: { userId }, take: 1000 }),
+      prisma.like.findMany({ where: { userId } }),
+      prisma.achievement.findMany({ where: { userId } }),
+      prisma.purchase.findMany({ where: { userId } }),
+    ]);
+    if (user) { delete user.password; delete user.totpSecret; }
+    res.json({ exportedAt: new Date().toISOString(), user, stories, bookmarks, history, comments, likes, achievements, purchases });
+  } catch (e) { handleError(res, e); }
+});
+
+app.delete("/auth/account", authenticate, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const owned = await prisma.story.findMany({ where: { ownerId: userId }, select: { id: true } });
+    const storyIds = owned.map((s) => s.id);
+    const ops = [
+      prisma.history.deleteMany({ where: { userId } }),
+      prisma.bookmark.deleteMany({ where: { userId } }),
+      prisma.comment.deleteMany({ where: { userId } }),
+      prisma.like.deleteMany({ where: { userId } }),
+      prisma.achievement.deleteMany({ where: { userId } }),
+      prisma.message.deleteMany({ where: { senderId: userId } }),
+      prisma.follows.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } }),
+      prisma.block.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
+      prisma.report.deleteMany({ where: { reporterId: userId } }),
+      prisma.purchase.deleteMany({ where: { userId } }),
+      prisma.poll.deleteMany({ where: { userId } }),
+      prisma.review.deleteMany({ where: { userId } }),
+      prisma.highlight.deleteMany({ where: { userId } }),
+    ];
+    if (storyIds.length > 0) {
+      ops.push(
+        prisma.history.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.bookmark.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.comment.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.like.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.chapter.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.version.deleteMany({ where: { storyId: { in: storyIds } } }),
+        prisma.story.deleteMany({ where: { id: { in: storyIds } } })
+      );
+    }
+    ops.push(prisma.user.delete({ where: { id: userId } }));
+    await prisma.$transaction(ops);
+    res.json({ success: true });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/admin/users", authenticate, requireRole("ADMIN"), async (req, res) => {
+  const { q, take } = req.query;
+  try {
+    const users = await prisma.user.findMany({
+      where: q ? { OR: [{ username: { contains: q, mode: "insensitive" } }, { email: { contains: String(q).toLowerCase() } }] } : {},
+      orderBy: { createdAt: "desc" }, take: Math.min(parseInt(take) || 30, 100),
+      select: { id: true, username: true, email: true, role: true, isBanned: true, coins: true, xp: true, streakCount: true, createdAt: true, _count: { select: { ownedStories: true } } },
+    });
+    res.json(users);
+  } catch (e) { handleError(res, e); }
+});
+
+app.put("/admin/users/:id/role", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { role } = req.body;
+  if (!["READER", "WRITER", "ADMIN"].includes(role)) return res.status(400).json({ error: "Invalid role." });
+  try {
+    const user = await prisma.user.update({ where: { id: req.params.id }, data: { role }, select: { id: true, username: true, role: true } });
+    res.json(user);
+  } catch (e) { handleError(res, e); }
+});
+
+app.put("/admin/users/:id/ban", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { isBanned: true, role: true } });
+    if (!target) return res.status(404).json({ error: "User not found." });
+    if (target.role === "ADMIN") return res.status(400).json({ error: "Cannot ban an admin." });
+    const user = await prisma.user.update({ where: { id: req.params.id }, data: { isBanned: !target.isBanned }, select: { id: true, username: true, isBanned: true } });
+    res.json(user);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/admin/errors", authenticate, requireRole("ADMIN"), async (req, res) => {
+  try {
+    const [errors, fatal] = await Promise.all([
+      prisma.errorLog.findMany({ orderBy: { updatedAt: "desc" }, take: 100 }),
+      prisma.errorLog.count({ where: { isFatal: true } })
+    ]);
+    res.json({ errors, fatal });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/admin/stories/bulk", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { ids, action, genre } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) return res.status(400).json({ error: "Provide 1-100 story ids." });
+  try {
+    let result;
+    if (action === "publish") result = await prisma.story.updateMany({ where: { id: { in: ids } }, data: { isDraft: false, publishedAt: new Date() } });
+    else if (action === "unlist") result = await prisma.story.updateMany({ where: { id: { in: ids } }, data: { isDraft: true } });
+    else if (action === "feature") result = await prisma.story.updateMany({ where: { id: { in: ids } }, data: { isFeatured: true, featuredUntil: null } });
+    else if (action === "unfeature") result = await prisma.story.updateMany({ where: { id: { in: ids } }, data: { isFeatured: false, featuredUntil: null } });
+    else if (action === "tag" && genre) result = await prisma.story.updateMany({ where: { id: { in: ids } }, data: { genre } });
+    else if (action === "delete") {
+      await prisma.chapter.deleteMany({ where: { storyId: { in: ids } } });
+      await prisma.comment.deleteMany({ where: { storyId: { in: ids } } });
+      result = await prisma.story.deleteMany({ where: { id: { in: ids } } });
+    }
+    else return res.status(400).json({ error: "Invalid action." });
+    res.json({ success: true, count: result.count });
+  } catch (e) { handleError(res, e); }
+});
+
+app.put("/admin/stories/:id/feature", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { days } = req.body;
+  try {
+    const n = parseInt(days) || 0;
+    const story = await prisma.story.update({ where: { id: req.params.id }, data: n > 0 ? { isFeatured: true, featuredUntil: new Date(Date.now() + n * 86400000) } : { isFeatured: false, featuredUntil: null } });
+    res.json({ id: story.id, isFeatured: story.isFeatured, featuredUntil: story.featuredUntil });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/app/config", async (req, res) => {
+  res.json({
+    flags: { clubs: true, seasons: true, betaReader: true, podcasts: true, ...runtimeFlags },
+    minSupportedVersion: "1.0.0",
+    latestVersion: "1.0.7",
+    supportEmail: "support@storynest.app",
+  });
+});
+
+app.get("/v1/stories", async (req, res) => {
+  const { genre, limit } = req.query;
+  try {
+    const stories = await prisma.story.findMany({ where: { isDraft: false, ...(genre ? { genre } : {}) }, take: Math.min(parseInt(limit) || 20, 50), orderBy: { createdAt: "desc" }, select: { id: true, title: true, genre: true, authorName: true, summary: true, coverUrl: true, readingTime: true, publishedAt: true } });
+    res.json({ data: stories });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/v1/stories/:id", async (req, res) => {
+  try {
+    const story = await prisma.story.findUnique({ where: { id: req.params.id }, select: { id: true, title: true, genre: true, authorName: true, summary: true, coverUrl: true, readingTime: true, mood: true, contentWarnings: true, isAdult: true, publishedAt: true, chapters: { where: { isDraft: false }, orderBy: { order: "asc" }, select: { id: true, title: true, order: true } } } });
+    if (!story) return res.status(404).json({ error: "Not found" });
+    res.json({ data: story });
+  } catch (e) { handleError(res, e); }
+});
+
+// --- BATCH 11: flags, announcements, sessions, schedule, currencies, backup ---
+const runtimeFlags = {};
+const announcements = [];
+
+app.get("/admin/flags", authenticate, requireRole("ADMIN"), async (req, res) => {
+  const base = { clubs: true, seasons: true, betaReader: true, podcasts: true, ...runtimeFlags };
+  res.json(Object.entries(base).map(([key, v]) => (v && typeof v === "object" ? { key, enabled: !!v.enabled, percent: v.percent ?? 100 } : { key, enabled: !!v, percent: 100 })));
+});
+
+app.post("/admin/flags", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { key, enabled, percent } = req.body;
+  if (!key || typeof key !== "string") return res.status(400).json({ error: "Flag key required." });
+  const k = key.trim().slice(0, 60);
+  const p = percent === undefined ? 100 : Math.max(0, Math.min(100, parseInt(percent) || 0));
+  runtimeFlags[k] = p >= 100 ? !!enabled : { enabled: !!enabled, percent: p };
+  res.json({ key: k, enabled: !!enabled, percent: p });
+});
+
+app.get("/announcements", async (req, res) => {
+  res.json(announcements.slice(0, 20));
+});
+
+app.post("/admin/announcements", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const { title, body } = req.body;
+  if (!title || !body) return res.status(400).json({ error: "Title and body required." });
+  const item = { id: `a_${Date.now()}`, title: String(title).slice(0, 120), body: String(body).slice(0, 2000), createdAt: new Date().toISOString() };
+  announcements.unshift(item);
+  while (announcements.length > 20) announcements.pop();
+  res.json(item);
+});
+
+app.get("/users/me/sessions", authenticate, async (req, res) => {
+  try {
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { tokenVersion: true } });
+    res.json([{ id: "current", device: req.get("user-agent") || "This device", lastActive: new Date().toISOString(), tokenVersion: me ? me.tokenVersion : 0 }]);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/admin/users/:id/ban", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+    if (!target) return res.status(404).json({ error: "User not found." });
+    if (target.role === "ADMIN") return res.status(400).json({ error: "Cannot ban an admin." });
+    const user = await prisma.user.update({ where: { id: req.params.id }, data: { isBanned: req.body.banned !== false }, select: { id: true, username: true, isBanned: true } });
+    res.json(user);
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/admin/stories/:id/schedule", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  const at = new Date(req.body.publishAt);
+  if (isNaN(at.getTime()) || at.getTime() <= Date.now()) return res.status(400).json({ error: "Provide a future publishAt date." });
+  try {
+    const story = await prisma.story.update({ where: { id: req.params.id }, data: { isDraft: true, publishedAt: at }, select: { id: true } });
+    setTimeout(() => { prisma.story.update({ where: { id: story.id }, data: { isDraft: false } }).catch(() => {}); }, Math.min(at.getTime() - Date.now(), 2147483647));
+    res.json({ id: story.id, scheduledFor: at.toISOString() });
+  } catch (e) { handleError(res, e); }
+});
+
+const CURRENCIES = [
+  { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  { code: "USD", symbol: "$", name: "US Dollar" },
+  { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+  { code: "GHS", symbol: "₵", name: "Ghanaian Cedi" },
+  { code: "ZAR", symbol: "R", name: "South African Rand" },
+  { code: "GBP", symbol: "£", name: "British Pound" },
+  { code: "EUR", symbol: "€", name: "Euro" },
+  { code: "UGX", symbol: "USh", name: "Ugandan Shilling" },
+  { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
+];
+
+app.get("/currencies", async (req, res) => {
+  res.json(CURRENCIES);
+});
+
+app.get("/admin/backup", authenticate, requireRole("ADMIN"), async (req, res) => {
+  try {
+    const [userCount, storyCount, chapterCount, commentCount, users, stories] = await Promise.all([
+      prisma.user.count(),
+      prisma.story.count(),
+      prisma.chapter.count(),
+      prisma.comment.count(),
+      prisma.user.findMany({ select: { id: true, username: true, email: true, role: true, coins: true, xp: true, createdAt: true }, take: 5000 }),
+      prisma.story.findMany({ select: { id: true, title: true, genre: true, ownerId: true, isDraft: true, createdAt: true }, take: 5000 }),
+    ]);
+    res.setHeader("Content-Disposition", `attachment; filename="storynest-backup-${Date.now()}.json"`);
+    res.json({ exportedAt: new Date().toISOString(), counts: { userCount, storyCount, chapterCount, commentCount }, users, stories });
+  } catch (e) { handleError(res, e); }
+});
+
+// --- GAP CLOSURE: audiobooks, analytics, digest, epub, status, scheduled backups ---
+const sendEmail = async (to, subject, html, text) => {
+  try {
+    const nodemailer = require("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.secure,
+      auth: { user: config.smtp.auth.user, pass: config.smtp.auth.pass },
+    });
+    await transporter.sendMail({
+      from: `"StoryNest" <${config.smtp.auth.user}>`,
+      to, subject, html, text: text || String(html || "").replace(/<[^>]+>/g, " "),
+    });
+    return true;
+  } catch (e) {
+    console.error("[sendEmail] failed:", e.message);
+    return false;
+  }
+};
+
+app.post("/chapters/:id/audio", authenticate, canEditChapter, audioUpload.single("audio"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No audio file received." });
+    const chapter = await prisma.chapter.update({ where: { id: req.params.id }, data: { audioUrl: req.file.path }, select: { id: true, audioUrl: true } });
+    res.json(chapter);
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/admin/analytics", authenticate, requireRole("ADMIN"), async (req, res) => {
+  try {
+    const now = new Date();
+    const day = 86400000;
+    const since = (n) => new Date(now.getTime() - n * day);
+    const [dauRows, mauRows, newUsers7, newUsersPrev7, activeNew, genreReads, purchases, userCount, storyCount] = await Promise.all([
+      prisma.history.groupBy({ by: ["userId"], where: { createdAt: { gte: since(1) } } }),
+      prisma.history.groupBy({ by: ["userId"], where: { createdAt: { gte: since(30) } } }),
+      prisma.user.findMany({ where: { createdAt: { gte: since(7) } }, select: { id: true } }),
+      prisma.user.findMany({ where: { createdAt: { gte: since(14), lt: since(7) } }, select: { id: true } }),
+      prisma.history.groupBy({ by: ["userId"], where: { createdAt: { gte: since(7) }, user: { createdAt: { gte: since(14), lt: since(7) } } } }),
+      prisma.history.findMany({ where: { createdAt: { gte: since(30) } }, select: { story: { select: { genre: true } } }, take: 20000 }),
+      prisma.purchase.findMany({ where: { createdAt: { gte: since(30) } }, select: { amount: true, currency: true, createdAt: true } }),
+      prisma.user.count(),
+      prisma.story.count(),
+    ]);
+    const readsPerGenre = {};
+    genreReads.forEach((h) => {
+      const g = (h.story && h.story.genre) || "Unknown";
+      readsPerGenre[g] = (readsPerGenre[g] || 0) + 1;
+    });
+    const revenueByDay = {};
+    const revenueByCurrency = {};
+    purchases.forEach((p) => {
+      const d = p.createdAt.toISOString().slice(0, 10);
+      revenueByDay[d] = (revenueByDay[d] || 0) + (p.amount || 0);
+      revenueByCurrency[p.currency || "COIN"] = (revenueByCurrency[p.currency || "COIN"] || 0) + (p.amount || 0);
+    });
+    res.json({
+      dau: dauRows.length,
+      mau: mauRows.length,
+      newUsers7d: newUsers7.length,
+      retention7d: newUsersPrev7.length > 0 ? Math.round((activeNew.length / newUsersPrev7.length) * 100) : null,
+      readsPerGenre, revenueByDay, revenueByCurrency,
+      totals: { users: userCount, stories: storyCount, purchases30d: purchases.length },
+    });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/admin/scheduled", authenticate, requireRole("ADMIN"), async (req, res) => {
+  try {
+    const now = new Date();
+    const [stories, chapters, featured] = await Promise.all([
+      prisma.story.findMany({ where: { publishedAt: { gt: now } }, select: { id: true, title: true, publishedAt: true }, orderBy: { publishedAt: "asc" }, take: 50 }),
+      prisma.chapter.findMany({ where: { publishedAt: { gt: now }, isDraft: true }, select: { id: true, title: true, storyId: true, publishedAt: true }, orderBy: { publishedAt: "asc" }, take: 50 }),
+      prisma.story.findMany({ where: { isFeatured: true }, select: { id: true, title: true, featuredUntil: true }, take: 50 }),
+    ]);
+    res.json({ stories, chapters, featured });
+  } catch (e) { handleError(res, e); }
+});
+
+app.post("/admin/digest/run", authenticate, requireRole("ADMIN"), writeLimiter, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.body.limit) || 50, 200);
+    const users = await prisma.user.findMany({ where: { notificationsOn: true }, select: { id: true, email: true, username: true }, take: limit });
+    const fresh = await prisma.story.findMany({ where: { isDraft: false, publishedAt: { gte: new Date(Date.now() - 7 * 86400000) } }, orderBy: { createdAt: "desc" }, take: 20, select: { id: true, title: true, genre: true, authorName: true } });
+    if (fresh.length === 0) return res.json({ sent: 0, message: "No fresh stories this week." });
+    let sent = 0;
+    for (const u of users) {
+      const mine = await prisma.history.findMany({ where: { userId: u.id }, orderBy: { createdAt: "desc" }, take: 10, select: { story: { select: { genre: true } } } }).catch(() => []);
+      const genres = [...new Set(mine.map((h) => h.story && h.story.genre).filter(Boolean))];
+      const picks = (genres.length > 0 ? fresh.filter((s) => genres.includes(s.genre)) : fresh).slice(0, 5);
+      const list = (picks.length > 0 ? picks : fresh.slice(0, 5)).map((s) => `<li><b>${s.title}</b> — ${s.genre} by ${s.authorName}</li>`).join("");
+      const ok = await sendEmail(u.email, "Your StoryNest weekly digest", `<p>Hi ${u.username},</p><p>New in your genres this week:</p><ul>${list}</ul><p>Open StoryNest to keep reading.</p>`);
+      if (ok) sent += 1;
+    }
+    res.json({ sent, attempted: users.length });
+  } catch (e) { handleError(res, e); }
+});
+
+app.get("/status", async (req, res) => {
+  try {
+    const [users, stories, reports] = await Promise.all([prisma.user.count(), prisma.story.count(), prisma.report.count({ where: { status: "OPEN" } }).catch(() => 0)]);
+    res.json({ ok: true, uptimeSec: Math.round(process.uptime()), version: "3.8.0", users, stories, openReports: reports, time: new Date().toISOString() });
+  } catch (e) { res.status(500).json({ ok: false }); }
+});
+
+const escXml = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+app.get("/stories/:id/epub", async (req, res) => {
+  try {
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id },
+      include: { chapters: { where: { isDraft: false }, orderBy: { order: "asc" } } },
+    });
+    if (!story) return res.status(404).json({ error: "Not found" });
+    if (story.isPremium) return res.status(403).json({ error: "Premium story." });
+    const JSZip = require("jszip");
+    const zip = new JSZip();
+    zip.file("mimetype", "application/epub+zip");
+    zip.file("META-INF/container.xml", `<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+    const items = [];
+    const spine = [];
+    story.chapters.forEach((c, i) => {
+      const name = `chap${i + 1}.xhtml`;
+      const paras = String(c.body || "").split(/\n\n+/).map((p) => `<p>${escXml(p).replace(/\n/g, "<br/>")}</p>`).join("\n");
+      zip.file(`OEBPS/${name}`, `<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${escXml(c.title)}</title></head><body><h1>${escXml(c.title)}</h1>\n${paras}</body></html>`);
+      items.push(`<item id="chap${i + 1}" href="${name}" media-type="application/xhtml+xml"/>`);
+      spine.push(`<itemref idref="chap${i + 1}"/>`);
+    });
+    zip.file("OEBPS/content.opf", `<?xml version="1.0" encoding="utf-8"?><package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="bid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${escXml(story.title)}</dc:title><dc:creator>${escXml(story.authorName || "StoryNest")}</dc:creator><dc:language>en</dc:language><dc:identifier id="bid">${escXml(story.id)}</dc:identifier></metadata><manifest>${items.join("")}<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest><spine toc="ncx">${spine.join("")}</spine></package>`);
+    zip.file("OEBPS/toc.ncx", `<?xml version="1.0" encoding="utf-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="${escXml(story.id)}"/></head><docTitle><text>${escXml(story.title)}</text></docTitle><navMap>${story.chapters.map((c, i) => `<navPoint id="np${i + 1}" playOrder="${i + 1}"><navLabel><text>${escXml(c.title)}</text></navLabel><content src="chap${i + 1}.xhtml"/></navPoint>`).join("")}</navMap></ncx>`);
+    const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+    const fname = `${String(story.title || "story").replace(/[^a-z0-9]+/gi, "-").slice(0, 60) || "story"}.epub`;
+    res.setHeader("Content-Type", "application/epub+zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+    res.send(buf);
+  } catch (e) { handleError(res, e); }
+});
+
+// Daily on-disk backup (best-effort; Render disk is ephemeral — object storage pending).
+try {
+  const fs = require("fs");
+  const path = require("path");
+  const backupDir = path.join(__dirname, "backups");
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  const runBackup = async () => {
+    try {
+      const [users, stories, chapters] = await Promise.all([
+        prisma.user.count(), prisma.story.count(), prisma.chapter.count(),
+      ]);
+      const stamp = new Date().toISOString().slice(0, 10);
+      fs.writeFileSync(path.join(backupDir, `backup-${stamp}.json`), JSON.stringify({ at: new Date().toISOString(), counts: { users, stories, chapters } }));
+      console.log("[backup] daily snapshot written");
+    } catch (e) { console.error("[backup] failed:", e.message); }
+  };
+  setInterval(runBackup, 24 * 3600 * 1000).unref();
+} catch (e) { console.error("[backup] scheduler disabled:", e.message); }
 
 const PORT = config.port;
 app.listen(PORT, () => console.log(`StoryNest Backend v3.8.0 (BullMQ) running on port ${PORT}`));

@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, RefreshControl, Platform, Image, Animated, FlatList, Modal } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from "react-i18next";
 import { useNotice } from "../context/NoticeContext";
 import { Colors, Spacing, Radii, Shadows } from "../theme/colors";
 import { Fonts } from "../theme/fonts";
 import { Search, Bell, X, Sparkles, Users } from "lucide-react-native";
 import { StoryCard } from "../components/StoryCard";
+import { useHiddenStories } from "../hooks/useHiddenStories";
 import { SkeletonCard } from "../components/SkeletonCard";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -16,28 +19,45 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
 const GENRES = ["All", "Fiction", "Romance", "Thriller", "Faith", "Mystery"];
+const MOODS = ["All", "Cozy", "Epic", "Thrilling", "Dark", "Romantic", "Mysterious", "Uplifting"];
+const TIMES = ["Any", "<10", "10-30", "30+"];
 
 export const HomeScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { user, hasUnreadMessages } = useAuth();
   const { theme, fonts, isDarkMode } = useTheme();
   const { showNotice } = useNotice();
+  const { t } = useTranslation();
 
   const [activeGenre, setActiveGenre] = useState("All");
+  const [activeMood, setActiveMood] = useState("All");
+  const [timeFilter, setTimeFilter] = useState("Any");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [greeting, setGreeting] = useState("");
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [tasteGenres, setTasteGenres] = useState<string[]>([]);
+  const [quizDraft, setQuizDraft] = useState<string[]>([]);
 
   const searchFocusAnim = useRef(new Animated.Value(0)).current;
   const searchInputRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    AsyncStorage.getItem("home:taste").then((raw) => {
+      try { if (raw) setTasteGenres(JSON.parse(raw)); } catch {}
+    }).catch(() => {});
+  }, []);
+
   // Cached queries: instant paint from device, silent background sync.
   // Navigating away and back never blanks or reloads the screen.
   const storiesQuery = useCachedQuery<any[]>(
-    searchQuery ? null : `home:stories:${activeGenre}`,
+    searchQuery ? null : `home:stories:${activeGenre}:${activeMood}`,
     async () => {
-      const url = activeGenre === "All" ? "/stories" : `/stories?genre=${activeGenre}`;
-      const res = await apiClient.get(url);
+      const params = new URLSearchParams();
+      if (activeGenre !== "All") params.append("genre", activeGenre);
+      if (activeMood !== "All") params.append("mood", activeMood);
+      const qs = params.toString();
+      const res = await apiClient.get(qs ? `/stories?${qs}` : "/stories");
       return res.data;
     }
   );
@@ -45,9 +65,29 @@ export const HomeScreen = ({ navigation, route }: any) => {
     const res = await apiClient.get("/stories/recommendations");
     return res.data;
   });
+  const bookmarksQuery = useCachedQuery<any[]>("home:bookmarks", async () => {
+    const res = await apiClient.get("/users/me/bookmarks");
+    return res.data;
+  });
 
-  const stories = searchQuery ? (searchResults || []) : (storiesQuery.data || []);
-  const recommendations = recsQuery.data || [];
+  const matchTime = (s: any) => {
+    const mins = s.readingTime || 0;
+    if (timeFilter === "<10") return mins < 10;
+    if (timeFilter === "10-30") return mins >= 10 && mins <= 30;
+    if (timeFilter === "30+") return mins > 30;
+    return true;
+  };
+  const { hidden } = useHiddenStories();
+  const rawStories = searchQuery ? (searchResults || []) : (storiesQuery.data || []);
+  const stories = rawStories.filter(matchTime).filter((s: any) => !hidden.includes(s.id));
+  const serverRecs = recsQuery.data || [];
+  const tasteFiltered = tasteGenres.length > 0 ? serverRecs.filter((s: any) => tasteGenres.includes(s.genre)) : serverRecs;
+  const recommendations = (tasteFiltered.length > 0 ? tasteFiltered : serverRecs).filter((s: any) => !hidden.includes(s.id));
+  const updatedForYou = (bookmarksQuery.data || [])
+    .map((b: any) => b.story)
+    .filter(Boolean)
+    .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5);
   const isFirstLoad = !searchQuery && storiesQuery.isFirstLoad && storiesQuery.data === null;
 
   useEffect(() => {
@@ -63,6 +103,8 @@ export const HomeScreen = ({ navigation, route }: any) => {
     setSearchQuery("");
     setSearchResults(null);
     setActiveGenre("All");
+    setActiveMood("All");
+    setTimeFilter("Any");
     if (searchInputRef.current) searchInputRef.current.blur();
   }, []);
 
@@ -78,6 +120,7 @@ export const HomeScreen = ({ navigation, route }: any) => {
     if (!tapThrottle("home:refresh", TAP_GAP_MS)) return;
     storiesQuery.refresh({ showIndicator: true });
     recsQuery.refresh();
+    bookmarksQuery.refresh();
   };
 
   const handleSearch = async () => {
@@ -89,13 +132,31 @@ export const HomeScreen = ({ navigation, route }: any) => {
     if (!tapThrottle("home:search", TAP_GAP_MS)) return;
     try {
       // Keep old results visible while searching; empty only if none yet.
-      const url = activeGenre === "All" ? `/stories?q=${encodeURIComponent(q)}` : `/stories?genre=${activeGenre}&q=${encodeURIComponent(q)}`;
-      const res = await apiClient.get(url);
+      const params = new URLSearchParams({ q });
+      if (activeGenre !== "All") params.append("genre", activeGenre);
+      if (activeMood !== "All") params.append("mood", activeMood);
+      const res = await apiClient.get(`/stories?${params.toString()}`);
       setSearchResults(res.data);
     } catch (error: any) {
       console.log("Error searching:", error);
       showNotice({ title: "Connection Problem", message: "We had trouble reaching the nest. Please check your internet and try again.", variant: "error" });
     }
+  };
+
+  const openQuiz = () => {
+    setQuizDraft(tasteGenres);
+    setShowQuiz(true);
+  };
+
+  const saveQuiz = () => {
+    setTasteGenres(quizDraft);
+    AsyncStorage.setItem("home:taste", JSON.stringify(quizDraft)).catch(() => {});
+    setShowQuiz(false);
+    recsQuery.refresh();
+  };
+
+  const toggleQuizGenre = (g: string) => {
+    setQuizDraft((prev) => prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]);
   };
 
   const onSearchFocus = () => {
@@ -113,11 +174,36 @@ export const HomeScreen = ({ navigation, route }: any) => {
 
   const renderHeader = () => (
     <>
+      {!searchQuery && updatedForYou.length > 0 && (
+          <View style={styles.recsSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary }]}>{t("sec_updated")}</Text>
+              </View>
+              <FlatList
+                data={updatedForYou}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={item => item.id + '_upd'}
+                renderItem={({ item, index }) => (
+                    <StoryCard
+                        story={item}
+                        variant="compact"
+                        index={index}
+                        onPress={() => navigation.navigate("Reader", { storyId: item.id, story: item })}
+                    />
+                )}
+              />
+          </View>
+      )}
+
       {!searchQuery && recommendations.length > 0 && (
           <View style={styles.recsSection}>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary }]}>RECOMMENDED FOR YOU</Text>
-                <Sparkles size={16} color={Colors.accent} />
+                <Text style={[styles.sectionTitle, { fontFamily: fonts.heading, color: theme.primary }]}>{t("sec_recs")}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <TouchableOpacity onPress={openQuiz} style={{ marginRight: 8 }}><Text style={[styles.refineText, { fontFamily: fonts.heading }]}>REFINE</Text></TouchableOpacity>
+                  <Sparkles size={16} color={Colors.accent} />
+                </View>
               </View>
               <FlatList
                 data={recommendations}
@@ -168,6 +254,39 @@ export const HomeScreen = ({ navigation, route }: any) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      )}
+
+      {!searchQuery && (
+        <>
+          <Text style={[styles.filterLabel, { fontFamily: fonts.heading, color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>MOOD</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
+            {MOODS.map((mood) => (
+              <TouchableOpacity
+                key={mood}
+                onPress={() => setActiveMood(mood)}
+                style={[styles.genreChip, activeMood === mood ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+              >
+                <Text style={[styles.genreText, { fontFamily: fonts.body }, activeMood === mood ? { color: theme.white, fontWeight: "600" } : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
+                  {mood}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={[styles.filterLabel, { fontFamily: fonts.heading, color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>READING TIME (MIN)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
+            {TIMES.map((t) => (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setTimeFilter(t)}
+                style={[styles.genreChip, timeFilter === t ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: isDarkMode ? "rgba(255,255,255,0.1)" : Colors.paleGreen }]}
+              >
+                <Text style={[styles.genreText, { fontFamily: fonts.body }, timeFilter === t ? { color: theme.white, fontWeight: "600" } : { color: isDarkMode ? Colors.mutedTeal : Colors.primary }]}>
+                  {t}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </>
       )}
 
       {!searchQuery && newReleases.length > 0 && (
@@ -296,6 +415,36 @@ export const HomeScreen = ({ navigation, route }: any) => {
           ListEmptyComponent={<Text style={[styles.emptyText, { fontFamily: fonts.body }]}>No stories found in the nest.</Text>}
         />
       )}
+
+      <Modal visible={showQuiz} animationType="slide" transparent onRequestClose={() => setShowQuiz(false)}>
+        <View style={styles.quizOverlay}>
+          <View style={[styles.quizContent, { backgroundColor: theme.white, paddingBottom: insets.bottom + 32 }]}>
+            <Text style={[styles.quizTitle, { fontFamily: fonts.heading, color: theme.primary }]}>WHAT DO YOU LOVE?</Text>
+            <Text style={[styles.quizSub, { fontFamily: fonts.body }]}>Pick genres to tune your recommendations.</Text>
+            <View style={styles.quizWrap}>
+              {GENRES.filter((g) => g !== "All").map((g) => (
+                <TouchableOpacity
+                  key={g}
+                  onPress={() => toggleQuizGenre(g)}
+                  style={[styles.genreChip, quizDraft.includes(g) ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: Colors.paleGreen }]}
+                >
+                  <Text style={[styles.genreText, { fontFamily: fonts.body }, quizDraft.includes(g) ? { color: theme.white, fontWeight: "600" } : { color: Colors.primary }]}>
+                    {g}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.quizActions}>
+              <TouchableOpacity style={[styles.quizBtn, { backgroundColor: theme.primary }]} onPress={saveQuiz}>
+                <Text style={[styles.quizBtnText, { fontFamily: fonts.heading }]}>SAVE TASTE</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quizBtn} onPress={() => setShowQuiz(false)}>
+                <Text style={[styles.quizBtnGhost, { fontFamily: fonts.heading }]}>CANCEL</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -330,4 +479,15 @@ const styles = StyleSheet.create({
   carouselItem: { marginRight: Spacing.m },
   emptyText: { fontSize: 14, color: Colors.mutedTeal, textAlign: "center", marginTop: 40 },
   recsSection: { marginBottom: 32 },
+  refineText: { fontSize: 11, color: Colors.accent, letterSpacing: 1 },
+  filterLabel: { fontSize: 11, letterSpacing: 0.1, marginBottom: 8, textTransform: "uppercase" },
+  quizOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  quizContent: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28 },
+  quizTitle: { fontSize: 18, letterSpacing: 1, marginBottom: 4 },
+  quizSub: { fontSize: 13, color: Colors.mutedTeal, marginBottom: 20 },
+  quizWrap: { flexDirection: "row", flexWrap: "wrap", marginBottom: 12 },
+  quizActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  quizBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: "center", marginHorizontal: 4 },
+  quizBtnText: { fontSize: 12, color: Colors.accent, letterSpacing: 1 },
+  quizBtnGhost: { fontSize: 12, color: Colors.mutedTeal, letterSpacing: 1 },
 });

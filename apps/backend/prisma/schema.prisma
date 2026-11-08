@@ -34,6 +34,11 @@ model User {
   recsEnabled      Boolean      @default(true)
   discoverable     Boolean      @default(true)
   publicKey        String?
+  totpSecret       String?
+  totpEnabled      Boolean      @default(false)
+  showActivity     Boolean      @default(true)
+  isBanned         Boolean      @default(false)
+  tokenVersion     Int          @default(0)
 
   referrerId       String?
   referralCode     String?      @unique
@@ -146,6 +151,7 @@ model Story {
   genre          String
   mood           String?    // e.g. Cozy, Epic, Thrilling
   coverUrl       String?
+  coverTheme     String?
   authorName     String
   ownerId        String?    // The user who created the story
   readingTime    Int        @default(0)
@@ -156,6 +162,7 @@ model Story {
   contentWarnings String?
   isAdult        Boolean    @default(false)
   isFeatured     Boolean    @default(false)
+  featuredUntil  DateTime?
   isDraft        Boolean    @default(true)
   isFlagged      Boolean    @default(false)
   publishedAt    DateTime?
@@ -190,6 +197,7 @@ model Chapter {
     order       Int      @default(0)
     isDraft     Boolean  @default(false)
     publishedAt DateTime? // For scheduled publishing
+    audioUrl    String?
     story       Story    @relation(fields: [storyId], references: [id])
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
@@ -359,11 +367,111 @@ model Comment {
   userId    String
   storyId   String
   parentId  String?
+  paragraphIndex Int?
   user      User      @relation(fields: [userId], references: [id])
   story     Story     @relation(fields: [storyId], references: [id])
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies   Comment[] @relation("CommentReplies")
   createdAt DateTime  @default(now())
+}
+
+// --- Batches 2-4: social & community (relation-free by design: additive only) ---
+
+model Reaction {
+  id        String   @id @default(uuid())
+  userId    String
+  storyId   String
+  chapterId String?
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storyId, chapterId, emoji])
+}
+
+model Club {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  coverUrl    String?
+  ownerId     String
+  inviteCode  String   @unique
+  createdAt   DateTime @default(now())
+}
+
+model ClubMember {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+
+  @@unique([clubId, userId])
+}
+
+model ClubMessage {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  username  String
+  avatarUrl String?
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model StoryRequest {
+  id            String   @id @default(uuid())
+  userId        String
+  username      String
+  title         String
+  genre         String   @default("Fiction")
+  description   String?  @db.Text
+  status        String   @default("OPEN")
+  claimedById   String?
+  claimedByName String?
+  storyId       String?
+  createdAt     DateTime @default(now())
+}
+
+model BetaInvite {
+  id           String   @id @default(uuid())
+  storyId      String
+  code         String   @unique
+  createdById  String
+  redeemedById String?
+  createdAt    DateTime @default(now())
+}
+
+// --- Batches 10-11: trust & platform (additive only) ---
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String
+  targetType String
+  targetId   String
+  reason     String
+  details    String?  @db.Text
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+}
+
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model ErrorLog {
+  id        String   @id @default(uuid())
+  message   String   @db.Text
+  stack     String?  @db.Text
+  device    String?
+  isFatal   Boolean  @default(false)
+  count     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Podcast {

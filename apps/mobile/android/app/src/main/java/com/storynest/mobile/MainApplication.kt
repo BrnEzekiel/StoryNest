@@ -21,9 +21,8 @@ class MainApplication : Application(), ReactApplication {
         this,
         object : DefaultReactNativeHost(this) {
           override fun getPackages(): List<ReactPackage> {
-            // Autolinking (PackageList) already provides RNCWebView's package;
-            // adding it manually registers RNCWebViewModule twice and crashes
-            // on launch ("tried to override RNCWebView").
+            // Packages that cannot be autolinked yet can be added manually here, for example:
+            // packages.add(new MyReactNativePackage());
             return PackageList(this).packages
           }
 

@@ -120,6 +120,9 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
                             >
                                 <View style={styles.perfHeader}>
                                     <Text style={[styles.perfTitle, { color: Colors.white, fontFamily: fonts.heading }]} numberOfLines={1}>{s.title.toUpperCase()}</Text>
+                                    {s.finishBadge && (
+                                      <View style={styles.finishBadge}><Text style={styles.finishBadgeText}>90%+ FINISHER</Text></View>
+                                    )}
                                     <TouchableOpacity><ChevronRight size={18} color={Colors.accent} /></TouchableOpacity>
                                 </View>
                                 
@@ -131,6 +134,10 @@ export const AuthorAnalyticsScreen = ({ navigation }: any) => {
                                     <View style={styles.perfStat}>
                                         <Text style={styles.perfStatLabel}>ENGAGEMENT</Text>
                                         <Text style={[styles.perfStatValue, { color: Colors.accent }]}>{s.likes + s.comments}</Text>
+                                    </View>
+                                    <View style={styles.perfStat}>
+                                        <Text style={styles.perfStatLabel}>FINISH</Text>
+                                        <Text style={[styles.perfStatValue, { color: '#FFD700' }]}>{s.finishRate || "—"}</Text>
                                     </View>
                                     <View style={styles.perfStat}>
                                         <Text style={styles.perfStatLabel}>RETENTION</Text>
@@ -207,6 +214,8 @@ const styles = StyleSheet.create({
   perfStat: { alignItems: 'flex-start' },
   perfStatLabel: { fontSize: 9, color: Colors.mutedTeal, letterSpacing: 1, marginBottom: 4 },
   perfStatValue: { fontSize: 18, fontWeight: 'bold' },
+  finishBadge: { backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 1, borderColor: '#FFD700', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, marginLeft: 10 },
+  finishBadgeText: { fontSize: 9, color: '#FFD700', fontWeight: 'bold', letterSpacing: 1 },
   chartContainer: { height: 4, width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 },
   chartTrack: { flex: 1 },
   chartFill: { height: '100%', borderRadius: 2 },

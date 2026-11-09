@@ -303,6 +303,13 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
+// Parameterized form of isAdmin for routes that name their role.
+const requireRole = (role) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+  if (req.user.role !== role) return res.status(403).json({ error: "Admin access required" });
+  next();
+};
+
 const canCreate = (req, res, next) => {
   if (req.user.role === "ADMIN" || req.user.role === "WRITER") return next();
   return res.status(403).json({ error: "A writer account is required" });

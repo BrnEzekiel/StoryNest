@@ -1261,7 +1261,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
         )}
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollViewRef}
         style={[styles.content, { opacity: chapterFade, transform: [{ translateX: chapterSlide }] }]}
         onScroll={handleScroll}
@@ -1366,7 +1366,7 @@ export const StoryReaderScreen = ({ route, navigation }: any) => {
                 </ScrollView>
             </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, { backgroundColor: readerTheme.bg, borderTopColor: isReaderDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingBottom: insets.bottom + 16 }]}>
